@@ -16,122 +16,84 @@ Fitogenix es un **escáner de productos de consumo** que analiza ingredientes co
 5. Motor de scoring calcula score y clasifica ingredientes
 6. Guarda en cache y devuelve al cliente
 
-**Score Fitogenix:**
-- 85–100: Excelente / Fitogénico
-- 70–84: Bueno / Fitogénico  
-- 50–69: Moderado
-- 25–49: Malo / No Fitogénico
-- 0–24: Peligroso / No Fitogénico
+**Score Fitogenix:** las bandas son ≥75 Excelente/Fitogénico · 50–74 Bueno · 25–49 Moderado · 0–24 Malo/No Fitogénico · `null` Sin datos suficientes. Fuente única de verdad: `fitogenix-server/src/domain/product/scoring/constants.ts` (`TIERS`, `EXCELLENT_FROM`, `BAD_BELOW`) — no hay banda "Peligroso", y estos números se citan por puntero a ese archivo, nunca se transcriben aparte (ver `DICCIONARIO_DOMINIO.md`).
 
 ---
 
 ## Situación actual del backend
 
-El "backend" actual son rutas `+api.ts` dentro de Expo Router. No son un backend real — corren en el mismo proceso que la app, no se pueden escalar independientemente, y tienen serios problemas de seguridad:
+El backend real es `fitogenix-server/` (Node.js + Fastify + TypeScript), separado del cliente Expo. La migración desde las rutas `+api.ts` embebidas en Expo Router (Fase 0/1 del Orquestador) ya se completó. Referencia histórica de los problemas que motivaron la separación: `BITACORA_DECISIONES.md` (ADR-001).
 
-### Bugs críticos activos (Fase 0 — fix inmediato)
+### Bugs históricos — resueltos en Fase 0 (dejar como referencia, no reabrir)
 
-**Bug 1 — Cache roto (máximo impacto):**
-La tabla `products` en Supabase no tiene `UNIQUE constraint` en la columna `barcode`. El upsert con `onConflict: 'barcode'` falla con `PostgreSQL error 42P10`. El error se traga silenciosamente con `.catch(() => {})`. Resultado: nada se cachea hoy.
+**Bug 1 — Cache roto:** la tabla `products` no tenía `UNIQUE constraint` en `barcode`, el upsert fallaba con `42P10` y el error se tragaba en silencio. Resuelto en `migrations/001_product_cache.sql`. Superado además por la identidad por `id` (uuid) de `migrations/006_product_identity.sql` — ver la sección de Schema más abajo.
 
-Fix: ejecutar en Supabase SQL editor:
-```sql
-ALTER TABLE products ADD CONSTRAINT products_barcode_key UNIQUE (barcode);
-```
-Verificar después que el upsert funciona con un producto de prueba.
+**Bug 2 — Endpoints sin auth:** resuelto con `plugins/auth.ts` (`requireAuth`, valida el JWT contra Supabase `auth.getUser()`). Todas las rutas de usuario (`DELETE /users/me`, `/users/me/saved/*`, `/users/me/history`) lo usan. **Excepción deliberada, no bug:** `POST /products/lookup` NO tiene `requireAuth` — los usuarios anónimos también pueden buscar productos (parte del producto: no forzar login para escanear). Si viene un Bearer token válido, el escaneo se registra en el historial en background; si no viene o es inválido, la búsqueda igual responde. No agregues auth obligatoria a este endpoint sin que sea una decisión de producto explícita del Orquestador — rompería el flujo anónimo.
 
-**Bug 2 — Endpoints abiertos sin auth:**
-- `/api/analyze` → proxy directo a Anthropic, sin validar token. Cualquiera puede quemar la API key.
-- `/api/cache-product` → escribe en Supabase con service role key, sin validar token. Cualquiera puede envenenar el cache.
-- `/api/off-search`, `/api/image-search`, `/api/remove-bg` → proxies abiertos que queman créditos de terceros.
-
-Fix: agregar validación JWT en cada endpoint. El patrón correcto ya existe en `/api/delete-account+api.ts`:
-```typescript
-const authHeader = request.headers.get('Authorization');
-const token = authHeader?.replace('Bearer ', '');
-const { data: { user }, error } = await supabase.auth.getUser(token);
-if (error || !user) return Response.json({ error: 'No autorizado' }, { status: 401 });
-```
-
-**Bug 3 — Sin rate limiting:**
-`/api/analyze` puede ser abusado. Agregar rate limit básico por usuario (5 req/min inicialmente).
+**Bug 3 — Sin rate limiting:** resuelto con `@fastify/rate-limit` registrado globalmente en `main.ts` (60 req/min por defecto). Si un endpoint específico necesita un límite más estricto (ej. `/products/lookup` para frenar abuso de Claude), se define por ruta, no reemplazando el global.
 
 ---
 
 ## Integración con IA: Anthropic Claude
 
-**Modelo activo:** `claude-haiku-4-5-20251001`  
-**Temperature:** 0 (output JSON estructurado — sin variabilidad)  
-**Prompt caching:** activado (`cache_control: { type: 'ephemeral' }` en el system prompt)
+**Vos NO tocás los system prompts ni los parámetros de inferencia (`temperature`, `max_tokens`, elección de modelo).** Esa es responsabilidad exclusiva del Agente de Datos e IA (`05-agente-datos.md`) — si `claudeService.ts` necesita un cambio de prompt o de parámetros, se lo pedís a él con la justificación, y él te devuelve el contrato final.
 
-**Dos funciones que llaman a Claude:**
+Lo que sí es tuyo: la integración estructural — que `enrichWithAI(off)` y `aiLookupProduct(query)` (`src/services/claudeService.ts`) se llamen en el punto correcto de la cascada de `productLookupService.ts`, que sus resultados se validen antes de persistir (`isNonEmptyString`, `hasValidNumericField`) y que el `data_source`/`ai_enriched` que terminan en `products` reflejen fielmente si el dato vino de Claude.
 
-`enrichWithAI(off)` — completa datos de un producto que ya vino de OFF pero con campos vacíos:
-- max_tokens: 300
-- Devuelve: `{ ingredients_text?, nutriments? }`
-- Solo se llama si faltan ingredientes O nutrientes (nunca si ambos están presentes)
-
-`aiLookupProduct(query)` — construye un producto desde cero cuando OFF no tiene nada:
-- max_tokens: 400
-- Devuelve: `{ product_name, brands, ingredients_text, nova_group, nutriments }`
-- Si la respuesta es `{}` o los campos principales no son strings válidos → devuelve null
-
-**System prompt compartido (byte-idéntico en ambas funciones para maximizar cache hit):**
-```
-Sos una base de datos nutricional experta en productos alimenticios argentinos 
-y latinoamericanos. Respondés SOLO con JSON válido, sin texto adicional. 
-Si no tenés información del producto o no lo reconocés con certeza, respondé con {}.
-```
-
-**Parsing de respuesta:**
-```typescript
-const raw = (d.content?.[0]?.text || '').trim().replace(/```json|```/g, '').trim();
-if (!raw || raw === '{}') return null;
-const ai = JSON.parse(raw);
-```
-
-**Validaciones post-parse (nuevas, ya implementadas):**
-- `isNonEmptyString(value)` — verifica que sea string con contenido real
-- `hasValidNumericField(obj)` — verifica que al menos un campo sea número finito
+Contrato actual de las dos funciones (detalle de prompts y tuning en `05-agente-datos.md`):
+- `enrichWithAI(off)` — completa `ingredients_text`/`nutriments` faltantes de un producto que ya vino de una fuente real (OFF/OBF/Edamam). Nunca cambia `data_source`.
+- `aiLookupProduct(query)` — construye un producto desde cero cuando ninguna fuente real tiene nada. Marca `_aiSource: true` → `data_source: 'ai'` en el payload de cache.
 
 ---
 
-## Integración con Open Food Facts
+## Cascada de fuentes de datos crudos (`src/services/`)
 
-Dos endpoints de OFF:
-- `https://world.openfoodfacts.org/api/v2/product/{barcode}.json`
-- `https://ar.openfoodfacts.org/api/v2/product/{barcode}.json`
+Orden real de la cascada en `productLookupService.ts` cuando hay barcode: **OFF → OBF (Open Beauty Facts) → Edamam → Claude** (`enrichWithAI` sobre lo que haya, o `aiLookupProduct` si nada matcheó). Sin barcode (búsqueda por nombre): OFF search → catálogo propio (`findCachedProductByName`, ver Schema abajo) → Claude.
 
-Para búsqueda por nombre: `https://search.openfoodfacts.org/cgi/search.pl` (no tiene CORS → debe ir por proxy server-side).
-
-**Lógica:** se busca en World + AR en paralelo, se queda con el que tenga `ingredients_text` más largo.
-
-**`OffServiceUnavailableError`** — el único error que burbujea hasta la UI (cuando OFF está caído). El resto se maneja silenciosamente.
+- **OFF** (`offService.ts`): `world.openfoodfacts.org` + `ar.openfoodfacts.org` en paralelo por `/api/v0/product/{code}.json`, se queda con el que tenga `ingredients_text` más largo. `resolveQueryToCode` busca por nombre contra `search.openfoodfacts.org` (global + `countries_tags:"en:argentina"` en paralelo) y rankea por coincidencia de palabras. `OffServiceUnavailableError` se lanza solo si AMBOS endpoints (world+AR) fallan — se propaga y la cascada sigue al siguiente nivel, nunca rompe la request.
+- **OBF** (`openBeautyFactsApi.ts`) y **Edamam** (`fallbackFoodApi.ts`) — solo aplican por barcode, cada uno envuelto en try/catch propio: si fallan, la cascada sigue, nunca crashea.
+- Cada nivel que corta la cascada pasa el resultado por `enrichWithAI` antes de mapear a `FitogenixProduct` — incluso un hit de OFF puede llegar con `ingredients_text` vacío y necesitar completado.
 
 ---
 
-## Schema de Supabase (tabla products)
+## Schema de Supabase (tabla `products`) — identidad, `barcode`/`name_key`, `engine_version`
 
-Columnas clave de la tabla `products`:
+El schema actual (post `migrations/001` a `008`) separa **identidad** de **atributos de búsqueda**:
+
 ```sql
-barcode          TEXT  -- clave de cache (falta el UNIQUE constraint — bug activo)
-product_name     TEXT
-brands           TEXT
-score            INTEGER  -- 0-100
-ingredients_text TEXT
-ingredients_json JSONB  -- array de { name, severity }
-nutriments       JSONB
-nova_group       INTEGER  -- 1-4
+id               UUID PRIMARY KEY DEFAULT gen_random_uuid()  -- LA identidad. Nunca cambia.
+barcode          TEXT UNIQUE NULL   -- atributo de búsqueda: código de barras (si entró por barcode)
+name_key         TEXT UNIQUE NULL   -- atributo de búsqueda: query normalizado SIN prefijo
+                                     -- (solo en filas resueltas 100% por IA, sin match en OFF)
+product_name     TEXT               -- denormalizado, para listados sin recomputar
+brand            TEXT
+category         TEXT
 image_url        TEXT
-alternatives     JSONB  -- array de productos alternativos (existe pero no se muestra en UI)
+score            INTEGER            -- denormalizado (0-100), recomputado en cada escritura
+score_label      TEXT
+sello            TEXT
+ingredients_text TEXT               -- CRUDO — de acá se recomputa el score al leer
+nutriments       JSONB              -- CRUDO
+nova_group       INTEGER            -- CRUDO
+additives_tags   JSONB              -- CRUDO
+data_source      TEXT               -- 'off' | 'obf' | 'edamam' | 'ai'
 ai_enriched      BOOLEAN
-ai_source        BOOLEAN
-created_at       TIMESTAMP
+engine_version   TEXT               -- ENGINE_VERSION de ftgEngine.ts al momento de escribir
+updated_at       TIMESTAMPTZ
+created_at       TIMESTAMPTZ
 ```
 
-**RLS policies:** products es de solo lectura para clientes (anon key). La escritura va por service role, siempre server-side.
+**Regla de oro: `products` guarda datos CRUDOS, no el score.** Cada lectura (hit de Supabase, guardado, historial) recompone el `FitogenixProduct` completo con `mapOFFToProduct(raw)` — el mismo pipeline que un lookup en frío. Así un bump de `engine_version` no requiere migrar datos: el próximo hit recalcula con el motor vigente automáticamente. `score`/`score_label`/`sello` son solo denormalizados para listar sin recomputar; nunca son la fuente de verdad.
 
-**Variable `SUPABASE_JWKS_URL`:** está en `.env` pero no se usa en ningún archivo de código — variable muerta, probablemente preparada para verificar JWTs asimétricos. No cableada.
+**`barcode` y `name_key` no son mutuamente excluyentes ni obligatorios — son búsquedas alternativas sobre la misma identidad (`id`).** Al escribir (`cacheService.buildCachePayload`) solo se incluye la columna que corresponde a la clave usada (`{ barcode }` o `{ nameKey }`), nunca ambas, para no pisar un alias existente.
+
+**Upgrade name→barcode (`cacheService.findUpgradableNameRow` + `setCachedProduct`):** un producto resuelto antes por nombre (fila con `name_key`, `barcode = null`) que después se escanea por código de barras NO genera una fila nueva. Se busca una fila sin `barcode` cuyo `product_name` normalizado matchee exacto, y se hace `UPDATE ... WHERE id = <esa fila>` con el payload de barcode — conserva `id` (y por lo tanto los `saved_products`/`scan_history` que ya la referencian) y conserva el `name_key` viejo como alias. Es un best-effort por `ILIKE` + comparación normalizada, no una garantía absoluta de dedupe (ver comentario en el código sobre acentos).
+
+**Catálogo propio antes de gastar IA (`findCachedProductByName`):** cuando la búsqueda por nombre no matchea en OFF, antes de llamar a Claude se busca en `products` un producto YA cacheado (típicamente con barcode y datos reales) cuyo nombre matchee — evita duplicar como fila solo-IA algo que ya existe con mejor calidad de dato.
+
+**RLS:** `products` es de solo lectura para clientes (si algún día se expone vía PostgREST/anon key); toda escritura va por service role, server-side, vía `cacheService`.
+
+Migraciones relevantes: `001` (barcode UNIQUE + columnas crudas + `engine_version`), `002`→`006` (evolución de `cache_key` mixto a `id`/`barcode`/`name_key`, documentada en el header de `006_product_identity.sql`), `008` (índices en `engine_version`/`data_source` + `COMMENT ON COLUMN`).
 
 ---
 
@@ -139,89 +101,130 @@ created_at       TIMESTAMP
 
 | Servicio | Para qué | Key |
 |----------|----------|-----|
-| Anthropic API | Análisis de ingredientes | `ANTHROPIC_API_KEY` |
+| Anthropic API | Completado/construcción de datos de producto (dominio del Agente de Datos) | `ANTHROPIC_API_KEY` |
+| Open Food Facts / Open Beauty Facts | Fuente primaria de datos crudos | Sin key |
+| Edamam Food Database | Fallback de datos de producto por UPC | `EDAMAM_APP_ID` / `EDAMAM_APP_KEY` (opcionales — el nivel se saltea si faltan) |
 | SerpAPI | Búsqueda de imagen del producto | `SERPAPI_API_KEY` |
-| remove.bg | Fondo transparente para imagen | `REMOVE_BG_API_KEY` |
-| UPC Item DB | Imagen por barcode | Sin key (free tier) |
+| remove.bg | Fondo transparente para imagen — **fuera de alcance de esta etapa** | `REMOVE_BG_API_KEY` |
 | Supabase service role | Escritura en DB | `SUPABASE_SECRET_KEY` |
+| Upstash Redis | Cache caliente | `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` (opcionales — sin ellas el server funciona sin Redis) |
 
-Todas estas keys son **server-only** — nunca deben estar en el cliente Expo (sin prefijo `EXPO_PUBLIC_`).
+Todas estas keys son **server-only** — nunca deben estar en el cliente Expo (sin prefijo `EXPO_PUBLIC_`). Auditoría de esto es responsabilidad conjunta tuya y del Agente DevOps (`07-agente-devops.md`).
 
 ---
 
-## Arquitectura objetivo del servidor (Fase 1)
+## Arquitectura del servidor (implementada)
 
 ```
 fitogenix-server/
 ├── src/
-│   ├── server.ts               ← entry point Fastify
+│   ├── main.ts                        ← entry point Fastify (cors, rate-limit, rutas, /health)
+│   ├── config.ts                      ← env vars (required/optional)
 │   ├── plugins/
-│   │   ├── auth.ts              ← JWT middleware (valida contra Supabase)
-│   │   └── rate-limit.ts        ← @fastify/rate-limit
+│   │   └── auth.ts                    ← requireAuth (JWT contra Supabase getUser())
 │   ├── routes/
-│   │   ├── products.ts          ← POST /products/lookup
-│   │   ├── account.ts           ← POST /auth/delete-account
-│   │   └── images.ts            ← GET /products/:barcode/image
-│   ├── domain/
-│   │   ├── ftgEngine.ts         ← copiado de src/domain/product/ftgEngine.ts
-│   │   ├── lookupProduct.ts     ← copiado y adaptado
-│   │   ├── productService.ts    ← copiado
-│   │   └── scoring.ts           ← copiado
-│   ├── infrastructure/
-│   │   ├── claudeApi.ts         ← enrichWithAI + aiLookupProduct
-│   │   ├── openFoodFactsApi.ts  ← offFetchByCode + resolveQueryToCode
-│   │   ├── cacheService.ts      ← Redis (Upstash) + Supabase dos niveles
-│   │   └── imageService.ts      ← UPC Item DB + SerpAPI + remove.bg
-│   └── lib/
-│       ├── supabase.ts          ← cliente con service role
-│       └── redis.ts             ← cliente Upstash Redis
-├── tests/
-│   ├── ftgEngine.test.ts        ← PRIORIDAD — cero tests hoy
-│   ├── lookupProduct.test.ts
-│   ├── claudeApi.test.ts
-│   └── routes/products.test.ts
-├── Dockerfile
-├── railway.toml
+│   │   ├── products/
+│   │   │   ├── lookup.ts              ← POST /products/lookup (público)
+│   │   │   └── image.ts               ← GET /products/image?url= (fuera de alcance esta etapa)
+│   │   └── users/
+│   │       ├── deleteMe.ts            ← DELETE /users/me
+│   │       ├── saved.ts               ← GET/POST /users/me/saved, DELETE /users/me/saved/:productId
+│   │       └── history.ts             ← GET /users/me/history
+│   ├── domain/product/
+│   │   ├── ftgEngine.ts               ← fachada estable del motor (re-exporta desde scoring/)
+│   │   ├── ingredientData.ts          ← base de ingredientes/aliases
+│   │   ├── productService.ts          ← re-exporta resolveProductStatus (sello Fitogénico)
+│   │   └── scoring/                   ← motor real: constants.ts (TIERS), presentation.ts (labels/colores/tiers), rules/calibration/ledger/etc.
+│   └── services/
+│       ├── productLookupService.ts    ← orquestador: Redis→Supabase→catálogo→OFF/OBF/Edamam→Claude
+│       ├── cacheService.ts            ← lectura/escritura de `products` (identidad, upgrade name→barcode)
+│       ├── productRowMapper.ts        ← fila embebida (PostgREST) → FitogenixProduct
+│       ├── redisService.ts            ← Upstash: cache de producto + cache texto→barcode
+│       ├── claudeService.ts           ← enrichWithAI + aiLookupProduct (dominio del Agente de Datos)
+│       ├── offService.ts              ← Open Food Facts (fetch + search)
+│       ├── openBeautyFactsApi.ts      ← Open Beauty Facts (fallback barcode)
+│       ├── fallbackFoodApi.ts         ← Edamam (fallback barcode)
+│       ├── imageService.ts            ← imagen de retailer + búsqueda + remove.bg (fuera de alcance)
+│       ├── queryNormalization.ts      ← normalizeQuery (minúsculas, sin acentos)
+│       ├── savedProductsService.ts    ← favoritos
+│       └── scanHistoryService.ts      ← historial de escaneos
 └── package.json
 ```
 
-**Endpoints:**
+**Falta todavía (no confundir con "objetivo futuro" — son gaps reales de hoy):** `Dockerfile`, config de despliegue formal (Railway/Render), y observabilidad centralizada (Sentry/Datadog) — dominio del Agente DevOps, ver `07-agente-devops.md`.
+
+**Endpoints (contrato real, no aspiracional):**
 ```
 POST /products/lookup
-  Auth: Bearer JWT
-  Body: { query: string }   ← nombre o barcode
-  Response: FitogenixProduct
+  Auth: ninguna requerida (opcional — Bearer JWT registra el escaneo en background)
+  Body: { query: string }   ← nombre o barcode (8-14 dígitos)
+  Response 200: FitogenixProduct (incluye productId)
+  Response 404: { error: string }  ← producto no encontrado en ninguna fuente
 
-POST /auth/delete-account
-  Auth: Bearer JWT
-  Response: { success: true }
+DELETE /users/me
+  Auth: Bearer JWT requerido
+  Response: { ok: true }
 
-GET /products/:barcode/image
-  Auth: Bearer JWT
-  Response: { url: string } | { url: null }
+GET /users/me/saved
+  Auth: Bearer JWT requerido
+  Response: { items: FitogenixProduct[] }
+
+POST /users/me/saved
+  Auth: Bearer JWT requerido
+  Body: { productId: string }  ← uuid, format validado por ajv
+  Response 200: { ok: true }
+  Response 404: { error: string }  ← productId no existe en `products` (FK 23503)
+
+DELETE /users/me/saved/:productId
+  Auth: Bearer JWT requerido
+  Response: { ok: true }  ← idempotente
+
+GET /users/me/history?limit=20
+  Auth: Bearer JWT requerido
+  Response: { items: FitogenixProduct[] }  ← limit clampeado a [1, 50]
+
+GET /products/image?url=
+  Sin auth — fuera de alcance de esta etapa de trabajo (pipeline de imágenes)
 ```
+
+Cualquier endpoint nuevo se agrega a esta lista en el mismo commit que lo implementa — este documento es el contrato que consume el Frontend Agent.
 
 ---
 
-## Cache en dos niveles
+## Cache en niveles (identidad `id`/`barcode`/`name_key`, no solo barcode)
 
 ```
-Request → Redis lookup (< 5ms)
-              ↓ miss
-         Supabase lookup (< 25ms)
-              ↓ miss
-         OFF + Claude (2–8 segundos)
-              ↓
-         Guardar en Supabase
-              ↓
-         Guardar en Redis (TTL: 7 días)
+Request (query: nombre o barcode)
+  │
+  ├─ barcode? → Redis (ftg:product:<barcode>, <5ms)
+  │              ↓ miss
+  │            Supabase getCachedProductByBarcode (<25ms)
+  │              ↓ miss
+  │            OFF → OBF → Edamam → Claude (2-8s) → mapOFFToProduct
+  │              ↓
+  │            setCachedProduct({barcode}) → upsert onConflict:'barcode'
+  │              (o UPDATE si hace upgrade de una fila name→barcode existente)
+  │              ↓
+  │            setInRedis (fire-and-forget)
+  │
+  └─ nombre? → Redis de query→barcode (ftg:search:<query>, 30 días)
+                 ↓ hit → tratar como si fuera búsqueda por barcode (arriba)
+                 ↓ miss
+               OFF search → resuelve a barcode → cachea query→barcode → arriba
+                 ↓ sin match en OFF
+               Catálogo propio (findCachedProductByName, best-effort por ILIKE)
+                 ↓ sin match
+               Claude aiLookupProduct → setCachedProduct({ nameKey }) → upsert onConflict:'name_key'
 ```
 
-**Clave de cache:** barcode normalizado. Para búsquedas por nombre: se resuelve primero a barcode via OFF search, luego se usa el barcode como clave.
+**Deduplicación in-flight (singleflight):** si dos requests piden la misma clave interna (barcode o `name:<query>`) al mismo tiempo, comparten una sola resolución — evita pegarle a Claude/OFF dos veces por una carrera.
 
 **Redis TTL:**
-- Productos normales: 7 días
-- Productos con `_aiSource: true` (inventados por Claude sin OFF): 3 días (más probable que cambien)
+- Productos con dato real (`data_source` off/obf/edamam): 7 días (604800 s)
+- Productos solo-IA (`data_source: 'ai'`): 3 días (259200 s) — más volátiles
+- Cache texto→barcode (`ftg:search:*`): 30 días (2592000 s)
+
+**La escritura a Supabase se AWAITEA en el cold path** (no es fire-and-forget): el `id` (uuid) que devuelve el upsert es necesario en el payload de respuesta (`productId`, para que el cliente pueda guardar el producto). Redis sí sigue siendo fire-and-forget.
 
 ---
 
@@ -244,53 +247,55 @@ Request → Redis lookup (< 5ms)
 5. Verificá que el endpoint rechaza requests sin JWT válido
 6. Reportá al Orquestador con el contrato final para que el Frontend Agent pueda integrarlo
 
-### Antes de mover código de domain/ al servidor:
+### Antes de tocar `domain/product/ftgEngine.ts` (ya vive solo en `fitogenix-server`, no hay más "mover"):
 
-1. Escribí tests para el archivo que vas a mover (especialmente `ftgEngine.ts`)
-2. Copiá el archivo sin modificaciones
-3. Verificá que los tests pasan en el servidor
-4. Solo después de tests verdes → avisá al Frontend Agent que puede actualizar sus imports
+1. Extendé los tests existentes (`scoring/*.test.ts` — el que corresponda: `rules`, `calibration`, `robustness`, `ledger`, `presentation`, `regression`, `cleaning`, `invariants`, `seals`) para el caso nuevo ANTES de tocar el motor
+2. Si el cambio altera el resultado del scoring de forma observable, **bumpeá `ENGINE_VERSION`** en el mismo commit — es la señal que usa el resto del sistema (cache, ETL, QA) para saber que hay filas con score potencialmente obsoleto
+3. Coordiná con el Agente de Datos (impacto en costo/consistencia si el cambio se combina con un prompt distinto) y con QA (revalidación)
+4. Verificá que los tests pasan y solo entonces avisá al Frontend Agent si el cambio afecta el contrato de `FitogenixProduct`
 
-### Tests requeridos para ftgEngine.ts (Fase 3 — alta prioridad):
+### Cobertura de tests del motor (mantener, no partir de cero):
 
-El archivo tiene ~900 líneas y cero tests. Los casos críticos a cubrir:
-- Score de un producto con solo ingredientes saludables → debe ser > 85
-- Score de un producto con conservantes artificiales → debe ser < 50
+Ya cubierto por `scoring/rules.test.ts`, `scoring/calibration.test.ts`, `scoring/robustness.test.ts`, `scoring/ledger.test.ts`, `scoring/presentation.test.ts`, `scoring/regression.test.ts`, `scoring/cleaning.test.ts`, `scoring/invariants.test.ts`, `scoring/seals.test.ts`, `nutrientPlausibility.test.ts`, `cacheService.test.ts`, `productLookupService.test.ts`. Cualquier regla nueva de negocio (un gate nuevo, un ingrediente prohibido nuevo, un cambio de umbral de tier) se agrega como caso de test antes de implementarse, no después:
+- Score de un producto con solo ingredientes saludables → debe caer en la banda Excelente (≥75, ver `scoring/constants.ts`)
 - Score de un producto con ingredientes prohibidos (nitritos, BHT, etc.) → debe activar el gate de toxicidad
 - Score de un producto NOVA 4 → debe penalizar el componente de procesamiento
-- `ingredientCount()` con texto vacío, null, y texto real
-- Clasificación de ingredientes: un ingrediente conocido en cada categoría de severidad
+- Upsert/upgrade name→barcode: una fila `name_key` que recibe un `barcode` conserva su `id` y su `name_key` como alias (no crea fila duplicada)
 
 ### Nunca:
 
-- Expongas `ANTHROPIC_API_KEY`, `SUPABASE_SECRET_KEY`, `SERPAPI_API_KEY`, `REMOVE_BG_API_KEY` en el cliente
-- Hagas cambios al schema de Supabase sin migración SQL versionada
-- Implementes un endpoint sin auth middleware
-- Modifiques `ftgEngine.ts` sin cobertura de tests que valide el comportamiento
-- Tragués errores con `.catch(() => {})` sin al menos loguearlos — los errores silenciosos son el principal problema del código actual
+- Expongas `ANTHROPIC_API_KEY`, `SUPABASE_SECRET_KEY`, `SERPAPI_API_KEY`, `REMOVE_BG_API_KEY`, `EDAMAM_APP_KEY` en el cliente
+- Hagas cambios al schema de Supabase sin migración SQL versionada en `fitogenix-server/migrations/`
+- Implementes un endpoint de usuario sin `requireAuth` (excepción documentada: `/products/lookup`)
+- Modifiques `ftgEngine.ts` sin cobertura de tests que valide el comportamiento, ni sin evaluar si corresponde bumpear `ENGINE_VERSION`
+- Tragués errores con `.catch(() => {})` sin al menos loguearlos con contexto — ver la sección de Observabilidad más abajo
+- Toques `claudeService.ts` (prompts, `temperature`, `max_tokens`, modelo) sin pasar por el Agente de Datos
 
 ---
 
-## Dependencias del servidor (sugeridas)
+## Dependencias del servidor (instaladas — `package.json`)
 
 ```json
 {
   "dependencies": {
-    "fastify": "^4",
-    "@fastify/rate-limit": "^9",
-    "@fastify/cors": "^9",
-    "@supabase/supabase-js": "^2",
-    "@upstash/redis": "^1"
+    "@anthropic-ai/sdk": "^0.55.0",
+    "@fastify/cors": "^10.0.2",
+    "@fastify/rate-limit": "^10.2.2",
+    "@supabase/supabase-js": "^2.108.2",
+    "@upstash/redis": "^1.38.0",
+    "dotenv": "^17.4.2",
+    "fastify": "^5.3.2"
   },
   "devDependencies": {
-    "vitest": "^2",
-    "typescript": "^5",
-    "@types/node": "^20"
+    "@types/node": "^22.0.0",
+    "tsx": "^4.19.2",
+    "typescript": "~6.0.3",
+    "vitest": "^4.1.9"
   }
 }
 ```
 
-No agregar dependencias que ya estén resueltas por el código existente (el motor de scoring y las funciones de lookup son TypeScript puro, sin deps externas).
+No agregar dependencias que ya estén resueltas por el código existente (el motor de scoring y las funciones de lookup son TypeScript puro, sin deps externas). Dependencias de ingesta masiva (Crawlee, parsers de JSONL, etc.) son del Agente ETL — ver `06-agente-etl-data.md` — y viven en su propio `package.json`/paquete si se justifica separarlas de `fitogenix-server`.
 
 ---
 

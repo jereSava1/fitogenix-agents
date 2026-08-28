@@ -18,13 +18,17 @@ Regla: ante cualquier duda sobre qué significa un término del dominio, se cons
 
 Sobre el resultado ponderado se aplican **gates** (anulaciones o techos) por ingredientes críticos (grasas trans industriales, nitritos, aspartamo, carragenina).
 
-**Tiers (bandas de clasificación), alineados con la spec de negocio:**
+**Tiers (bandas de clasificación):**
+
+> ⚠️ **Fuente única de verdad:** `fitogenix-server/src/domain/product/scoring/constants.ts` (`TIERS`, `EXCELLENT_FROM`, `BAD_BELOW`). Los umbrales se citan acá por puntero a ese archivo, nunca se transcriben de memoria en ningún otro documento. Esta tabla ya estuvo mal una vez —85/70/50/25 en vez de 75/50/25/0— y el propio `constants.ts` documenta el incidente en el comentario de `TIERS`: *"Antes había tres criterios distintos para la misma decisión (...) y un producto de 72 salía 'Bueno' con sello 'Fitogénico'"*.
+
 | Score | Tier | Significado |
 |-------|------|-------------|
-| 85–100 | Excelente | Lo recomendamos |
-| 70–84 | Bueno | Buena opción |
-| 50–69 | Moderado | Consumir con consciencia |
-| 0–49 | Malo | No lo recomendamos |
+| ≥ 75 | Excelente | Lo recomendamos |
+| 50–74 | Bueno | Buena opción |
+| 25–49 | Moderado | Consumilo con consciencia |
+| 0–24 | Malo | No lo recomendamos |
+| `null` (sin score) | Sin datos suficientes | No tenemos datos confiables de este producto |
 
 **No confundir con:** el sello Fitogénico (ver abajo), que es una etiqueta binaria, no el número.
 
@@ -38,10 +42,10 @@ Sobre el resultado ponderado se aplican **gates** (anulaciones o techos) por ing
 - **Capa A — Regulatoria/Toxicológica:** evaluación basada en evidencia científica y organismos reguladores (IARC, EFSA, JECFA). Responde "¿hay evidencia de daño?".
 - **Capa B — Filosofía Fitogenix:** evaluación según el ideal de alimento integral y ancestral. Responde "¿esto se parece a comida real?". Acá un aceite de semilla industrial puede ser "cuestionable" aunque la Capa A no muestre riesgo regulatorio directo.
 
-**Sello Fitogénico:** etiqueta binaria derivada del Score:
-- **FITOGÉNICO** — Score ≥ 70.
-- **NO FITOGÉNICO** — Score < 50.
-- Sin sello en la zona Moderado (50–69).
+**Sello Fitogénico:** etiqueta binaria derivada del Score (`EXCELLENT_FROM` / `BAD_BELOW` en `constants.ts`, ver nota de fuente única arriba):
+- **FITOGÉNICO** — Score ≥ 75.
+- **NO FITOGÉNICO** — Score < 25.
+- Sin sello entre 25 y 74 (bandas Moderado y Bueno).
 
 **Regla de comunicación:** cuando una evaluación de Capa B difiere del consenso regulatorio (Capa A), debe comunicarse explícitamente como "la mirada Fitogenix", no como hecho regulatorio. La honestidad sobre qué capa habla es innegociable.
 
