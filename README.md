@@ -16,6 +16,8 @@ Este repositorio reúne el set de agentes de trabajo para Fitogenix, pensado par
 - `03-agente-backend.md` — backend Node.js + Fastify, Supabase, Redis y APIs externas
 - `04-agente-qa.md` — auditoría, tests y calidad
 - `05-agente-datos.md` — prompts de IA, costos y estrategia de cache
+- `06-agente-etl-data.md` — poblamiento masivo de datos: ingesta de Open Food Facts, scrapers, pre-población sintética
+- `07-agente-devops.md` — Dockerfile, despliegue, rate limiting de infraestructura y auditoría de secretos
 - `CONVENCIONES_EQUIPO.md` — reglas operativas del equipo
 - `DICCIONARIO_DOMINIO.md` — vocabulario y conceptos clave
 - `BITACORA_DECISIONES.md` — registro de decisiones relevantes
