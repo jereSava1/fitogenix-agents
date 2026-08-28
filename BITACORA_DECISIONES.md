@@ -74,3 +74,99 @@ Separar el backend a un proyecto independiente **`fitogenix-server`**, construid
 - **Neutras / seguimiento:**
   - Migración por fases para no romper lo que funciona: crear el backend, migrar el cliente, agregar Redis/auth/rate-limit, y features de negocio.
   - Revisar a futuro si conviene extraer el dominio compartido (`ftgEngine`) a un paquete npm privado para eliminar la duplicación de código entre repos.
+
+---
+
+## ADR-002: Reescribir el motor de puntuación como función pura de la lista de ingredientes (v2.1)
+
+- **Fecha:** 2026-08-15
+- **Estado:** Aceptado
+- **Decididores:** Jere (producto), Agente Backend
+
+### Contexto
+
+El motor v2 (`ftg-rubric-v2`) calculaba el puntaje con una base compuesta de 71, penalizaciones acumuladas con retornos decrecientes (factor 0,75), un modificador NOVA, un modificador nutricional y una regresión a neutro proporcional a la cobertura. Funcionaba, pero tenía tres problemas que el testeo con catálogo real hizo evidentes:
+
+1. **No era reconstruible.** Ningún usuario —ni nosotros— podía seguir la cuenta. Un producto daba 46 y la única forma de saber por qué era leer el código. El decaimiento exponencial y la regresión por cobertura son operaciones que no se explican en una pantalla de celular.
+2. **Lo desconocido era neutro.** Un ingrediente que no reconocíamos no restaba, así que la opacidad del fabricante no tenía costo. La regresión por cobertura mitigaba el síntoma sin atacar la causa.
+3. **Demasiadas perillas.** 20 coeficientes, 6 techos y 5 niveles de impacto: cada uno era una oportunidad de fallar y ninguno se podía calibrar por separado.
+
+El documento de producto `fitogenix_scoring_engine_v2_1.md` responde a esto con un sistema deliberadamente más chico: **6 coeficientes, 3 niveles de impacto, 1 mecanismo de techo, 6 anulaciones**, y una tabla de ingredientes que puede crecer sin agregar complejidad al motor. Su principio de diseño: *"pocas reglas, muchos ingredientes"*.
+
+### Decisión
+
+Reemplazamos el motor in situ por el pipeline de v2.1:
+
+```
+§1 fuera de alcance / sin datos  →  no se emite puntaje (score: null)
+§6 limpiar la lista              →  alérgenos, certificaciones, y/o, paréntesis
+§5 anulaciones                   →  20 − 6×n (−4 si va a niños)
+§2 Paso 1  base 75  |  ancla §3  →  el ancla es terminal
+§2 Paso 2  restas por impacto y posición
+§2 Paso 3  modificador de procesamiento por marcadores
+     ·     modificador nutricional (decisión de producto, ver abajo)
+§2 Paso 4  techos 74 / 59 / 49, vale el más bajo
+§2 Paso 5  clamp 0-100
+```
+
+El puntaje pasa a ser una función pura de la lista de ingredientes limpia. Desaparecen NOVA como insumo del cálculo, el promedio ponderado de cuatro ejes y la regresión por cobertura.
+
+La salida del motor cambia de forma: `breakdown.components` (los cuatro ejes) se reemplaza por `breakdown.steps[]`, la cuenta paso por paso. **El desglose no es telemetría: es la salida principal**, y hay un test que verifica producto por producto que la suma de los pasos dé el puntaje.
+
+Se agrega `src/domain/product/ingredientCleaning.ts` para todo lo de §6, que antes vivía mezclado con el scoring.
+
+### Alternativas consideradas
+
+- **Motor v2.1 nuevo al lado del v2, detrás de un feature flag:** descartada. Permitiría A/B y rollback, pero duplica ~1.500 líneas de dominio y obliga a mantener dos criterios de producto en paralelo justo cuando el objetivo es tener uno solo y defendible. El rollback real acá es `git revert`.
+- **Refactor incremental sección por sección:** descartada. Los pasos de §2 son interdependientes (la posición depende de la limpieza, el techo depende de la clasificación), así que los estados intermedios habrían sido inconsistentes sin ganar nada.
+- **Cambiar solo la lógica de cálculo y dejar el payload como estaba:** descartada. Habría preservado la app sin tocarla, pero pierde la regla 1 del documento —el puntaje tiene que ser reconstruible—, que es la razón principal del cambio.
+- **Puntaje puramente ingrediente, con los octógonos como dato informativo:** descartada por decisión de producto. Ver abajo.
+
+### Divergencias deliberadas respecto del documento
+
+Tres, todas anotadas en el código con su motivo:
+
+1. **El panel nutricional sigue restando.** §2 de v2.1 no tiene paso nutricional. Se conserva el cruce con los octógonos de la Ley 27.642 y con la grasa trans declarada, porque atrapa lo que la lista sola no ve: un producto de ingredientes correctos con un panel desastroso. Va como **paso propio del desglose**, con su propio número, así no rompe la reconstruibilidad; puede bajar el puntaje pero nunca subirlo, y no puede llevarlo por debajo de 15 (la banda 0-14 queda para las anulaciones de §5 y las anclas de fondo).
+2. **La regla del 30% de no identificados se aplica desde 2.** Tomada literal ("3 o más, o más del 30% de la lista"), cualquier lista de 3 ingredientes con uno solo sin reconocer caería en "sin datos" —y eso volvería inalcanzables los techos de 74 y 49 que §2 Paso 4 define justamente para 1 y 2 no identificados.
+3. **Las anclas no tienen un tope global de 2 ingredientes.** §2 Paso 1 dice "1 o 2 ingredientes", pero la tabla de §3 incluye filas que se describen por composiciones de 3-5 (queso simple, pan de masa madre, pasta seca, conservas al natural). El tope es por fila.
+
+Además, `ingredientData.ts` (271 registros con la prosa por ingrediente) se sigue consultando **después** de la rúbrica y **antes** de declarar algo NO IDENTIFICADO. §4 dice que la tabla de ingredientes "crece sin agregar complejidad" y que "el motor consulta, no clasifica": ese archivo es esa tabla crecida. Sin ese respaldo, media góndola argentina caería en "sin datos" por la regla de los 3 no identificados.
+
+### Consecuencias
+
+- **Positivas:**
+  - Cada puntaje viene con su cuenta. Es auditable por el usuario, por soporte y por nosotros, y hace diagnosticable cualquier resultado raro sin abrir el código.
+  - La opacidad tiene costo: −8 por término no identificado, más techo, más cola de curaduría (`breakdown.unidentified`) que alimenta el crecimiento de la tabla.
+  - El sistema crece por datos, no por reglas: sumar ingredientes a `IMPACT_TABLE` no toca el motor.
+  - Casos que antes devolvían un número inventado ahora devuelven `null` con su motivo (§1): fuera de alcance, sin datos, lista no identificable.
+  - Los pasos 1-5 son una función pura y determinista, sin dependencia de caché ni de modelo.
+- **Negativas / costos:**
+  - **Los puntajes de v2 no son comparables.** Hay que recomputar la caché de `products` (`ENGINE_VERSION` pasa a `ftg-rubric-v2.1`).
+  - **El payload cambió** (`score: number | null`, `components` → `steps`, se va `subscores`). La app native todavía puntúa con su copia local del motor v1/v2 y hay que migrarla — ver ADR-001, "Neutras / seguimiento".
+  - Va a subir la proporción de productos "sin datos suficientes": es más honesto, pero se ve como catálogo incompleto hasta que la curaduría avance.
+  - Productos de góndola muy comunes (pan lactal blanco, galletitas dulces) caen a la banda Malo. Es la postura declarada de la marca aplicada con consistencia, no un error de calibración — pero conviene mirarlo con datos reales antes de publicar.
+- **Neutras / seguimiento:**
+  - `npm run audit:scores` sobre el catálogo real, mirando la distribución por banda (§9: si más del 40% cae en una sola, hay que mover los cortes) y la frecuencia de los NO IDENTIFICADO.
+  - Migrar el cliente al scoring del servidor y borrar `fitogenix-native/src/lib/ftgEngine.ts`, en vez de portar v2.1 a una segunda copia.
+  - Revisar el ancla de pasta seca (70-80 → 75): el punto medio cae exactamente sobre el corte Bueno/Excelente.
+
+### Nota de implementación (2026-08-18)
+
+El motor descripto arriba se había escrito sobre un clon de `fitogenix-server` en el Desktop, no sobre el repo real (`~/fitogenix-server`) — quedó 10 commits de ETL y todo el WIP del motor sin llegar nunca a `main` ni a GitHub. Se rescató como ramas git (`rescate/etl-desktop-ago9`, `rescate/wip-desktop-completo`) y se mergeó a `main` del repo real (commit `a0560ca`), junto con el refactor a módulos de responsabilidad única (`src/domain/product/scoring/`, `scoring/rubric/`). 416 tests en verde, `tsc` limpio. ~~Pendiente: `git push`~~ → pusheado, ver nota siguiente.
+
+### Nota de implementación (2026-08-18, parte 2) — búsqueda catalog-only + cierre de la migración de contrato
+
+Con el motor ya en `main`, se completó lo que quedaba pendiente de esta ADR y se cerró además un rediseño de búsqueda que surgió en la misma sesión:
+
+- **`fitogenix-native` migrado al contrato v2.1.** Nuevo `src/lib/contracts/product.ts` (sin `breakdown`/`subscores`, `score: number | null`); `ScoreDial` ahora es null-safe y no interactivo. `ScoreBreakdownSheet` se sacó del árbol de render — decisión de producto: el desglose paso-a-paso no aporta valor al usuario final, y mantenerlo sincronizado con cada cambio del motor era costo sin beneficio.
+- **`breakdown` se dejó de mandar por la red, en los dos lados.** El servidor lo sigue computando internamente (`ftgScoreWithBreakdown`) pero `lookupSchema.ts`/`FitogenixProduct` ya no lo exponen — decisión de producto explícita: "que solo se envíe la información que nos sea relevante".
+- **Búsqueda por texto rediseñada de punta a punta** (motivo: catálogo mucho más grande post-ETL, y las llamadas en vivo a OFF/terceros eran el cuello de botella de latencia): `productLookupService.lookupProduct` deja de tener cascada externa — solo lee de Supabase (cache) y Redis, tanto para texto como para barcode. Un miss de catálogo devuelve `null` → 404 "todavía no tenemos este producto en nuestro catálogo" en vez de resolver contra OFF/IA. `offService`/`claudeService`/`imageService`/`openBeautyFactsApi`/`fallbackFoodApi` quedan reservados exclusivamente a `scripts/etl/`.
+- **Migración 014** (`products_search_trgm`, pg_trgm + índice GIN + RPC `search_products_by_name`) reemplaza el `ILIKE` sin índice + `order(updated_at)` por ranking real de similitud en Postgres. Aplicada en Supabase y validada contra la base real con `scripts/test-search-rpc.ts` (match exacto/parcial/mayúsculas, negativos, guard de longitud, barcode hit/miss) — todos los casos se comportaron como se esperaba.
+- Rename `mapOFFToProduct` → `mapRawToProduct` en todo el codebase (ya no mapea exclusivamente datos recién bajados de OFF).
+- `cacheService.test.ts` se actualizó para mockear `.rpc('search_products_by_name', ...)` en vez de la cadena vieja `.ilike().order().limit()`.
+
+**Commits:**
+- `fitogenix-server`: `6f1ffaf` (rediseño de búsqueda + baja de breakdown), `629bc6b` (prestart hook, rescatado de `agents/pre-deploy-command-for-render`), `5712b36` (smoke test), `a0428bd` (doc). Todos pusheados a `origin/main`.
+- `fitogenix-native`: `b7715b8` (contrato v2.1 + baja de ScoreBreakdownSheet). Pusheado a `origin/main`.
+
+**Pendiente (menor, no bloqueante):** borrar `ScoreBreakdownSheet.tsx` y `ftgEngine.ts` (native) del repo — quedaron como stubs sin uso porque no se pudieron `git rm` en la sesión que hizo el cambio; y limpiar la rama local `agents/pre-deploy-command-for-render` (ya mergeada, el worktree ya se sacó).
