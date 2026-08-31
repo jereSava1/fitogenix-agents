@@ -88,12 +88,27 @@ críticos. Es una diferencia deliberada con el modelo de OPS, que sí la contemp
 **Etapas de aplicación** ✅: primera etapa a los 9 meses de vigencia (15 para PyMEs),
 segunda a los 18 (24 para PyMEs).
 
-> 🔴 **N-2 — No está verificado si las dos etapas tenían umbrales distintos o solo plazos
-> distintos.** En el modelo chileno, del que Argentina toma la forma, las etapas endurecían
-> los valores. Acá no pudimos confirmarlo: el **Anexo II del Decreto 151/2022** no está
-> disponible en ninguna de las fuentes accesibles — el manual oficial de `argentina.gob.ar`
-> bloquea la descarga automática y el sitio de ANMAT devuelve 403. **Es la fuente que
-> falta**, y de ella depende §N6/N-3.
+**Los umbrales viven en el Artículo 6 del Decreto 151/2022** ✅, que remite a la **Tabla 1**
+de su Anexo I. **Las dos etapas tienen valores distintos**, no solo plazos distintos:
+
+| Nutriente crítico | Primera etapa | **Segunda etapa (vigente)** |
+|---|---|---|
+| Azúcares añadidos | ≥ 20 % de la energía | **≥ 10 % de la energía** |
+| Grasas totales | ≥ 35 % de la energía | **≥ 30 % de la energía** |
+| Grasas saturadas | ≥ 12 % de la energía | **≥ 10 % de la energía** |
+| Sodio | ≥ 5 mg/kcal **o** ≥ 600 mg/100 g | **≥ 1 mg/kcal *o* ≥ 300 mg/100 g** |
+| Calorías — alimentos | ≥ 300 kcal/100 g | **≥ 275 kcal/100 g** |
+| Calorías — bebidas | ≥ 50 kcal/100 ml | **≥ 25 kcal/100 ml** |
+
+> ⚠️ **Nivel de confianza de esta tabla, y por qué importa.** Está transcripta de un PDF del
+> Anexo I publicado por una editorial jurídica (F6), no del PDF oficial del BORA. **Cuatro
+> de las seis filas de la segunda etapa coinciden exactamente con el modelo de OPS** (§N4),
+> que es fuente primaria independiente — eso les da respaldo doble. **Las dos filas de
+> calorías no lo tienen**, porque OPS no define criterio de energía, y la condición
+> alternativa de sodio tampoco. Ver §N6.
+
+**La segunda etapa es la vigente:** primera etapa a los 9 meses de la vigencia (15 para
+PyMEs), segunda a los 18 (24 para PyMEs), sobre un decreto de marzo de 2022 ✅.
 
 ---
 
@@ -127,28 +142,42 @@ exención es el nivel de procesamiento**, no la composición.
 
 ---
 
-## §N5 — Las disposiciones de 2024, y por qué no son un detalle técnico
+## §N5 — Las disposiciones de diciembre de 2024
 
-📄 El **26/12/2024**, ANMAT publicó las **Disposiciones 11378/2024 y 11362/2024**, que
-**no cambiaron los umbrales** sino la **base de cálculo**: los nutrientes críticos se
-computan sobre los ingredientes **agregados deliberadamente** en la elaboración, excluyendo
-los intrínsecos de la materia prima.
+> **Corrección del 31/8/2026.** La primera versión de esta sección atribuía el cambio de
+> base de cálculo a **las dos** disposiciones. Es falso, y salió de leer prensa en vez del
+> texto. Cada una hace algo distinto:
 
-Ejemplos que dan las fuentes: la mermelada declara solo el azúcar incorporado, no el de la
-fruta; los frutos secos dejan de llevar sello por su grasa natural; la manteca no lo lleva
-si no se le agregó sodio.
+**Disposición ANMAT 11362/2024** ✅ — es la que importa para el criterio. Aprueba el
+**Manual de Aplicación** de la Ley 27.642 y el Decreto 151/2022 (Anexo
+`IF-2024-135393117-APN-DLEIAER#ANMAT`), sustituye el art. 1 de la Disposición 2673/22 y
+deroga sus arts. 2–8 y 10.
 
-> 🔴 **N-3 — Esto está marcado 📄, no ✅, y la distinción importa.** Está tomado de prensa
-> que resume las disposiciones. **No leímos el texto de las disposiciones.** Antes de mover
-> una línea de código por esto, hay que leerlas.
+- **No cambia los valores de corte** ✅. Remite al artículo 6 del Decreto 151/2022 como
+  fuente, sin modificarlo. ANMAT lo dice explícitamente: *"Los valores no se modificaron
+  sino que siguen siendo los mismos"* 📄.
+- **Sí precisa la distinción intrínseco vs. añadido.** El Manual aclara, por ejemplo, que
+  *"no se considera azúcar añadido a los provenientes de frutas y hortalizas (enteras o en
+  trozos) frescas, congeladas, desecadas…"* ✅.
 
-> 🔴 **N-4 — El cambio está judicializado y profesionalmente cuestionado.** 📄 Hay
-> demandas contra ANMAT por "flexibilizar los criterios" y colegios de nutricionistas
-> advirtiendo retrocesos. **Esto convierte a §N2 en una decisión de producto, no técnica:**
-> si la norma vigente y el criterio de OPS divergen, Fitogenix tiene que elegir **cuál
-> sigue cada capa**. La recomendación del agente es la de §N2 — el octógono sigue a la
-> norma porque el usuario lo contrasta con el envase; el puntaje puede seguir a la ciencia
-> porque es criterio declarado — pero **quien elige es producto (Jere), no el agente.**
+**Disposición ANMAT 11378/2024** ✅ — **no toca el criterio nutricional.** Regula
+**publicidad, promoción y patrocinio** de productos con al menos un sello, y deroga la
+Disposición 6924/22. Es relevante para el negocio, no para el motor.
+
+> 🔴 **N-3 — El efecto real de la precisión intrínseco/añadido está sin medir.** Que el
+> Manual "precise" en vez de "sustituir" suena menor, pero las fuentes 📄 lo describen con
+> ejemplos de peso: frutos secos que dejan de llevar sello por su grasa natural, manteca
+> que no lo lleva si no se le agregó sodio. **No leímos el Manual.** Su Anexo
+> (`IF-2024-135393117`) es la fuente que falta.
+
+> 🔴 **N-4 — El cambio está judicializado y profesionalmente cuestionado.** 📄 Hay demandas
+> contra ANMAT por "flexibilizar los criterios" y la Fundación Interamericana del Corazón
+> advierte que los productos van a llevar **menos sellos de los que deberían**. **Esto
+> convierte a §N2 en una decisión de producto, no técnica:** si la norma vigente y el
+> criterio de OPS divergen, Fitogenix elige cuál sigue cada capa. La recomendación del
+> agente es la de §N2 — el octógono sigue a la norma porque el usuario lo contrasta con el
+> envase; el puntaje puede seguir a la ciencia porque es criterio declarado — pero **quien
+> elige es producto (Jere), no el agente.**
 
 ---
 
@@ -167,10 +196,39 @@ Contrastado el 2026-08-31 contra `fitogenix-server` `415577c`.
 
 ### Lo que queda abierto
 
-> 🔴 **N-5 — El umbral de calorías no está verificado.** `scoring/seals.ts` usa 275 kcal/100
-> (sólidos) y 70 kcal/100 (líquidos). **No figuran en el modelo de OPS**, que no define un
-> criterio de energía: son un agregado de la norma argentina, y su valor está en el Anexo II
-> que no pudimos abrir (§N3/N-2). **Es el único de los cinco umbrales sin respaldo citable.**
+### Contraste completo contra la Tabla 1 (segunda etapa, §N3)
+
+| Umbral | La norma | El código | |
+|---|---|---|---|
+| Azúcares añadidos | ≥ 10 % E | ≥ 10 % E | ✅ |
+| Grasas saturadas | ≥ 10 % E | ≥ 10 % E | ✅ |
+| Grasas totales | ≥ 30 % E | ≥ 30 % E | ✅ |
+| Sodio | ≥ 1 mg/kcal **o ≥ 300 mg/100 g** | ≥ 1 mg/kcal, **sin la alternativa** | 🟡 **N-5** |
+| Calorías — alimentos | ≥ 275 kcal/100 g | 275 | ✅ |
+| Calorías — bebidas | ≥ 25 kcal/100 ml | **70** | 🔴 **N-6** |
+
+> 🟡 **N-5 — Al sodio le falta la condición alternativa.** La norma marca el sello con
+> `≥1 mg/kcal` **o** `≥300 mg/100 g`; `seals.ts` implementa solo la primera. El efecto es
+> **sub-marcar**: un producto salado y muy calórico diluye su ratio y escapa al sello que el
+> envase sí lleva. Dos fuentes secundarias independientes coinciden en la condición (F5, F6)
+> y **ninguna primaria la contradice** — pero OPS tampoco la incluye, así que **no se toca el
+> código hasta tener el anexo del BORA.**
+
+> 🔴 **N-6 — El umbral de calorías de bebidas no coincide, y el conflicto es interesante.**
+> La Tabla 1 dice `≥25 kcal/100 ml`; el código usa `70`. Setenta **no es ninguna de las dos
+> etapas** argentinas (50 y 25): es el valor final del modelo **chileno**. Parece un valor
+> tomado del país equivocado.
+>
+> **Pero el código no está solo en su creencia.** `seals.test.ts` tiene un caso escrito por
+> el equipo —una gaseosa cola de 42 kcal/100 ml que espera **solo** `EXCESO EN AZÚCARES`—
+> que codifica una observación de góndola: una gaseosa real no lleva octógono de calorías.
+> Con el umbral en 25, sí lo llevaría.
+>
+> **Entonces una de estas tres es falsa, y no sé cuál:** la transcripción de la Tabla 1, el
+> umbral del código, o la observación del test. Resolverlo **no requiere leer nada más**:
+> ANMAT publicó una **calculadora oficial** (F7). Cargar una gaseosa de 42 kcal/100 ml y ver
+> si devuelve el sello de calorías lo cierra en dos minutos, empíricamente. **Ese es el
+> siguiente paso, y es más barato que conseguir el anexo.**
 
 > 🟡 **N-6 — La excepción se implementa por proxy, no por el criterio legal.** El código
 > exime cuando *"ningún ingrediente tiene impacto"*; la ley exime a *"in natura e
@@ -190,18 +248,30 @@ están marcadas como tales en el lugar donde se usan.
 
 | # | Fuente | Consultada | Para qué |
 |---|---|---|---|
-| F1 | **Ley 27.642** — texto oficial, InfoLEG · `servicios.infoleg.gob.ar/infolegInternet/anexos/360000-364999/362577/norma.htm` | 2026-08-31 | Nutrientes críticos · excepciones del art. 7 · etapas |
-| F2 | **OPS — "PAHO defines excess levels of sugar, salt and fat"** · `paho.org/en/news/19-2-2016-paho-defines-excess-levels-sugar-salt-and-fat-processed-food-and-drink-products-0` | 2026-08-31 | Los cinco criterios del perfil · ámbito de aplicación |
-| F3 | **Decreto 151/2022** — Boletín Oficial · `boletinoficial.gob.ar/detalleAviso/primera/259690/20220323` | 2026-08-31 | Remisión al perfil de OPS. **No contiene el Anexo II** |
-| F4 | **Infobae, 26/12/2024** — cambios de ANMAT 📄 | 2026-08-31 | Base de cálculo agregado vs. intrínseco |
-| F5 | **Infoalimentos** — etiquetado frontal 📄 | 2026-08-31 | Mención de un umbral alternativo de sodio (≥300 mg/100 g) **no implementado y no verificado** |
+| F1 | **Decreto 151/2022** (reglamenta la Ley 27.642) — InfoLEG `362577` · `servicios.infoleg.gob.ar/infolegInternet/anexos/360000-364999/362577/norma.htm` | 2026-08-31 | Nutrientes críticos · excepciones del art. 7 · etapas · el art. 6 como fuente de los umbrales |
+| F2 | **OPS — "PAHO defines excess levels of sugar, salt and fat"** · `paho.org/en/news/19-2-2016-…` | 2026-08-31 | Los cinco criterios del perfil · ámbito de aplicación (procesados y ultraprocesados) |
+| F3 | **Decreto 151/2022** — Boletín Oficial `259690/20220323` | 2026-08-31 | Identificadores de los anexos: `IF-2022-27565868-APN-MS` (I) e `IF-2022-24456831-APN-DNAIENT#MS` (II) |
+| F4 | **Disposición ANMAT 11362/2024** — InfoLEG `407673` | 2026-08-31 | Aprueba el Manual de Aplicación · no cambia valores · precisa intrínseco vs. añadido |
+| F5 | **Disposición ANMAT 11378/2024** — BORA `318799/20241226` | 2026-08-31 | **Publicidad, no criterio.** Deroga la Disp. 6924/22 |
+| F6 | **Anexo I del Decreto 151/2022** (PDF de editorial jurídica) · `aldiaargentina.microjuris.com/wp-content/uploads/2022/03/ANX_-Anexo-1-Decreto-151-2022.pdf` | 2026-08-31 | **La Tabla 1 con los valores de las dos etapas.** No es el PDF del BORA — ver la advertencia de §N3 |
+| F7 | **Calculadora oficial de ANMAT** — "Sistema de Sellos y Advertencias Nutricionales" (SIFEGA) | pendiente | **Oráculo empírico.** Resuelve N-6 sin leer normativa |
+| F8 | Chequeado · Infobae · Infoalimentos · saludables.com.ar 📄 | 2026-08-31 | Contexto de las disposiciones de 2024 y su cuestionamiento |
 
-### 🔴 Fuentes que faltan, en orden de urgencia
+### 🔴 Fuentes que faltan, en orden de costo/beneficio
 
-1. **Anexo II del Decreto 151/2022** — los umbrales oficiales. Sin esto, N-5 y N-2 no se
-   cierran. `argentina.gob.ar` bloquea la descarga automática: hay que bajarlo a mano y
-   dejarlo en `nutricion/fuentes/`.
-2. **Disposiciones ANMAT 11378/2024 y 11362/2024** — texto completo. Sin esto, N-3 no pasa
-   de 📄.
-3. **Modelo de Perfil de Nutrientes de OPS**, publicación completa (`iris.paho.org`) — para
-   el fundamento científico de cada umbral, no solo el número.
+1. **La calculadora de ANMAT (F7).** Lo más barato y lo que más desbloquea: cierra N-6
+   empíricamente, sin leer una línea de normativa.
+2. **Anexo I del Decreto 151/2022, PDF del BORA** — para confirmar la Tabla 1 contra la
+   fuente oficial y cerrar N-5 y N-6. Los anexos se publican en la edición web del BORA;
+   el aviso es `259690/20220323` y el documento es `IF-2022-27565868-APN-MS`.
+3. **Anexo II del Decreto 151/2022** (`IF-2022-24456831-APN-DNAIENT#MS`) — especificaciones
+   técnicas. Menos urgente ahora que sabemos que los umbrales están en el art. 6 y la
+   Tabla 1 del Anexo I, no en el II.
+4. **Manual de Aplicación** de la Disp. 11362/2024 (`IF-2024-135393117-APN-DLEIAER#ANMAT`)
+   — cierra N-3, el alcance real de la precisión intrínseco/añadido.
+5. **Modelo de Perfil de Nutrientes de OPS**, publicación completa (`iris.paho.org`) — el
+   fundamento científico de cada umbral, no solo el número.
+
+**Cómo se consiguen los del BORA:** el sitio bloquea la descarga automatizada (robots y
+403), así que hay que abrir el aviso en un navegador y guardar el PDF de anexos a mano. Una
+vez bajados van a `nutricion/fuentes/`, con el nombre del identificador `IF-…`.
