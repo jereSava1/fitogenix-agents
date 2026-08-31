@@ -171,11 +171,45 @@ deroga sus arts. 2–8 y 10.
 **publicidad, promoción y patrocinio** de productos con al menos un sello, y deroga la
 Disposición 6924/22. Es relevante para el negocio, no para el motor.
 
-> 🔴 **N-3 — El efecto real de la precisión intrínseco/añadido está sin medir.** Que el
-> Manual "precise" en vez de "sustituir" suena menor, pero las fuentes 📄 lo describen con
-> ejemplos de peso: frutos secos que dejan de llevar sello por su grasa natural, manteca
-> que no lo lleva si no se le agregó sodio. **No leímos el Manual.** Su Anexo
-> (`IF-2024-135393117`) es la fuente que falta.
+✅ **N-3 — CERRADO el 31/8. Leímos el Manual** (F10, 60 páginas). Lo que precisa, y es más
+fuerte de lo que la prensa daba a entender:
+
+**Cada octógono se evalúa solo si ESE nutriente fue agregado.** El árbol de decisión del
+Manual (pág. 13) pregunta, por separado: ¿tiene agregado de azúcares? ¿de grasas? ¿de
+sodio? Un "no" saca al producto del alcance **de ese sello**, no de todos.
+
+Definiciones textuales del Manual:
+
+- **Azúcares añadidos** (pág. 10-11): mono y disacáridos agregados como tales, azúcares de
+  hidrólisis, jarabes, miel, melaza, **jugos y concentrados de fruta u hortalizas**, pulpas
+  y purés, fruta en polvo. La **lactosa cuenta** cuando se usa como ingrediente. **No** se
+  considera añadido el azúcar de *"frutas y hortalizas (enteras o en trozos) frescas,
+  congeladas, desecadas, deshidratadas y/o liofilizadas"*.
+- **Grasas** (pág. 11): grasas y aceites vegetales y/o animales, incluida la láctea. En
+  lácteos **solo cuenta como añadida la que excede la aportada por una leche de hasta 6 % de
+  grasa total**. Omega 3/6/9 y fitoesteroles no cuentan; los aditivos lipídicos tampoco.
+- **Sodio** (pág. 11): cualquier sal de sodio, **incluso usada como aditivo**.
+
+**Productos que no llevan rotulado frontal** (pág. 10): azúcar, aceites vegetales, **frutos
+secos** y sal común de mesa.
+
+> 🔴 **N-7 — El límite estructural que esto deja al descubierto, y es el hallazgo más
+> importante de todo el trabajo sobre octógonos.**
+>
+> El método oficial calcula el nutriente **añadido** a partir de la **formulación del
+> producto** — la receta con porcentajes, las fichas técnicas del proveedor (pág. 14-15: el
+> ejemplo del turrón desglosa cada ingrediente con su porcentaje para llegar a 42,8 % de
+> azúcares añadidos).
+>
+> **Fitogenix no tiene la formulación. Tiene la etiqueta.** Lista de ingredientes en orden y
+> panel por 100 g. Con eso **no se puede reproducir el cálculo oficial**: se puede saber que
+> un ingrediente aporta azúcar, no *cuánto*.
+>
+> Es decir: **los octógonos que Fitogenix calcula son necesariamente una aproximación**, y
+> ninguna corrección de umbrales lo cambia. Eso choca con lo que `CONTEXT.md §2.5` le promete
+> al usuario —"el único dato que puede contrastar mirando el envase"— y es **decisión de
+> producto**, no nutricional: o se declara la aproximación en la app, o se muestran solo los
+> octógonos cuando la fuente los trae, o se acepta el margen sabiendo cuál es. Ver §N2.
 
 > 🔴 **N-4 — El cambio está judicializado y profesionalmente cuestionado.** 📄 Hay demandas
 > contra ANMAT por "flexibilizar los criterios" y la Fundación Interamericana del Corazón
@@ -211,8 +245,9 @@ Contrastado el 2026-08-31 contra `fitogenix-server` `415577c`.
 | Grasas saturadas | ≥ 10 % E | ≥ 10 % E | ✅ |
 | Grasas totales | ≥ 30 % E | ≥ 30 % E | ✅ |
 | Sodio | ≥ 1 mg/kcal **o ≥ 300 mg/100 g** | ≥ 1 mg/kcal, **sin la alternativa** | 🟡 **N-5** |
-| Calorías — alimentos | ≥ 275 kcal/100 g | 275 | ✅ |
-| Calorías — bebidas | ≥ 25 kcal/100 ml | **70** | 🔴 **N-6** |
+| Calorías — alimentos | ≥ 275 kcal/100 g **+ otro sello** | 275, **sin la segunda condición** | 🔧 **N-8** |
+| Calorías — bebidas | ≥ 25 kcal/100 ml **+ otro sello** | **70**, sin la segunda condición | 🔧 **N-6 + N-8** |
+| Sodio — bebida sin energía | ≥ 40 mg/100 ml | **ausente** | 🔧 **N-9** |
 
 > ✅ **N-5 — CERRADO el 31/8. Al sodio le faltaba la condición alternativa; se agregó.**
 > La norma marca el sello con `≥1 mg/kcal` **o** `≥300 mg/100 g`, y la calculadora oficial
@@ -232,6 +267,27 @@ Contrastado el 2026-08-31 contra `fitogenix-server` `415577c`.
 >
 > **Con el umbral en 70 se dejaba de marcar toda la franja de 25 a 70 kcal/100 ml**: jugos,
 > saborizadas, gaseosas comunes. Es la categoría más grande del error.
+
+> ✅ **N-8 — CERRADO. El octógono de calorías exigía una condición que el motor no tenía.**
+> El Manual (pág. 10 y 17) es explícito: *"Las calorías no son consideradas un nutriente
+> crítico, sino que son una unidad de medida"*. El sello sale **solo cuando se dan en
+> conjunto** (i) que el producto ya lleve alguno de los sellos de azúcares, grasas totales o
+> saturadas, y (ii) que supere el límite de energía.
+>
+> El motor marcaba por energía sola. **Es el único error que iba de MÁS**: un producto denso
+> sin ningún otro exceso se llevaba un octógono que la góndola no tiene. Corregido.
+>
+> Detalle que importa: **el sodio no habilita el sello de calorías.** La norma nombra solo
+> esos tres nutrientes. Hay test.
+
+> ✅ **N-9 — CERRADO. Faltaba la tercera condición de sodio.** Bebidas analcohólicas **sin
+> aporte energético**: `≥40 mg/100 ml` (Manual pág. 17). Aplica a saborizadas e isotónicas
+> cero, que no llegan por ratio (energía ≈ 0) ni por masa (<300) y escapaban.
+>
+> 🟡 **Aproximación declarada:** el Manual define "sin aporte energético" como ≤4 kcal **por
+> porción**, y el motor solo tiene el panel por 100. Se usa ≤4 kcal/100 ml. Una porción de
+> bebida suele ser 200 ml, así que el criterio real sería ≈2 kcal/100 ml: la aproximación es
+> **más inclusiva** y puede marcar alguna bebida de más. Está anotada en el código.
 
 ### Nota de despliegue — sin esto, la corrección no llega al usuario
 
@@ -271,22 +327,19 @@ están marcadas como tales en el lugar donde se usan.
 | F7 | **Calculadora oficial de ANMAT** — "Sistema de Sellos y Advertencias Nutricionales" (SIFEGA) | **2026-08-31, corrida por Jere** | **Cerró N-5 y N-6.** Es la implementación de referencia del perfil: lo que decide es lo que el envase lleva |
 | F9 | **Anexo I de la Disposición ANMAT 11378/2024** · `IF-2024-139959417-APN-DRI#ANMAT`, 20/12/2024 · PDF del BORA en `nutricion/fuentes/` | 2026-08-31 | **Publicidad, no criterio.** Confirma F5 contra fuente primaria. Ver §N8 |
 | F8 | Chequeado · Infobae · Infoalimentos · saludables.com.ar 📄 | 2026-08-31 | Contexto de las disposiciones de 2024 y su cuestionamiento |
+| **F10** | **Manual de Aplicación de la Ley 27.642 y el Decreto 151/22 — Revisión I** · `IF-2024-135393117-APN-DLEIAER#ANMAT`, 60 págs. · PDF del BORA en `nutricion/fuentes/` | 2026-08-31 | **La fuente más completa que tenemos.** Definiciones de nutriente añadido, árbol de decisión, puntos de corte, y el método de cálculo desde la formulación |
 
 ### Fuentes que todavía faltan
 
-Ninguna bloquea un ticket abierto. Se buscan para subir el respaldo de 📄 a ✅, no para
-desbloquear.
+**Ninguna bloquea un ticket de octógonos.** Con el Manual (F10) el criterio quedó cerrado.
 
-1. **Manual de Aplicación** de la Disp. 11362/2024 (`IF-2024-135393117-APN-DLEIAER#ANMAT`,
-   aviso BORA `318798/20241226`) — cierra **N-3**, el alcance real de la precisión
-   intrínseco/añadido. Es el único que todavía deja un 🔴 abierto.
-2. **Anexo I del Decreto 151/2022, PDF del BORA** (`IF-2022-27565868-APN-MS`, aviso
-   `259690/20220323`) — la Tabla 1 desde la fuente oficial. Hoy está confirmada por dos
-   fuentes independientes (editorial jurídica + calculadora), así que es respaldo, no
-   necesidad.
-3. **Modelo de Perfil de Nutrientes de OPS**, publicación completa (`iris.paho.org`) — el
+1. **Modelo de Perfil de Nutrientes de OPS**, publicación completa (`iris.paho.org`) — el
    fundamento científico de cada umbral, no solo el número. Es lo que hace falta para
-   auditar el criterio propio (§N2), no los octógonos.
+   auditar el **criterio propio** (§N2) y los tickets B-2 y B-4, no los octógonos.
+2. **Anexo I del Decreto 151/2022, PDF del BORA** (`IF-2022-27565868-APN-MS`, aviso
+   `259690/20220323`) — la Tabla 1 desde su fuente. Hoy está confirmada por tres fuentes
+   independientes (editorial jurídica, calculadora oficial y el propio Manual): es
+   redundancia, no necesidad.
 
 **Cómo se consiguen los del BORA:** el sitio bloquea la descarga automatizada (robots y
 403), así que hay que abrir el aviso en un navegador y guardar el PDF a mano. Van a
