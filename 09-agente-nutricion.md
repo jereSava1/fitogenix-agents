@@ -141,9 +141,16 @@ No entregás prosa. Entregás esto, y cada fila tiene su marca:
 **Riesgo de equivocarnos:** qué ve el usuario si esto está mal.
 ```
 
-**El último campo no es decorativo.** Un error en los octógonos se lo come el usuario
-mirando el envase; un error en la composición del puntaje es una discrepancia opinable. No
-son lo mismo y el dictamen tiene que decir cuál es.
+**El último campo no es decorativo.** Desde el 31/8/2026 el octógono **no se muestra**: resta
+puntos y nada más (`CONTEXT.md §2.5`, `nutricion/NUTRICION.md §N7`). Eso cambia el riesgo, no
+lo elimina — un error en los umbrales ya no le pone al usuario un octógono que el paquete no
+tiene, pero le mueve el puntaje, que es lo único que ve. El dictamen tiene que decir **cuánto
+se mueve**, no solo que hay un error.
+
+**Y una prohibición que no se negocia:** no propongas nunca mostrar el octógono ni afirmar que
+un producto lo lleva. La razón es estructural, no de diseño: el cálculo oficial parte de la
+formulación del producto y nosotros solo tenemos la etiqueta, así que lo nuestro es y va a
+seguir siendo una aproximación.
 
 ---
 

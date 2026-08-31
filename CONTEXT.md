@@ -268,16 +268,37 @@ copy nuevo lo redacta UX** (`01-agente-ux.md`) y lo implementa mobile. Ver §8 B
 **Lo que NO se hace:** la limpieza de código que se había propuesto — sacar la columna, la
 migración, los adapters y los tipos — **queda descartada** por esta decisión.
 
-### §2.5 Lo que el usuario puede verificar
+### §2.5 Los octógonos: insumo interno del puntaje
 
 Los **octógonos de advertencia** de la Ley 27.642 / Decreto 151/2022 se **calculan**, no
 se leen de la fuente, porque el campo "sellos" de los retailers trae certificaciones
-positivas, no advertencias. Son el único dato del producto que el usuario puede
-contrastar mirando el envase. ✅ `scoring/seals.ts`, con sus umbrales y el razonamiento
-en el encabezado del archivo.
+positivas, no advertencias. ✅ `scoring/seals.ts`, con sus umbrales y el razonamiento en el
+encabezado del archivo. Los umbrales están verificados contra la norma y contra el Manual de
+Aplicación oficial de ANMAT ✅ (§8 B-11, detalle en `nutricion/NUTRICION.md §N6`).
 
-⚠️ El propio archivo advierte que los umbrales deberían contrastarse contra el texto del
-decreto **antes de publicitarlos como "los sellos oficiales"**. Nadie lo hizo. Ver §8.
+**Decisión del 31/8/2026 — el octógono resta puntos y no se muestra.** `sealPenalty()` sigue
+descontando en el puntaje; la app **no exhibe los octógonos ni afirma que el producto los
+tenga**. El motivo es estructural y está en `nutricion/NUTRICION.md §N5` (N-7): el método
+oficial calcula el nutriente *añadido* a partir de la **formulación** del producto, y
+Fitogenix solo tiene la **etiqueta**. Lo que el motor produce es por construcción una
+**aproximación** — y una aproximación exhibida como dato contrastable contra el envase es
+deshonesta, mientras que la misma aproximación alimentando un criterio declarado y opinable
+es legítima. Ese es el estatuto que queda.
+
+**Consecuencia operativa, y es la que hay que respetar:** ningún documento, prompt ni copy
+puede volver a describir el octógono como *"lo que el usuario puede contrastar mirando el
+envase"*. La vara de precisión deja de ser regulatoria y pasa a ser de discriminación —
+importa que el descuento ordene bien los productos, no que reproduzca la etiqueta. Las
+correcciones de B-11 **siguen valiendo**, porque cambian el puntaje.
+
+✅ **El campo `warnings` sigue en el contrato de respuesta** (`scoring/types.ts` →
+`ScoreBreakdown`) y se sostiene **deliberadamente**: es información verdadera y útil para
+curaduría y depuración. Sacarlo del payload es un cambio de contrato cross-repo y lo decide
+el agente arquitecto, no esta decisión. Lo que cambia es que **nadie lo renderiza**. El
+cliente hoy tampoco lo consume ✅ — `fitogenix-native` no tiene el campo en
+`src/lib/contracts/product.ts` ni una sola referencia a los octógonos (verificado el 31/8).
+Por la misma razón, la nota del paso nutricional **no nombra los octógonos**: describe el
+perfil desfavorable y su descuento ✅ `scoring/steps.ts` → `applyNutrition`.
 
 **Ojo con el nombre:** "sello" es ambiguo en este proyecto — los octógonos oficiales
 (§2.5) y el sello Fitogénico (§3.2) son cosas distintas. En documentos y prompts se
@@ -710,6 +731,7 @@ Ordenados por costo de seguir sin resolverlos.
 | 2026-08-31 | **🔴 N-7 nuevo, y es estructural: los octógonos de Fitogenix son necesariamente una aproximación.** El método oficial calcula el nutriente *añadido* desde la **formulación** del producto —receta con porcentajes y fichas técnicas del proveedor (Manual pág. 14-15)—. Fitogenix tiene la **etiqueta**: lista de ingredientes y panel por 100 g. Se puede saber que un ingrediente aporta azúcar, no *cuánto*. **Ninguna corrección de umbrales lo cambia**, y choca con lo que §2.5 le promete al usuario. Es decisión de producto, no nutricional | `nutricion/NUTRICION.md §N5` |
 | 2026-08-31 | **B-8 se cierra por corrección, no por trabajo: el bloqueante estaba mal descripto.** Decía que Redis puede servir puntajes viejos porque el prefijo de clave no está versionado. Es cierto lo del prefijo y falso lo del riesgo: `redisService` mete cada entrada en un **sobre** con la `ENGINE_VERSION` y descarta las que no coinciden ✅. El archivo explica por qué el sobre es mejor que la clave versionada. Encontrado al verificar si el bump de v2.2 alcanzaba para invalidar la caché | ✅ `src/services/redisService.ts` |
 | 2026-08-31 | **La suite se corrió, por primera vez desde que se documentó: 410 tests en 27 archivos, todos en verde, y `tsc --noEmit` limpio.** Cierra el *"416 tests en verde"* que arrastraba ⚠️ desde el 18/8 sin reproducir. El conteo estático del 28/8 (~345 `it()`) subestimaba: no contaba los casos generados dentro de tablas | `vitest run` + `npm ci` limpio sobre el `package-lock.json` de `d73f378` |
+| 2026-08-31 | **Decisión de producto — el octógono resta puntos y no se muestra** (§2.5 reescrita). Resuelve **N-7**, que era estructural: el cálculo oficial parte de la formulación y Fitogenix solo tiene la etiqueta, así que el octógono propio **es y va a seguir siendo una aproximación**. Exhibida como dato contrastable era deshonesta; alimentando un criterio declarado es legítima. Resuelve además **N-1** — ya no hay dos capas que servir con un solo cálculo, queda una. **El contrato no cambia:** `warnings` se sostiene, simplemente nadie lo renderiza. Hallazgo al verificar: el cliente **ya** no lo consumía, y la fuga real estaba en `steps[].detail`, que nombraba los octógonos uno por uno y viaja cacheado en Redis — por eso hay bump aunque el puntaje no cambie: `ENGINE_VERSION` → `ftg-rubric-v2.3` | ✅ grep en `fitogenix-native/src/` (0 referencias) · `scoring/steps.ts` → `applyNutrition` · 421 tests |
 
 ### Pendiente inmediato (fuera de este documento)
 

@@ -41,31 +41,39 @@ cruzarlo convierte a Fitogenix en algo que no es y que además no está habilita
 
 ---
 
-## §N2 — Las dos capas, y por qué no se pueden mezclar
+## §N2 — Las dos capas, y cómo quedaron reducidas a una
 
-Fitogenix produce **dos cosas distintas** sobre el mismo producto, y confundirlas es el
-error nutricional más caro que puede cometer:
+Fitogenix producía **dos cosas distintas** sobre el mismo producto, y confundirlas era el
+error nutricional más caro que podía cometer. Esta tabla es el encuadre que lo explica, con
+la columna del medio ya actualizada por la decisión del 31/8/2026:
 
 | | Los octógonos (§N3) | El puntaje Fitogénico (`CONTEXT.md §2`) |
 |---|---|---|
 | Qué es | Una **advertencia legal** definida por el Estado | Un **criterio propio** de la marca |
 | Quién lo define | Ley 27.642 / OPS | Fitogenix |
-| Puede verificarlo el usuario | **Sí**, mirando el envase ✅ `CONTEXT.md §2.5` | No |
-| Si nos equivocamos | El usuario ve un octógono que el paquete no tiene | Discrepamos, y es opinable |
+| Puede verificarlo el usuario | **No se le muestra** — desde el 31/8/2026 es insumo interno del puntaje ✅ `CONTEXT.md §2.5` | No |
+| Si nos equivocamos | Descontamos de más o de menos, y se nota en el puntaje | Discrepamos, y es opinable |
 
-**El octógono tiene que coincidir con el envase.** No con lo que a Fitogenix le parece
-nutricionalmente correcto: con lo que la ley obliga a imprimir. Es el único dato del
-producto que el usuario puede contrastar, y ahí no hay margen para tener razón por
-nuestra cuenta.
+**Hasta el 31/8/2026 la regla era: el octógono tiene que coincidir con el envase.** No con lo
+que a Fitogenix le parece nutricionalmente correcto, sino con lo que la ley obliga a imprimir,
+porque era el único dato del producto que el usuario podía contrastar.
 
-El puntaje, en cambio, **sí puede ser más exigente que la ley.** Es una postura de marca,
-está declarada, y es legítima mientras sea explícita.
+**Esa regla ya no rige, y la razón es N-7:** el cálculo no puede coincidir con el envase aunque
+queramos, porque parte de datos que no tenemos. La decisión de producto del 31/8 saca el
+octógono de la vista y lo deja **solo como descuento en el puntaje**. Con eso las dos capas
+dejan de ser dos: **queda una sola**, el criterio propio, y el octógono es un insumo suyo.
 
-> 🔴 **N-1 — Hoy las dos capas comparten un solo cálculo.** `computeWarningSeals()` produce
-> los octógonos que se le muestran al usuario **y** alimenta `sealPenalty()`, que resta en
-> el puntaje ✅ (`scoring/steps.ts` → `applyNutrition`). Mientras la ley y el criterio
-> coincidan, no se nota. Desde las disposiciones de 2024 (§N5) **pueden divergir**, y ahí un
-> solo cálculo no puede servir a los dos. Ver §N6.
+El puntaje **sí puede ser más exigente que la ley.** Es una postura de marca, está declarada, y
+es legítima mientras sea explícita. Al absorber al octógono, hereda esa misma licencia — y
+también la obligación de no presentarse nunca como un dato regulatorio.
+
+> ✅ **N-1 — Resuelto el 31/8/2026 por decisión de producto.** El problema era que
+> `computeWarningSeals()` servía a dos capas con un solo cálculo: los octógonos que se le
+> mostraban al usuario **y** el descuento de `sealPenalty()` ✅ (`scoring/steps.ts` →
+> `applyNutrition`). Mientras la ley y el criterio coincidieran no se notaba, y desde las
+> disposiciones de 2024 (§N5) podían divergir. **Se resolvió eliminando una de las dos capas,
+> no duplicando el cálculo:** el octógono ya no se muestra, así que el único consumidor es el
+> puntaje y un solo cálculo le alcanza.
 
 ---
 
@@ -193,8 +201,8 @@ Definiciones textuales del Manual:
 **Productos que no llevan rotulado frontal** (pág. 10): azúcar, aceites vegetales, **frutos
 secos** y sal común de mesa.
 
-> 🔴 **N-7 — El límite estructural que esto deja al descubierto, y es el hallazgo más
-> importante de todo el trabajo sobre octógonos.**
+> ✅ **N-7 — El límite estructural que esto dejó al descubierto, y la decisión que lo resuelve.**
+> Es el hallazgo más importante de todo el trabajo sobre octógonos.
 >
 > El método oficial calcula el nutriente **añadido** a partir de la **formulación del
 > producto** — la receta con porcentajes, las fichas técnicas del proveedor (pág. 14-15: el
@@ -206,19 +214,28 @@ secos** y sal común de mesa.
 > un ingrediente aporta azúcar, no *cuánto*.
 >
 > Es decir: **los octógonos que Fitogenix calcula son necesariamente una aproximación**, y
-> ninguna corrección de umbrales lo cambia. Eso choca con lo que `CONTEXT.md §2.5` le promete
-> al usuario —"el único dato que puede contrastar mirando el envase"— y es **decisión de
-> producto**, no nutricional: o se declara la aproximación en la app, o se muestran solo los
-> octógonos cuando la fuente los trae, o se acepta el margen sabiendo cuál es. Ver §N2.
+> ninguna corrección de umbrales lo cambia.
+>
+> **Resolución (Jere, 31/8/2026): el octógono resta puntos y no se muestra.** ✅ `CONTEXT.md
+> §2.5`. No se corrige la aproximación —no se puede—: se corrige **el uso que se le da**. Una
+> aproximación exhibida como dato contrastable contra el envase es deshonesta; la misma
+> aproximación alimentando un criterio declarado y opinable es legítima. La vara de precisión
+> pasa de regulatoria a **discriminativa**: importa que el descuento ordene bien los productos,
+> no que reproduzca la etiqueta. Las correcciones de B-11 siguen valiendo, porque cambian el
+> puntaje.
 
-> 🔴 **N-4 — El cambio está judicializado y profesionalmente cuestionado.** 📄 Hay demandas
-> contra ANMAT por "flexibilizar los criterios" y la Fundación Interamericana del Corazón
-> advierte que los productos van a llevar **menos sellos de los que deberían**. **Esto
-> convierte a §N2 en una decisión de producto, no técnica:** si la norma vigente y el
-> criterio de OPS divergen, Fitogenix elige cuál sigue cada capa. La recomendación del
-> agente es la de §N2 — el octógono sigue a la norma porque el usuario lo contrasta con el
-> envase; el puntaje puede seguir a la ciencia porque es criterio declarado — pero **quien
-> elige es producto (Jere), no el agente.**
+> 🟡 **N-4 — El cambio está judicializado y profesionalmente cuestionado, y ahora la elección
+> es libre.** 📄 Hay demandas contra ANMAT por "flexibilizar los criterios" y la Fundación
+> Interamericana del Corazón advierte que los productos van a llevar **menos sellos de los que
+> deberían**. Antes esto forzaba un dilema: si la norma vigente y el criterio de OPS divergen,
+> ¿a cuál sigue el octógono que se muestra?
+>
+> **La decisión del 31/8 disuelve el dilema y abre una pregunta mejor.** Como el octógono ya no
+> se muestra, **no hay ninguna obligación de seguir a la norma**: el cálculo sirve solo al
+> puntaje, y el puntaje puede seguir a la ciencia. Queda 🟡 porque la pregunta —¿el descuento
+> usa los cortes de la norma o los de OPS?— **todavía no se decidió**, y decidirla necesita la
+> publicación completa de OPS (§N7, fuente 1). Hoy el código usa los de la norma. **Quien elige
+> es producto (Jere), con dictamen del agente.**
 
 ---
 
@@ -310,6 +327,13 @@ sirviendo una semana.**
 > pocos productos, el proxy se queda y se documenta; si divergen en muchos, se corrige.
 
 ---
+
+> **Segundo bump el mismo día, y por un cambio que no toca ningún número.** La decisión de
+> producto (N-7) saca el octógono de la vista, y la nota del paso nutricional deja de
+> nombrarlo. Los desgloses cacheados con `v2.2` llevan el texto viejo *"Sellos de
+> advertencia: EXCESO EN …"* dentro de `steps[].detail`, que es texto de usuario: sin bump,
+> la decisión no llega al usuario hasta que venza el TTL. `ENGINE_VERSION` →
+> `ftg-rubric-v2.3`. ✅ `scoring/constants.ts`
 
 ## §N7 — Fuentes
 
