@@ -27,7 +27,7 @@ No se transcribe acá. Se cita:
 - El criterio Fitogénico y la severidad de ingredientes: `CONTEXT.md §2`.
 - Bandas, sello y estado — **fuente única `scoring/constants.ts`**, el cliente los recibe
   ya derivados y **nunca los recalcula**: `CONTEXT.md §3`, y en particular `§3.4`.
-- Modelo de negocio y freemium: `CONTEXT.md §4`.
+- Modelo de negocio: `CONTEXT.md §4.3` (**tier inicial gratuito — es el vigente**). `§4.2` describe el freemium futuro y **no es el MVP**.
 - Arquitectura de los dos repos y la frontera cliente↔backend: `CONTEXT.md §5.1`, `§5.2`.
 - **Stack del cliente y las restricciones que impone: `CONTEXT.md §5.8`.**
 - **Estado real de cada pantalla y de las features pendientes: `CONTEXT.md §1.6`.**
@@ -143,15 +143,32 @@ se ejecutó**. Las ocho que el documento anterior listaba como candidatas (`@exp
 | 2 | React Query + persister sobre AsyncStorage | No hay `@tanstack/*` en `package.json` ✅. Hoy la persistencia es AsyncStorage a mano en `scanResultStore.tsx` |
 | 3 | `git rm` de los dos shims muertos | `ScoreBreakdownSheet.tsx` (nadie lo importa, el propio archivo dice cómo borrarlo) y, cuando no queden imports, `domain/product/ftgEngine.ts` ✅ |
 
-**Pendiente 🔴 — bloqueado, no lo resuelvas solo:** el copy de `HelpScreen.tsx` le describe
-al usuario el motor v2 y la cascada retirada (`CONTEXT.md §1.6` C-14, `§8` B-13). El texto
-nuevo lo redacta UX y depende de que se cierre qué se dice de NOVA (`§8` B-4b). **No lo
-reescribas por criterio propio:** es copy de producto sobre cómo funciona el criterio.
+**Pendiente 🟡 — decidido el 31/8, esperando copy de UX. No arranques sin el texto.**
 
-**Cuando se implemente la cuota del lookup (`CONTEXT.md §4.3`, 🟡 decidido):** el cliente va
-a tener que manejar el estado de cuota agotada y el paywall. Hoy el endpoint es público y no
-descuenta nada — no implementes el paywall contra un contrato que todavía no existe; esperá
-a que Backend publique el contrato final.
+| # | Qué | Estado verificado hoy |
+|---|---|---|
+| 4 | **Pantalla de producto fuera de catálogo** (`CONTEXT.md §8` B-16) | El servidor devuelve 404 ✅, `client.ts` lo tipifica como `ProductNotInCatalogError` ✅, y **ningún archivo de la UI lo consume** ✅. El usuario no ve nada diseñado |
+| 5 | **El anónimo no persiste** (`CONTEXT.md §8` B-15) | `scanResultStore.tsx` hidrata `history` y `saved` desde AsyncStorage en un `useEffect` **al montar, sin mirar la sesión** ✅ |
+| 6 | **Copy de `HelpScreen.tsx`** (`CONTEXT.md §8` B-13) | **Ya no está bloqueado:** B-4b se cerró el 31/8 (NOVA se sostiene, `§2.4`). UX escribe el texto, vos lo implementás |
+
+**Cómo se implementa el 4.** Dos estados distintos, no uno: `ProductNotInCatalogError` →
+pantalla de fuera de catálogo, sin botón de reintentar (reintentar no cambia nada); error de
+red → mensaje de red **con** reintento. Salida clara a volver a escanear en los dos.
+Accesibilidad según `04-agente-qa.md` (contraste, área táctil ≥44pt, lector de pantalla).
+
+**Cómo se implementa el 5.** El anónimo escanea y ve el resultado; ese resultado vive en
+memoria de sesión — **no** se escribe en AsyncStorage ni se sincroniza con el backend — y se
+pierde al reiniciar. El historial de un anónimo muestra el estado vacío que redacte UX.
+**Al registrarse en esa misma sesión, sus escaneos se migran a su historial** (decisión del
+31/8, `CONTEXT.md §4.3`): re-emitir los lookups de la sesión con el token después del login,
+capeado a `MAX_HISTORY`. `recordScan` en el servidor es un upsert idempotente ✅
+(`lookup.ts`), así que re-emitir no duplica. **No inventes el patrón:**
+`migrateLocalSavedIfNeeded()` en ese mismo archivo ya resuelve la forma one-shot.
+
+**Lo que NO tenés que hacer, y no es un olvido:** no hay cuota ni paywall en el MVP. El tier
+inicial es gratuito y `POST /products/lookup` es abierto y sin límite ✅ (`CONTEXT.md §4.3`,
+decidido el 31/8). **No implementes estado de cuota agotada, contador de créditos ni
+paywall**, y si encontrás un documento que los pide como pendientes, está desactualizado.
 
 ---
 
@@ -181,7 +198,7 @@ Los eventos de producto son cómo el negocio mide activación, retención y conv
 |---|---|---|
 | `scan_started` | Se abre la cámara | `source` |
 | `scan_completed` | Se mostró un resultado | `data_source`, `score`, `latency_ms` |
-| `scan_failed` | No hubo resultado | `reason` — distinguí **producto fuera del catálogo** de error de red: son problemas distintos (`CONTEXT.md §5.3`) |
+| `scan_failed` | No hubo resultado | `reason` — distinguí **producto fuera del catálogo** de error de red: son problemas distintos (`CONTEXT.md §5.3`). ⚠️ **Este evento todavía no existe en el código** — cero coincidencias de `scan_failed` en `fitogenix-native/src/` ✅. Se implementa junto con la pantalla de fuera de catálogo (pendiente 4) |
 | `product_search` | Búsqueda por texto | `has_result` |
 | `paywall_viewed` | Se muestra el paywall | `trigger`, `credits_used` |
 | `upgrade_started` / `upgrade_completed` | Conversión | `plan` |
@@ -190,8 +207,14 @@ Reglas: cero PII · un solo módulo `src/analytics/` con una función tipada, nu
 disperso por pantallas · los eventos de conversión disparan exactamente una vez · si el
 usuario rechaza analytics, el módulo es no-op.
 
-Los tres eventos de paywall corresponden a la cuota 🟡 todavía no implementada: se
-instrumentan junto con ella, no antes.
+Los tres eventos de paywall (`paywall_viewed`, `upgrade_started`, `upgrade_completed`)
+**no corresponden al MVP**: no hay cuota ni paywall (`CONTEXT.md §4.3`). Quedan listados
+para el día que exista un tier pago; **no se instrumentan ahora**.
+
+**El `reason` de `scan_failed` es la métrica más valiosa del MVP.** Separar "fuera de
+catálogo" de "error de red" es lo que mide, con usuarios reales, cuánto le falta al catálogo
+— que es la palanca económica y estructural del producto (`CONTEXT.md §4.4`, `§5.3`). Si los
+dos casos caen bajo el mismo `reason`, ese dato se pierde y no se recupera después.
 
 ---
 

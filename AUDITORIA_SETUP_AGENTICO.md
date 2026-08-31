@@ -15,7 +15,7 @@ estado vigente: el estado vigente está en `CONTEXT.md §8`.
 | Hallazgo | Estado hoy |
 |---|---|
 | **C-01** — bandas mal en toda la documentación | **Cerrado**, con una corrección al propio hallazgo: la tabla acusaba a `03-agente-backend.md` de tener 85/70/50/25/0, pero esa copia **ya tenía los números correctos** (75/50/25/0, sin banda "Peligroso"). El diccionario sí estaba mal y se corrigió; `00-orquestador.md` los transcribía y hoy apunta a `CONTEXT.md §3` |
-| **C-02** — lookup público vs cuotas | **Decidido el 28/8/2026 (Jere): el lookup va con cuota.** Pasó de 🔴 a 🟡 — falta implementarlo. Ver `CONTEXT.md §4.3` y `§8` B-1 |
+| **C-02** — lookup público vs cuotas | **Cerrado el 31/8/2026 (Jere): el tier inicial es gratuito.** El lookup queda abierto y sin cuota, y **el código ya lo cumple** — pasó a ✅, sin gap de implementación. La decisión del 28/8 (que iba con cuota) quedó supersedida; el ida y vuelta está en `BITACORA_DECISIONES.md` ADR-003. Ver `CONTEXT.md §4.3` |
 | **C-03** — agentes citando archivos y tests que no existen | **Cerrado y verificado:** cero citas remanentes a `scoring.ts`, `ftgEngine.test.ts`, `scoring.test.ts` o `ftgEngine.regression.test.ts` en los 8 archivos |
 | **C-04** — `02-agente-frontend.md` describe la arquitectura pre-migración | **Cerrado:** el archivo se reescribió completo el 28/8/2026 contra `fitogenix-native` `b7715b8` |
 | **C-05** — estado mutable dentro de un system prompt | **Cerrado:** el plan de migración y el checklist fechado salieron de `00-orquestador.md`. Lo abierto vive en `CONTEXT.md §8`, la historia en `BITACORA_DECISIONES.md` |
@@ -24,9 +24,9 @@ estado vigente: el estado vigente está en `CONTEXT.md §8`.
 | §4 — el problema de datos sucios | **Sigue válido y sin avanzar.** Nadie corrió la auditoría sobre lo que ya está en la base; la cola de curaduría se sigue calculando y descartando (`CONTEXT.md §8` B-3) |
 | §5 — falta un dueño de la nutrición | **Sigue válido.** Es `CONTEXT.md §8` B-12, y la causa raíz de otros cuatro bloqueantes |
 | §6 — roster propuesto | **Sin ejecutar:** `architect` y `nutrition` siguen sin existir |
-| §7 — plan de acción | Pasos 1, 3, 4 y 5 **hechos**. Paso 2 **decidido**, sin implementar. Pasos 6 (harness LangGraph) y 7 (auditoría de `products`) **sin empezar** |
+| §7 — plan de acción | Pasos 1, 3, 4 y 5 **hechos**. Paso 2 **cerrado el 31/8** (tier gratuito; no había nada que implementar). Pasos 6 (harness LangGraph) y 7 (auditoría de `products`) **sin empezar** |
 
-**Dos hallazgos que esta auditoría no vio**, encontrados al verificar contra el código el
+**Dos hallazgos que esta auditoría no vio** — nombrarlos acá es la respuesta a la pregunta *"¿qué es C-14?"*: no es un cabo suelto, es el B-13 de `CONTEXT.md §8`, encontrados al verificar contra el código el
 mismo día y hoy en `CONTEXT.md §8`: **C-07** (la cascada `OFF→OBF→Edamam→Claude` seguía
 documentada como camino de request diez días después de retirarse) y **C-14** (el copy
 in-app le describe al usuario el motor v2 y esa misma cascada — la única deriva que llegó al
@@ -90,7 +90,12 @@ que las bandas se citan por puntero a `constants.ts`, nunca se transcriben.
 
 ---
 
-### 🔴 C-02 — El endpoint de lookup es público, pero el modelo freemium exige atribución
+### ~~🔴~~ ✅ C-02 — El endpoint de lookup es público, pero el modelo freemium exige atribución
+
+> **CERRADO el 31/8/2026 — no es trabajo pendiente.** El tier inicial es gratuito: el lookup
+> queda abierto y sin cuota, y el código ya lo cumple. `CONTEXT.md §4.3` y
+> `BITACORA_DECISIONES.md` ADR-003. Lo que sigue es el hallazgo original del 28/8, tal como
+> se escribió; **su "Acción" ya se ejecutó** y no hay que volver a decidir nada.
 
 - `00-orquestador.md`, sección de negocio: *"Cada análisis consumido debe poder atribuirse a un
   usuario para el descuento de crédito — esto condiciona el diseño de auth y de los endpoints."*
@@ -102,9 +107,11 @@ Las dos afirmaciones no pueden ser ciertas a la vez cuando se implemente el plan
 análisis/mes. Nadie la flagueó porque las cuotas todavía no existen (✅ verificado: no hay
 `user_quotas` ni ninguna referencia a créditos en `src/` ni en `migrations/`).
 
-**Acción:** es una decisión de producto tuya, no técnica. Las opciones son cuota por dispositivo
-para anónimos, límite anónimo más bajo sin cuenta, o forzar login al análisis N. Hasta que se
-decida, queda marcada 🔴 en el contexto, no resuelta por criterio de un agente.
+**Acción (del 28/8, ya ejecutada):** es una decisión de producto tuya, no técnica. Las opciones
+son cuota por dispositivo para anónimos, límite anónimo más bajo sin cuenta, o forzar login al
+análisis N. → **Resuelta el 31/8: ninguna de las tres.** El tier inicial es gratuito y no hay
+cuota; el anónimo escanea sin límite y sus escaneos migran a su historial si se registra en la
+misma sesión (ADR-003).
 
 ---
 
@@ -284,7 +291,7 @@ quién trabaja hoy en el proyecto además de vos.
 | # | Paso | Por qué en ese orden |
 |---|---|---|
 | 1 | **Corregir C-01** en diccionario, orquestador y backend | Es el número central del producto y hoy está mal en todos lados |
-| 2 | **Decidir C-02** (lookup público vs cuotas) | Es decisión de producto y condiciona el diseño de auth |
+| 2 | ~~**Decidir C-02**~~ ✅ **hecho el 31/8** — tier inicial gratuito, sin cuota (ADR-003) | Era decisión de producto; resuelta sin cambios de código |
 | 3 | Crear el SSOT único con punteros `§X` y marcas ✅/⚠️/🔴 | Elimina la causa raíz de C-01, C-03 y C-06 |
 | 4 | Reescribir `02-agente-frontend.md` | Es el que más miente hoy |
 | 5 | Sacar plan y estado del prompt del orquestador | C-05 |

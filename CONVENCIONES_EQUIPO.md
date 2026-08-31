@@ -120,5 +120,5 @@ always hit OFF first. Cache query→barcode so the second search is instant.
 
 - **Sin errores silenciosos.** Prohibido `.catch(() => {})`. Todo error se loguea con contexto y, en backend, se reporta a la observabilidad.
 - **Secretos server-only.** Ninguna API key sensible en el cliente. En Expo, solo variables `EXPO_PUBLIC_*` llegan al bundle; el resto es server-side.
-- **Fuente de verdad única.** La lógica de negocio (scoring, cuotas, umbrales) vive en el backend. El cliente renderiza, no recalcula.
+- **Fuente de verdad única.** La lógica de negocio (scoring, umbrales, y cualquier regla de consumo que exista en el futuro) vive en el backend. El cliente renderiza, no recalcula. *(Hoy no hay cuotas: el tier inicial es gratuito, `CONTEXT.md §4.3`.)*
 - **Tests donde hay lógica.** Funciones puras de dominio y servicios se testean. La UI se prueba con el Agente de QA (a11y + flujos).

@@ -19,9 +19,9 @@ El backend real es `fitogenix-server/` (Node.js + Fastify + TypeScript), separad
 
 **Bug 1 — Cache roto:** la tabla `products` no tenía `UNIQUE constraint` en `barcode`, el upsert fallaba con `42P10` y el error se tragaba en silencio. Resuelto en `migrations/001_product_cache.sql`. Superado además por la identidad por `id` (uuid) de `migrations/006_product_identity.sql` — ver la sección de Schema más abajo.
 
-**Bug 2 — Endpoints sin auth:** resuelto con `plugins/auth.ts` (`requireAuth`, valida el JWT contra Supabase `auth.getUser()`). Todas las rutas de usuario (`DELETE /users/me`, `/users/me/saved/*`, `/users/me/history`) lo usan. **Excepción deliberada hasta el 28/8/2026, hoy con fecha de vencimiento 🟡:** `POST /products/lookup` NO tiene `requireAuth` — los usuarios anónimos también pueden buscar productos (parte del producto: no forzar login para escanear). Si viene un Bearer token válido, el escaneo se registra en el historial en background; si no viene o es inválido, la búsqueda igual responde.
+**Bug 2 — Endpoints sin auth:** resuelto con `plugins/auth.ts` (`requireAuth`, valida el JWT contra Supabase `auth.getUser()`). Todas las rutas de usuario (`DELETE /users/me`, `/users/me/saved/*`, `/users/me/history`) lo usan. **`POST /products/lookup` NO tiene `requireAuth`, y eso es diseño del MVP ✅, no una excepción con fecha de vencimiento:** el tier inicial es gratuito, el endpoint es abierto y sin límite (`CONTEXT.md §4.3`, decidido el 31/8/2026). Si viene un Bearer token válido, el escaneo se registra en el historial en background; si no viene o es inválido, la búsqueda igual responde.
 
-**Esa excepción ya tiene fecha de vencimiento.** El 28/8/2026 se decidió que el lookup va con cuota (`CONTEXT.md §4.3`, `§8` B-1), así que el flujo anónimo ilimitado se retira. **Seguí sin tocar el endpoint hasta que el Orquestador libere el ticket**, pero por el motivo nuevo: no porque la excepción sea permanente, sino porque falta cerrar qué pasa con el usuario anónimo y publicar el contrato. Cualquier cambio de auth acá entra junto con la cuota, no antes y no suelto.
+**No le agregues auth a este endpoint.** No hay ticket, no hay gap, no hay 🟡. Durante meses esto se documentó como deuda —"excepción deliberada", "Bug 2"— y el 28/8/2026 se llegó a decidir lo contrario; el 31/8 se resolvió al revés y **el código ya cumple la decisión**. La historia está en `BITACORA_DECISIONES.md`; el estado vigente, en `CONTEXT.md §4.3`. Si un agente o un documento viejo te lo pide como pendiente, está desactualizado.
 
 **Bug 3 — Sin rate limiting:** resuelto con `@fastify/rate-limit` registrado globalmente en `main.ts` (60 req/min por defecto). Si un endpoint específico necesita un límite más estricto (ej. `/products/lookup` para frenar abuso de Claude), se define por ruta, no reemplazando el global.
 
@@ -315,21 +315,22 @@ foto en el producto (`CONTEXT.md §1.6`). La regla está escrita para cuando exi
 
 ---
 
-## Lógica de Cuotas Freemium (Supabase) — 🟡 decidido, no implementado
+## Lógica de Cuotas Freemium (Supabase) — **no es el MVP. No la implementes.**
 
-> **Estado ✅ verificado (28/8/2026):** nada de esta sección existe todavía. `grep` de
-> `user_quotas`, `credits_used` y `quota` en `src/` y `migrations/`: **cero coincidencias**.
-> `src/routes/products/lookup.ts` **no registra autenticación**.
+> **Decisión (Jere, 31/8/2026): el tier inicial es gratuito** (`CONTEXT.md §4.3`). El modelo
+> de tiers existe como concepto de producto; **la infraestructura de cuotas se implementa
+> cuando exista un tier pago, no antes.**
 >
-> **Decisión tomada (Jere, 28/8/2026): `POST /products/lookup` VA CON CUOTA.** Cierra C-02,
-> la contradicción que este archivo tenía con `00-orquestador.md`: los dos dicen ahora lo
-> mismo. Ver `CONTEXT.md §4.3` y `§8` B-1.
+> **Nada de esta sección es trabajo pendiente.** No hay ticket. No crees tablas, RPC, RLS,
+> columnas ni flags "para tenerlos listos": eso es código muerto, y código muerto con acceso
+> a la base es peor que código muerto. Estado ✅ verificado: `grep` de `user_quotas`,
+> `credits_used` y `quota` en `src/` y `migrations/` da **cero coincidencias**, y así se
+> queda.
 >
-> Lo que sigue es **el destino, no el presente**. Sos el dueño del contrato: escribilo y
-> publicalo antes de que Frontend implemente el paywall contra él. **Sub-decisión que sigue
-> abierta y que bloquea todo lo demás:** qué pasa con el usuario anónimo — cuota por
-> dispositivo, límite más bajo sin cuenta, o login forzado al análisis N. Es de producto, no
-> técnica: no la resuelvas por criterio propio.
+> Lo que sigue queda escrito para que el día que exista un tier pago no se rediseñe desde
+> cero. **Punto de extensión, en una línea:** el descuento entraría en el handler de
+> `src/routes/products/lookup.ts`, antes de la llamada a `lookupProduct` — ese es el único
+> lugar por el que pasa cada análisis. Nada más que eso existe hoy, y nada más debe existir.
 
 Con el modelo Freemium (10 análisis/mes en Free), el backend es el **único** dueño del contador de créditos. El cliente nunca decide si un análisis está permitido.
 

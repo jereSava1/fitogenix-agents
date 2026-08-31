@@ -58,19 +58,49 @@ Un 🟡 del proyecto (decidido, no implementado) es trabajo tuyo **antes** de qu
 código: los criterios de aceptación escritos por adelantado son lo que impide que el
 implementador defina el éxito después de haber implementado.
 
-**Cuota en `POST /products/lookup`** — decidido el 28/8/2026, sin una línea de código
-(`CONTEXT.md §4.3`, `§8` B-1). Estado de hoy ✅: el endpoint es público y no existe tabla de
-cuotas. Dejá especificados, como pendientes, al menos estos casos:
+> **Los siete casos de cuota que este archivo tenía quedaron sin objeto.** El 31/8/2026 se
+> decidió que **el tier inicial es gratuito** (`CONTEXT.md §4.3`): `POST /products/lookup` es
+> abierto y sin límite, y no hay cuota que testear. **No los reescribas.** Si aparece un tier
+> pago, se especifican entonces.
+
+### Anónimo y persistencia (`CONTEXT.md §8` B-15)
+
+Estado de hoy ✅: `scanResultStore.tsx` hidrata historial y guardados desde AsyncStorage al
+montar **sin mirar la sesión** — el anónimo persiste. El destino decidido es que no.
 
 | Caso | Qué tiene que pasar |
 |---|---|
-| Request sin token | El comportamiento que defina la sub-decisión del usuario anónimo. **Mientras esa sub-decisión no esté cerrada, este test no se puede escribir** — marcalo bloqueado, no lo inventes |
-| Usuario con cuota disponible | El análisis responde **y** el contador baja exactamente 1 |
-| Usuario sin cuota | No se ejecuta el análisis, no se gasta ni un token, y la respuesta trae el estado de cuota que el paywall necesita |
-| Dos requests en paralelo del mismo usuario con 1 crédito | **Solo uno** pasa. Es el test que prueba que el descuento es atómico y no un read-modify-write |
-| Hit servido 100% desde caché | Lo que decida producto (hoy "a confirmar" en `03-agente-backend.md`) — pero el test existe y falla hasta que la decisión se tome |
-| Cliente intentando escribir su propia fila de cuota | Rechazado por RLS |
-| Reseteo de período | El contador vuelve a cero sin borrar historial ni guardados |
+| Anónimo escanea | Ve el resultado completo, sin login, sin límite. Ninguna respuesta lo empuja a crear cuenta para **ver** |
+| Anónimo reinicia la app | Sus escaneos **no están**. Nada quedó en AsyncStorage y no se pidió nada al backend |
+| Historial de un anónimo | Estado vacío que explica que hay que crear cuenta para guardar. **No** una lista vacía sin explicación, **no** un paywall |
+| Logueado escanea y reinicia | Sus escaneos **sí** están: el backend es la verdad (`recordScan`), AsyncStorage es espejo de display |
+| **Anónimo→logueado en la misma sesión** | Los escaneos de la sesión **se migran** a su historial (decidido el 31/8). Verificá con el caso duro: escanear el mismo producto dos veces antes de registrarse debe dejar **una** entrada — `recordScan` es un upsert idempotente ✅ (`lookup.ts`) |
+| Anónimo→logueado, más escaneos que el cap | La migración respeta `MAX_HISTORY`; no explota ni trunca en silencio sin dejar el historial consistente |
+| Escritura de historial sin usuario | **Imposible por diseño** — verificalo igual: `/users/me/history` registra `requireAuth` y expone solo `GET` ✅, y `recordScan` solo corre con un `userId` resuelto ✅. Es un test de regresión sobre un agujero que hoy no existe |
+
+### Producto fuera de catálogo (`CONTEXT.md §8` B-16)
+
+Estado de hoy ✅: el servidor devuelve 404, `client.ts` lo tipifica como
+`ProductNotInCatalogError`, y **ningún archivo de la UI lo consume**.
+
+| Caso | Qué tiene que pasar |
+|---|---|
+| Escaneo de un producto que no está en el catálogo | Pantalla propia con el copy de UX. **Sin botón de reintentar**: reintentar no cambia nada |
+| Caída de red durante el escaneo | Mensaje **distinto**, **con** reintento. Este es el test que prueba que los dos casos no se confundieron en uno |
+| Salida | En los dos casos, camino claro a volver a escanear |
+| Accesibilidad de la pantalla nueva | Contraste, área táctil ≥44pt, lector de pantalla — el mismo checklist que el resto |
+| Analítica | `scan_failed` se emite con un `reason` que **separa** los dos casos. ⚠️ El evento hoy no existe en el código ✅ (cero coincidencias de `scan_failed` en `fitogenix-native/src/`): el test cubre su implementación |
+
+**Rechazá la implementación si los dos casos comparten mensaje o `reason`.** No es una
+sutileza de UX: es la métrica que dice cuánto le falta al catálogo, medida con usuarios
+reales, y si nace mal no se recupera hacia atrás.
+
+### Copy de `HelpScreen.tsx` (`CONTEXT.md §8` B-13)
+
+No es un test automatizable, es una verificación tuya antes de aprobar: el copy nuevo **no
+puede** decir que NOVA participa del puntaje (el motor v2.1 no lee `nova_group` ✅) ni
+prometer la cascada OFF→IA retirada el 18/8 ✅. Contrastalo contra `CONTEXT.md §2.2` y `§5.3`,
+no contra lo que el copy decía antes.
 
 Un test que no puede correr todavía **no es un test que no exista**: es un criterio de
 aceptación publicado. Escribilos como pendientes, con su bloqueante citado.

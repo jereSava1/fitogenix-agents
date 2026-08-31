@@ -33,6 +33,22 @@ Qué es y el criterio Fitogénico: `CONTEXT.md §1`, `§2`. Arquitectura y cache
 - TTL por naturaleza del dato: productos con dato real (`data_source` off/obf/edamam) viven 7 días (604800s), productos solo-IA (`data_source: 'ai'`) viven 3 días (259200s) porque son más volátiles, y el cache texto→barcode (`ftg:search:*`) vive 30 días (2592000s, no lleva score así que no le aplica la invalidación por engine).
 - Custodiás que la clave de caché sea correcta (barcode tal cual llega, query normalizada vía `normalizeQuery`) para no fragmentar ni colisionar entradas.
 
+### 3.b `audit-scores.ts` — la señal de calidad que nadie tenía documentada
+
+`scripts/audit-scores.ts` usa `nova_group` como **señal de calidad del puntaje**, no como
+input del motor: flaguea un producto NOVA 4 que puntúa ≥75, y un NOVA 1 que puntúa por
+debajo de 50 ✅ (los chequeos `nova_group === 4` y `=== 1`). Un desacuerdo entre la
+clasificación de procesamiento de OFF y el puntaje del motor v2.1 es la forma más barata que
+tiene el proyecto de detectar un puntaje probablemente mal.
+
+**Es tuyo mantenerlo**, y es la razón operativa más fuerte para conservar `nova_group` en la
+base — más fuerte que mostrarlo en la app. Ningún documento lo registraba hasta el
+31/8/2026. NOVA se sostiene por decisión de producto (`CONTEXT.md §2.4`): no propongas
+sacar la columna, la migración, los adapters ni los tipos.
+
+**Lo que la señal no es:** un gate. Hoy solo imprime. Si se convierte en gate, es cambio de
+contrato y se coordina con Backend y QA.
+
 ### 4. Invalidación por `ENGINE_VERSION` — dónde importa y dónde no (léelo antes de proponer una estrategia)
 
 **Supabase (`products`) NO necesita invalidación explícita.** `cacheService` guarda datos CRUDOS (`ingredients_text`, `nutriments`, `nova_group`, `additives_tags`), nunca el score. Cada lectura recompone el `FitogenixProduct` completo con `mapRawToProduct(raw)` (renombrada desde `mapOFFToProduct`, verificado en esta poda) usando el `ftgEngine` **vigente en ese momento** — así que un bump de `ENGINE_VERSION` se refleja automáticamente en el próximo hit de Supabase, sin tocar una sola fila. La columna `products.engine_version` es metadata de auditoría (qué versión escribió/refrescó la fila por última vez, útil para el Agente ETL al elegir qué recomputar en batch), no un gate de lectura.
@@ -54,7 +70,7 @@ Pricing de `claude-haiku-4-5-20251001` en la API de Anthropic (verificado agosto
 - System prompt compartido (~45-55 tokens) — cacheado, prácticamente gratis desde la segunda llamada en la ventana de cache.
 - `enrichWithAI`: prompt de usuario ~80-150 tokens (nombre + marca + campos pedidos) + `max_tokens: 300` de salida. Salida real casi siempre bastante menor a 300 (JSON acotado a 1-2 campos).
 - `aiLookupProduct`: prompt de usuario ~60-100 tokens + `max_tokens: 400` de salida.
-- Con esos órdenes de magnitud, el costo por llamada individual es fracciones de centavo — el volumen (decenas de miles de usuarios, freemium con 10 análisis/mes gratis) es lo que lo vuelve relevante, no el costo unitario.
+- Con esos órdenes de magnitud, el costo por llamada individual es fracciones de centavo — el **volumen** es lo que lo vuelve relevante, no el costo unitario. Y hoy el volumen no lo pone el usuario: Claude corre **solo en el batch del ETL** (`CONTEXT.md §5.3`, `§5.7`), no en el camino de request. El tier inicial es gratuito y sin cuota (`CONTEXT.md §4.3`), así que **no hay un tope de análisis por usuario que acote el gasto** — lo acota el catálogo, que es lo que hace de §4.4 la palanca real.
 
 **Lo que de verdad mueve el presupuesto a escala no es el precio por token, es la tasa de cache-hit del PRODUCTO** (Redis + Supabase evitando la llamada por completo): cada punto de cache-hit rate ahorrado es 100% del costo de esa request, no una fracción. Por eso el trabajo del Agente ETL (`06-agente-etl-data.md`, pre-poblar el catálogo antes de que un usuario real dispare la llamada) es, en la práctica, la palanca de costo más grande del sistema — más que cualquier ajuste de `max_tokens`. Coordinás con él para priorizar qué pre-poblar según qué está gastando más tokens en producción (logs de `product_lookup` con `source: 'ai'`).
 

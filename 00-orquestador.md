@@ -30,7 +30,7 @@ No se transcribe acá. Se cita, y el resto del equipo cita lo mismo:
 | Estado real de pantallas y features | `CONTEXT.md §1.6` |
 | Criterio Fitogénico, severidad, NOVA, octógonos | `CONTEXT.md §2` |
 | **Bandas, sello y estado** — fuente única `scoring/constants.ts` | `CONTEXT.md §3` |
-| Modelo de negocio, freemium, palanca de costo | `CONTEXT.md §4` |
+| Modelo de negocio y palanca de costo | `CONTEXT.md §4` — **el tier vigente es §4.3 (gratuito); §4.2 es futuro, no MVP** |
 | Arquitectura, resolución del lookup, caché, identidad, contrato | `CONTEXT.md §5` |
 | Selección de modelo de IA · stack del cliente | `CONTEXT.md §5.7` · `§5.8` |
 | Datos: fuentes, pipeline, calidad medida | `CONTEXT.md §6` |
@@ -124,7 +124,9 @@ la propia lista:
    equivocado, no como un bug. Es el alcance de `tareas/FTG-001-calidad-de-datos.md`.
 3. **B-13 — el copy in-app le describe al usuario un motor que ya no existe.** Es la única
    deriva que salió del repo y llegó a la pantalla.
-4. **B-1 — la cuota del lookup**, decidida y sin implementar (ver abajo).
+4. **B-15 / B-16 — dos huecos del cliente decididos el 31/8 y sin implementar** (ver abajo):
+   el anónimo persiste cuando no debería, y no hay pantalla para el producto fuera de
+   catálogo. Los dos necesitan copy de UX antes de que mobile los implemente.
 
 ---
 
@@ -133,17 +135,38 @@ la propia lista:
 Un 🟡 es una decisión firme con implementación pendiente. **No se habla de ellas en
 presente**, y al delegar decís siempre el estado de hoy y el destino.
 
-**🟡 `POST /products/lookup` VA A REQUERIR CUOTA** — decidido por Jere el 28/8/2026, sin
-implementar. Cierra la contradicción C-02,
-que era entre este archivo y `03-agente-backend.md`: los dos dicen ahora lo mismo.
+**🟡 El anónimo persiste, y la decisión dice que no debería** (`CONTEXT.md §8` B-15).
 
-- **Hoy ✅:** el endpoint es público, no registra autenticación, y no existe ninguna tabla
-  de cuotas ni descuento de créditos.
-- **Destino:** cada análisis **va a requerir** atribución y **va a descontar** cuota.
-- **Sub-decisión viva:** qué pasa con el usuario anónimo (cuota por dispositivo · límite más
-  bajo sin cuenta · login forzado al análisis N). Sin esto, el resto no se puede implementar.
-- Los siete ítems del alcance están en `CONTEXT.md §4.3`. El contrato lo escribe Backend;
-  los tests los deja preparados QA.
+- **Hoy ✅:** `scanResultStore.tsx` hidrata historial y guardados desde AsyncStorage al
+  montar, **sin mirar la sesión** — mismo camino para anónimo y logueado.
+- **Destino:** los escaneos de un anónimo viven en memoria de sesión, no se persisten ni se
+  sincronizan, y **se migran a su historial si se registra en esa misma sesión**.
+- **Delegación:** UX escribe el copy del estado vacío del historial; mobile implementa; QA
+  testea. El patrón de migración ya existe (`migrateLocalSavedIfNeeded()`), no se inventa.
+
+**🟡 No hay pantalla para producto fuera de catálogo** (`CONTEXT.md §8` B-16).
+
+- **Hoy ✅:** el servidor devuelve 404, `client.ts` lo tipifica como
+  `ProductNotInCatalogError`, y **ningún archivo de la UI lo consume**.
+- **Destino:** pantalla propia, distinta del error de red, con salida a volver a escanear.
+- **Delegación:** UX escribe el copy **primero** — mobile no implementa contra un texto
+  provisorio. QA audita accesibilidad y los dos eventos de analítica.
+
+---
+
+## Lo que ya NO es una decisión pendiente — no lo reabras
+
+**El tier inicial es gratuito y `POST /products/lookup` es abierto y sin límite**
+(`CONTEXT.md §4.3`, decidido el 31/8/2026). Esto es ✅ y **diseño del MVP, no deuda**: el
+código ya lo cumple, no hay ticket, no hay gap. Durante meses el endpoint público se
+documentó como excepción con fecha de vencimiento, y el 28/8 se llegó a decidir lo
+contrario. **Si un agente te propone ponerle auth o cuota al lookup, la respuesta es no** —
+y no hace falta escalarlo a Jere, ya está decidido. La infraestructura de cuotas se
+construye cuando exista un tier pago, no antes.
+
+**NOVA se sostiene** (`CONTEXT.md §2.4`, decidido el 31/8/2026). No se borra de la doc, del
+código ni de la base. Si un agente propone la limpieza de columna/migración/adapters/tipos,
+la respuesta es no.
 
 ---
 

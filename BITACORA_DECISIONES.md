@@ -170,3 +170,166 @@ Con el motor ya en `main`, se completó lo que quedaba pendiente de esta ADR y s
 - `fitogenix-native`: `b7715b8` (contrato v2.1 + baja de ScoreBreakdownSheet). Pusheado a `origin/main`.
 
 **Pendiente (menor, no bloqueante):** borrar `ScoreBreakdownSheet.tsx` y `ftgEngine.ts` (native) del repo — quedaron como stubs sin uso porque no se pudieron `git rm` en la sesión que hizo el cambio; y limpiar la rama local `agents/pre-deploy-command-for-render` (ya mergeada, el worktree ya se sacó).
+
+---
+
+## ADR-003: El tier inicial de Fitogenix es gratuito — el lookup queda abierto y sin cuota
+
+- **Fecha:** 2026-08-31
+- **Estado:** Aceptado
+- **Decididores:** Jere (producto)
+
+### Contexto
+
+`POST /products/lookup` nunca tuvo `requireAuth`. Durante meses eso se documentó como
+**deuda**: `03-agente-backend.md` lo llamaba "Bug 2 — excepción deliberada", y la auditoría
+del 28/8/2026 lo levantó como la contradicción **C-02**, porque `00-orquestador.md` afirmaba
+en paralelo que *"cada análisis consumido debe poder atribuirse a un usuario para el
+descuento de crédito"*. Las dos cosas no podían ser ciertas a la vez.
+
+**El 28/8/2026 se decidió cerrarla al revés de como queda ahora:** que el lookup fuera con
+cuota. Esa decisión se aplicó a la documentación (`CONTEXT.md §4.3` reescrita con siete
+ítems de gap, `§8` B-1 en 🟡, siete casos de test especificados en `04-agente-qa.md`) pero
+**nunca llegó a una línea de código**. Tres días después, al revisarla contra la etapa real
+del producto, se dio vuelta.
+
+Lo que hizo cambiar el criterio: el MVP tiene que validar el **criterio Fitogénico y la
+calidad del puntaje**. Cualquier fricción de login o de cuota puesta antes de esa validación
+mide otra cosa —conversión, tolerancia al paywall— y contamina justamente el dato que se
+está buscando. Además, el costo que la cuota iba a proteger ya no existe donde se creía: la
+cascada a Claude salió del camino de request el 18/8 (ADR-002, parte 2), así que un lookup
+no gasta tokens de IA. Lo que acota el gasto es el catálogo, no un tope por usuario.
+
+### Decisión
+
+**El tier inicial es gratuito.** `POST /products/lookup` es **abierto y sin límite de uso**:
+no requiere cuenta, no descuenta nada, no tiene cuota. El modelo de tiers sigue existiendo
+como concepto de producto; **la infraestructura de cuotas se implementa cuando exista un tier
+pago, no antes** — cero tablas, RPC, RLS, columnas o flags por adelantado.
+
+**Usuario anónimo:** puede escanear y ver resultados. Sus escaneos viven en la sesión y **se
+migran a su historial si se registra en esa misma sesión**; si cierra la app sin registrarse,
+se pierden. Esto cierra la sub-decisión que el 28/8 había quedado explícitamente abierta.
+
+**El encuadre cambia de deuda a diseño.** El endpoint público deja de tener fecha de
+vencimiento. Un agente que lo lea como bug va a proponer arreglarlo; no hay nada que arreglar.
+
+### Alternativas consideradas
+
+- **Lookup con cuota (la decisión del 28/8/2026).** Descartada: la infraestructura que exige
+  —descuento atómico, RLS, payload de paywall, reseteo por período— es cara, y protege un
+  costo de IA que el request ya no tiene. Medir conversión antes de validar el criterio es
+  medir la pregunta equivocada.
+- **Login obligatorio sin cuota.** Descartada: fricción sin contrapartida. El escaneo sin
+  cuenta es parte del valor, y el copy de la app ya se lo promete al usuario.
+- **Cuota solo para anónimos.** Descartada: es infraestructura de cuotas completa con un
+  caso menos, no una versión más barata.
+
+### Consecuencias
+
+- **Positivas:** cero trabajo de backend — el código ya cumple la decisión. Se cierra C-02
+  como ✅ en vez de arrastrar un 🟡. Se evita construir código muerto con acceso a la base.
+- **Negativas / costos:** se descarta trabajo de documentación del 28/8 hecho de buena fe
+  (§4.3 con sus siete ítems, siete casos de test de QA). **Sin límite por usuario no hay tope
+  natural de gasto** si aparece abuso — hoy lo contienen el rate limit global de 60 req/min y
+  el hecho de que un lookup no llame a IA; si eso cambia, la decisión se revisa.
+- **Neutras / seguimiento:** el único rastro admitido de la cuota es el **punto de extensión**
+  documentado en `03-agente-backend.md`: el descuento entraría en el handler de
+  `src/routes/products/lookup.ts`, antes de `lookupProduct`. Una línea, sin código.
+- **Queda pendiente en el cliente**, no en el servidor: hoy `scanResultStore.tsx` hidrata
+  desde AsyncStorage sin mirar la sesión, o sea el anónimo persiste. Ver `CONTEXT.md §8` B-15.
+
+**Supersede** la decisión del 2026-08-28 sobre C-02, que no llegó a tener ADR propio.
+
+---
+
+## ADR-004: NOVA se sostiene como vocabulario del producto, fuera del puntaje
+
+- **Fecha:** 2026-08-31
+- **Estado:** Aceptado
+- **Decididores:** Jere (producto)
+
+### Contexto
+
+El motor v2.1 (ADR-002) eliminó el modificador NOVA del cálculo: hoy penaliza **marcadores
+de ultraprocesado en el texto de ingredientes**, no `nova_group`. Pero el campo siguió vivo
+en todo lo demás, y la auditoría del 28/8 lo levantó como **C-09**: `DICCIONARIO_DOMINIO.md`
+lo declaraba componente del score, la app se lo nombra al usuario, y nadie sabía si el campo
+tenía que quedarse o irse. Se había propuesto una limpieza de código (columna, migración,
+adapters, tipos).
+
+Al mapearlo apareció el dato que faltaba: `scripts/audit-scores.ts` usa `nova_group` como
+**señal de calidad del puntaje** —flaguea un NOVA 4 que puntúa ≥75 y un NOVA 1 que puntúa
+por debajo de 50—, y **ningún documento lo registraba**.
+
+### Decisión
+
+**NOVA se sostiene. No se borra de ningún lado** — ni del código, ni de la base, ni de la
+documentación. Participa de tres formas, y ninguna es el puntaje: se ingiere y se persiste en
+`products.nova_group`; se expone como información en la entrada del motor; y es la señal de
+calidad de `audit-scores.ts`. **La limpieza de código propuesta queda descartada.**
+
+### Alternativas consideradas
+
+- **Retirarlo por completo** (columna, migración, adapters, tipos, copy). Descartada: se
+  perdería la señal de calidad de `audit-scores.ts`, que hoy es la forma más barata de
+  detectar un puntaje probablemente mal, y NOVA es vocabulario que el usuario reconoce.
+- **Reincorporarlo al puntaje.** Descartada: v2.1 lo sacó por una razón (ADR-002) y esta
+  decisión no la revisa. La composición del score sigue abierta como C-08 / `§8` B-4.
+
+### Consecuencias
+
+- **Positivas:** se cierra C-09 sin tocar código. La señal de calidad queda documentada por
+  primera vez, en `05-agente-datos.md`.
+- **Negativas / costos:** se sostiene un campo que el motor no lee, lo que va a volver a
+  parecer código muerto a quien lo mire sin contexto. Por eso está escrito con precisión en
+  `CONTEXT.md §2.4`, con las tres formas y sus archivos.
+- **Neutras / seguimiento:** desbloquea B-13 — el copy de `HelpScreen.tsx` estaba esperando
+  esta decisión y ahora se puede reescribir. **El copy actual afirma que NOVA cuenta para el
+  puntaje, y es falso:** se corrige, lo redacta UX.
+
+---
+
+## ADR-005: Pantalla propia para producto fuera de catálogo, distinta del error de red
+
+- **Fecha:** 2026-08-31
+- **Estado:** Aceptado
+- **Decididores:** Jere (producto)
+
+### Contexto
+
+El rediseño catalog-only del 18/8 (ADR-002, parte 2) hizo que un miss de catálogo devuelva
+`null` → 404 en vez de resolver contra OFF/IA. Eso abrió un hueco que quedó sin cubrir: el
+servidor devuelve el 404 con mensaje, `src/api/client.ts` lo tipifica como
+`ProductNotInCatalogError` — y **ningún archivo de la UI lo consume**. El usuario que escanea
+un producto que no está en el catálogo no ve nada diseñado.
+
+### Decisión
+
+Se muestra una **pantalla propia** con el sentido de *"Lo sentimos, el producto no está
+disponible para escanear por ahora. Probá con otro."* — eso es la intención, no el literal:
+**el copy final lo define el agente de UX.**
+
+La pantalla es **distinta del error de red**, y esa distinción no es cosmética: en el error
+de red reintentar sirve, en el fuera de catálogo no. Dos mensajes, dos comportamientos.
+
+El evento `scan_failed` tiene que separar los dos casos en su `reason`.
+
+### Alternativas consideradas
+
+- **Reutilizar el error genérico de red.** Descartada: le ofrece al usuario un reintento que
+  no puede funcionar, y borra la métrica de cobertura de catálogo.
+- **Volver a resolver contra OFF/IA en el miss.** Descartada: revierte ADR-002 parte 2, que
+  se tomó por latencia y costo.
+
+### Consecuencias
+
+- **Positivas:** el `reason` de `scan_failed` mide, con usuarios reales, cuánto le falta al
+  catálogo — probablemente el dato más valioso del MVP, y directamente la palanca de
+  `CONTEXT.md §4.4`.
+- **Negativas / costos:** una pantalla más que mantener, y un dato que va a ser incómodo de
+  mirar al principio.
+- **Neutras / seguimiento:** ⚠️ `scan_failed` **no existe hoy en el código**
+  (cero coincidencias en `fitogenix-native/src/`), aunque `02-agente-frontend.md` lo daba por
+  atado a esta distinción. Se implementa junto con la pantalla. Si los dos casos nacen
+  compartiendo `reason`, el dato no se recupera hacia atrás.

@@ -52,16 +52,63 @@ propuestas de UX escritas sobre la versión vieja**:
 | "Datos personales" es un botón sin acción | **Tiene pantalla propia**, más Privacidad y Ayuda |
 
 Lo que sigue pendiente y sí es trabajo tuyo: **notificaciones** (hoy abre un
-`Alert('Próximamente')`), **foto de etiqueta** (no existe, pero el copy de la Guía la
+`Alert('Próximamente')`) y **foto de etiqueta** (no existe, pero el copy de la Guía la
 promete — o se corrige el copy o se construye la feature: es tu decisión de producto, no del
-Frontend), y el estado de "producto fuera del catálogo" descrito arriba.
+Frontend).
 
-🔴 **No reescribas el copy de `HelpScreen.tsx` todavía.** Le describe al usuario el motor v2
-(cuatro componentes ponderados) y la cascada retirada — es la deriva más grave del proyecto
-porque la lee el usuario final (`CONTEXT.md §1.6` C-14, `§8` B-13). **El copy nuevo lo
-escribís vos**, pero está bloqueado hasta que se cierre qué se le dice al usuario sobre NOVA
-(`§8` B-4b): hoy la app le nombra NOVA como parte del puntaje y el motor no lo usa. Escribir
-el copy antes de esa decisión es reemplazar una afirmación falsa por otra.
+---
+
+## Tres piezas de copy que el producto está esperando de vos
+
+**No son propuestas: son decisiones tomadas el 31/8/2026 que están frenadas en tu escritorio.**
+Mobile no implementa ninguna de las tres hasta que entregues el texto. En las tres, el copy
+es el entregable — no un wireframe, no una recomendación.
+
+### 1. Producto fuera de catálogo (`CONTEXT.md §8` B-16)
+
+Hoy el usuario que escanea algo que no está en el catálogo **no ve nada diseñado**: el
+servidor devuelve 404, `client.ts` lo tipifica como `ProductNotInCatalogError`, y ningún
+archivo de la UI lo consume ✅.
+
+La intención decidida es *"Lo sentimos, el producto no está disponible para escanear por
+ahora. Probá con otro."* — **eso es el sentido, no el literal.** El texto final es tuyo.
+Restricciones:
+
+- **Sin culpar al usuario.** No escaneó mal; el catálogo no lo tiene todavía.
+- **No prometas que va a estar pronto** salvo que sea cierto, y no lo es: el catálogo se
+  puebla por ETL en batch, sin cola por pedido.
+- **Distinto del error de red.** Son dos mensajes, no uno: en el de red reintentar sirve, en
+  este no. Especificá los dos.
+- **Salida clara:** volver a escanear.
+- Contraste, área táctil ≥44pt y lector de pantalla según el checklist de `04-agente-qa.md`.
+
+### 2. Estado vacío del historial para un anónimo (`CONTEXT.md §8` B-15)
+
+Un usuario sin cuenta va a poder escanear y ver resultados (`§4.3`), pero sus escaneos viven
+en la sesión. El historial le tiene que explicar que **para guardar hay que crear cuenta** —
+sin bloquearlo, sin que parezca un error, y sin sonar a paywall: **no hay paywall**, la
+cuenta es gratis. Coordiná con el copy existente del FAQ *"¿Necesito una cuenta para escanear
+productos?"*, que ya dice lo correcto ✅ y con el que este texto no puede contradecirse.
+
+### 3. `HelpScreen.tsx` — el copy que le miente al usuario (`CONTEXT.md §8` B-13)
+
+**Ya no está bloqueado.** Estaba esperando la decisión sobre NOVA, y se tomó el 31/8: **NOVA
+se sostiene** (`CONTEXT.md §2.4`). Ahora se puede escribir. Dos FAQs a reescribir:
+
+- *"¿Cómo se calcula el puntaje?"* — hoy dice que el puntaje *"combina … el nivel de
+  procesamiento (NOVA) …"*. **Es falso:** el motor v2.1 no lee `nova_group` ✅. Lo que sí
+  hace es penalizar **marcadores de ultraprocesado en el texto de ingredientes**. NOVA se le
+  puede seguir nombrando al usuario como información del producto — se sostiene — pero **no
+  como componente del puntaje**. La composición real está en `CONTEXT.md §2.2`.
+- *"¿Por qué no encuentra mi producto?"* — hoy promete *"Buscamos primero en Open Food Facts
+  y completamos lo que falta con IA"*. Esa cascada se retiró el 18/8 ✅ (`CONTEXT.md §5.3`).
+  Hoy la respuesta honesta es que el producto todavía no está en el catálogo. **Este FAQ y
+  la pantalla del punto 1 tienen que decir lo mismo**, con las mismas palabras.
+
+⚠️ **Ojo con C-08:** la composición exacta del puntaje sigue abierta (`CONTEXT.md §8` B-4).
+Escribí el copy de modo que **no dependa de la ponderación** — describí qué mira el motor,
+no con cuánto peso cada cosa. Si sentís que no podés escribirlo sin eso, escalalo en vez de
+inventar un número.
 
 ---
 
@@ -115,7 +162,13 @@ Cuando el Orquestador te consulte sobre oportunidades de UX en el contexto de la
 
 ---
 
-## Gestión del Paywall
+## Gestión del Paywall — **no es el MVP, no lo diseñes todavía**
+
+> **El tier inicial es gratuito** (`CONTEXT.md §4.3`, decidido el 31/8/2026): el lookup es
+> abierto y sin límite, y **no hay paywall en el producto**. Lo que sigue es el diseño para
+> cuando exista un tier pago. **No es trabajo pendiente tuyo** — no lo priorices, no lo
+> propongas, y no diseñes contadores de crédito ni estados de cuota agotada contra un
+> contrato que no existe. Está acá para que el día que se active no se rediseñe desde cero.
 
 Con el modelo Freemium (10 análisis/mes en el plan Free), el paywall es parte del producto, no un obstáculo pegado encima. Tu trabajo es diseñar la transición Free → Plus de forma que **nunca interrumpa el flujo principal** de "escanear → ver resultado".
 
