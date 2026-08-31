@@ -100,12 +100,19 @@ de su Anexo I. **Las dos etapas tienen valores distintos**, no solo plazos disti
 | Calorías — alimentos | ≥ 300 kcal/100 g | **≥ 275 kcal/100 g** |
 | Calorías — bebidas | ≥ 50 kcal/100 ml | **≥ 25 kcal/100 ml** |
 
-> ⚠️ **Nivel de confianza de esta tabla, y por qué importa.** Está transcripta de un PDF del
-> Anexo I publicado por una editorial jurídica (F6), no del PDF oficial del BORA. **Cuatro
-> de las seis filas de la segunda etapa coinciden exactamente con el modelo de OPS** (§N4),
-> que es fuente primaria independiente — eso les da respaldo doble. **Las dos filas de
-> calorías no lo tienen**, porque OPS no define criterio de energía, y la condición
-> alternativa de sodio tampoco. Ver §N6.
+> ✅ **Tabla confirmada contra la calculadora oficial de ANMAT (F7)**, que es la
+> implementación de referencia del perfil. Su salida para una bebida:
+>
+> ```
+> Sodio mg/kcal   0,5   <1     N/A
+> Sodio mg/100g   10    <300
+> Calorías        21    <25    N/A
+> ```
+>
+> Confirma las dos filas que no tenían respaldo en OPS: **el sodio se evalúa por dos
+> condiciones separadas** y **el corte de calorías de bebidas es 25**. Sumado a las cuatro
+> filas que ya coincidían con OPS (§N4), la segunda etapa queda verificada por dos fuentes
+> independientes.
 
 **La segunda etapa es la vigente:** primera etapa a los 9 meses de la vigencia (15 para
 PyMEs), segunda a los 18 (24 para PyMEs), sobre un decreto de marzo de 2022 ✅.
@@ -207,28 +214,35 @@ Contrastado el 2026-08-31 contra `fitogenix-server` `415577c`.
 | Calorías — alimentos | ≥ 275 kcal/100 g | 275 | ✅ |
 | Calorías — bebidas | ≥ 25 kcal/100 ml | **70** | 🔴 **N-6** |
 
-> 🟡 **N-5 — Al sodio le falta la condición alternativa.** La norma marca el sello con
-> `≥1 mg/kcal` **o** `≥300 mg/100 g`; `seals.ts` implementa solo la primera. El efecto es
-> **sub-marcar**: un producto salado y muy calórico diluye su ratio y escapa al sello que el
-> envase sí lleva. Dos fuentes secundarias independientes coinciden en la condición (F5, F6)
-> y **ninguna primaria la contradice** — pero OPS tampoco la incluye, así que **no se toca el
-> código hasta tener el anexo del BORA.**
+> ✅ **N-5 — CERRADO el 31/8. Al sodio le faltaba la condición alternativa; se agregó.**
+> La norma marca el sello con `≥1 mg/kcal` **o** `≥300 mg/100 g`, y la calculadora oficial
+> las muestra en filas separadas. `seals.ts` implementaba solo la primera. Un snack salado y
+> muy calórico diluía su ratio (350/500 = 0,7) y escapaba a un sello que el envase sí lleva.
+> Corregido en `fitogenix-server`, con test de regresión.
 
-> 🔴 **N-6 — El umbral de calorías de bebidas no coincide, y el conflicto es interesante.**
-> La Tabla 1 dice `≥25 kcal/100 ml`; el código usa `70`. Setenta **no es ninguna de las dos
-> etapas** argentinas (50 y 25): es el valor final del modelo **chileno**. Parece un valor
-> tomado del país equivocado.
+> ✅ **N-6 — CERRADO el 31/8. El corte de calorías de bebidas era 70; la norma dice 25.**
+> Setenta **no es ninguna de las dos etapas** argentinas (50 y 25): es el valor final del
+> modelo **chileno**. Un número tomado del país equivocado.
 >
-> **Pero el código no está solo en su creencia.** `seals.test.ts` tiene un caso escrito por
-> el equipo —una gaseosa cola de 42 kcal/100 ml que espera **solo** `EXCESO EN AZÚCARES`—
-> que codifica una observación de góndola: una gaseosa real no lleva octógono de calorías.
-> Con el umbral en 25, sí lo llevaría.
+> **La resistencia venía de un test del propio equipo:** una gaseosa cola de 42 kcal/100 ml
+> que esperaba **solo** `EXCESO EN AZÚCARES`. Esa expectativa era una **suposición, no una
+> observación verificada** — la calculadora oficial devuelve `Calorías 21 <25`, así que a
+> 42 kcal la bebida lleva también el octógono de calorías. El test se corrigió y se
+> documentó por qué.
 >
-> **Entonces una de estas tres es falsa, y no sé cuál:** la transcripción de la Tabla 1, el
-> umbral del código, o la observación del test. Resolverlo **no requiere leer nada más**:
-> ANMAT publicó una **calculadora oficial** (F7). Cargar una gaseosa de 42 kcal/100 ml y ver
-> si devuelve el sello de calorías lo cierra en dos minutos, empíricamente. **Ese es el
-> siguiente paso, y es más barato que conseguir el anexo.**
+> **Con el umbral en 70 se dejaba de marcar toda la franja de 25 a 70 kcal/100 ml**: jugos,
+> saborizadas, gaseosas comunes. Es la categoría más grande del error.
+
+### Nota de despliegue — sin esto, la corrección no llega al usuario
+
+Los dos arreglos cambian `sealPenalty` y por lo tanto el puntaje. `products` guarda crudos y
+recompone en cada lectura (`CONTEXT.md §5.4`), así que Supabase se corrige solo — **pero
+Redis cachea el producto ya serializado hasta 7 días.**
+
+Por eso el fix incluye el bump de `ENGINE_VERSION` a `ftg-rubric-v2.2`. ✅ `redisService`
+guarda cada entrada dentro de un **sobre** con la versión que la generó y trata como MISS
+toda entrada cuya versión no coincida. **Sin el bump, los octógonos viejos se seguirían
+sirviendo una semana.**
 
 > 🟡 **N-6 — La excepción se implementa por proxy, no por el criterio legal.** El código
 > exime cuando *"ningún ingrediente tiene impacto"*; la ley exime a *"in natura e
@@ -254,24 +268,47 @@ están marcadas como tales en el lugar donde se usan.
 | F4 | **Disposición ANMAT 11362/2024** — InfoLEG `407673` | 2026-08-31 | Aprueba el Manual de Aplicación · no cambia valores · precisa intrínseco vs. añadido |
 | F5 | **Disposición ANMAT 11378/2024** — BORA `318799/20241226` | 2026-08-31 | **Publicidad, no criterio.** Deroga la Disp. 6924/22 |
 | F6 | **Anexo I del Decreto 151/2022** (PDF de editorial jurídica) · `aldiaargentina.microjuris.com/wp-content/uploads/2022/03/ANX_-Anexo-1-Decreto-151-2022.pdf` | 2026-08-31 | **La Tabla 1 con los valores de las dos etapas.** No es el PDF del BORA — ver la advertencia de §N3 |
-| F7 | **Calculadora oficial de ANMAT** — "Sistema de Sellos y Advertencias Nutricionales" (SIFEGA) | pendiente | **Oráculo empírico.** Resuelve N-6 sin leer normativa |
+| F7 | **Calculadora oficial de ANMAT** — "Sistema de Sellos y Advertencias Nutricionales" (SIFEGA) | **2026-08-31, corrida por Jere** | **Cerró N-5 y N-6.** Es la implementación de referencia del perfil: lo que decide es lo que el envase lleva |
+| F9 | **Anexo I de la Disposición ANMAT 11378/2024** · `IF-2024-139959417-APN-DRI#ANMAT`, 20/12/2024 · PDF del BORA en `nutricion/fuentes/` | 2026-08-31 | **Publicidad, no criterio.** Confirma F5 contra fuente primaria. Ver §N8 |
 | F8 | Chequeado · Infobae · Infoalimentos · saludables.com.ar 📄 | 2026-08-31 | Contexto de las disposiciones de 2024 y su cuestionamiento |
 
-### 🔴 Fuentes que faltan, en orden de costo/beneficio
+### Fuentes que todavía faltan
 
-1. **La calculadora de ANMAT (F7).** Lo más barato y lo que más desbloquea: cierra N-6
-   empíricamente, sin leer una línea de normativa.
-2. **Anexo I del Decreto 151/2022, PDF del BORA** — para confirmar la Tabla 1 contra la
-   fuente oficial y cerrar N-5 y N-6. Los anexos se publican en la edición web del BORA;
-   el aviso es `259690/20220323` y el documento es `IF-2022-27565868-APN-MS`.
-3. **Anexo II del Decreto 151/2022** (`IF-2022-24456831-APN-DNAIENT#MS`) — especificaciones
-   técnicas. Menos urgente ahora que sabemos que los umbrales están en el art. 6 y la
-   Tabla 1 del Anexo I, no en el II.
-4. **Manual de Aplicación** de la Disp. 11362/2024 (`IF-2024-135393117-APN-DLEIAER#ANMAT`)
-   — cierra N-3, el alcance real de la precisión intrínseco/añadido.
-5. **Modelo de Perfil de Nutrientes de OPS**, publicación completa (`iris.paho.org`) — el
-   fundamento científico de cada umbral, no solo el número.
+Ninguna bloquea un ticket abierto. Se buscan para subir el respaldo de 📄 a ✅, no para
+desbloquear.
+
+1. **Manual de Aplicación** de la Disp. 11362/2024 (`IF-2024-135393117-APN-DLEIAER#ANMAT`,
+   aviso BORA `318798/20241226`) — cierra **N-3**, el alcance real de la precisión
+   intrínseco/añadido. Es el único que todavía deja un 🔴 abierto.
+2. **Anexo I del Decreto 151/2022, PDF del BORA** (`IF-2022-27565868-APN-MS`, aviso
+   `259690/20220323`) — la Tabla 1 desde la fuente oficial. Hoy está confirmada por dos
+   fuentes independientes (editorial jurídica + calculadora), así que es respaldo, no
+   necesidad.
+3. **Modelo de Perfil de Nutrientes de OPS**, publicación completa (`iris.paho.org`) — el
+   fundamento científico de cada umbral, no solo el número. Es lo que hace falta para
+   auditar el criterio propio (§N2), no los octógonos.
 
 **Cómo se consiguen los del BORA:** el sitio bloquea la descarga automatizada (robots y
-403), así que hay que abrir el aviso en un navegador y guardar el PDF de anexos a mano. Una
-vez bajados van a `nutricion/fuentes/`, con el nombre del identificador `IF-…`.
+403), así que hay que abrir el aviso en un navegador y guardar el PDF a mano. Van a
+`nutricion/fuentes/` con el nombre de su identificador `IF-…`.
+
+---
+
+## §N8 — Reglas de publicidad: lo que le aplica a los fabricantes, y lo que nos espeja
+
+✅ Anexo I de la Disp. 11378/2024 (F9). **Estas reglas obligan a quien vende el producto, no
+a Fitogenix** — pero dos de sus prohibiciones son un espejo útil de nuestro propio límite
+(§N1), porque describen lo que el Estado considera una afirmación indebida sobre un
+alimento:
+
+- **2.2.9** — prohíbe *"promocionar que el consumo del alimento constituye una garantía de
+  salud"*.
+- **2.2.10** — prohíbe *"mensurar el grado de disminución de riesgo a contraer enfermedades
+  por el consumo del producto"*.
+- **2.2.5** — prohíbe invocar *"aprobaciones o recomendaciones de expertos, asociaciones
+  médicas, científicas o similares"*.
+
+Un puntaje alto de Fitogenix **no es** ninguna de esas tres cosas, y el copy tiene que
+seguir dejándolo claro. El criterio Fitogénico evalúa la lista de ingredientes de un
+producto; no promete salud, no cuantifica riesgo de enfermedad, y no se respalda en el aval
+de nadie. Es la misma línea de §N1, dicha por la norma.
