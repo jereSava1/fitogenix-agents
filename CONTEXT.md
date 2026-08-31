@@ -119,7 +119,7 @@ placeholder lo tomó Historial.
 | Notificaciones | Ítem de menú que abre `Alert('Próximamente')` (`ProfileScreen.tsx` → `handleMenuPress`) |
 | Foto de etiqueta | **No existe**, pero el copy de la Guía la promete: *"Buscá por nombre o fotografiá la etiqueta"* (`GuideScreen.tsx` → subtítulo del encabezado). Copy a corregir o feature a construir |
 | Alternativas de producto | No existe, y el campo `alternatives` **no sirve para eso**: es texto de ambigüedad por ingrediente ("aceite de girasol o soja") ✅ `scoring/types.ts` → campo `alternatives` de la entrada |
-| Sin tests en el cliente | ✅ cero archivos `*.test.ts` en `fitogenix-native/src/`; `vitest.config.ts` declara `passWithNoTests: true` a propósito — la lógica se testea en el servidor |
+| ~~Sin tests en el cliente~~ | **Ya no.** ✅ Desde el 31/8/2026 el cliente tiene suite propia: **49 tests en verde**, incluidos tests de UI con `@testing-library/react` + `jsdom` y `react-native` aliasado a `react-native-web`. La lógica de dominio sigue testeándose en el servidor; acá se testea presentación, guardas de persistencia y analítica |
 
 🟡 **C-14 — el copy in-app contradice al motor y al flujo.** `src/screens/HelpScreen.tsx`
 le dice al usuario dos cosas que ya no son ciertas (**decidido el 31/8 que se corrige**; el
@@ -140,35 +140,49 @@ usuario. Ver §8 B-13.
 productos?"* → *"No. Podés escanear y ver resultados sin crear una cuenta. La cuenta sirve
 para guardar tu historial y preferencias."* ✅ Coincide exactamente con §4.3.
 
-🟡 **El anónimo persiste hoy, y la decisión del 31/8 dice que no debería** (§4.3, §8 B-15).
-Estado de hoy ✅: `src/presentation/scanResultStore.tsx` hidrata `history` y `saved` desde
-AsyncStorage en un `useEffect` **al montar, sin mirar la sesión** — el mismo camino para
-anónimo y logueado. Destino: los escaneos de un anónimo viven en memoria de sesión, no se
-persisten en AsyncStorage ni se sincronizan con el backend, y **se migran a su historial si
-se registra en esa misma sesión**. El patrón de migración ya existe:
-`migrateLocalSavedIfNeeded()` en ese mismo archivo. El historial para un anónimo muestra un
-estado vacío que explica que hay que crear cuenta — **el copy lo define UX**.
+✅ **El anónimo ya no persiste — implementado y testeado el 31/8/2026** (§4.3, §8 B-15).
+Los escaneos de un usuario sin cuenta viven en memoria de sesión: no se leen ni se escriben
+en AsyncStorage, y se pierden al reiniciar. **Se migran a su historial si se registra en esa
+misma sesión**, re-emitiendo los lookups con el token — `recordScan` es un upsert
+idempotente, así que re-emitir no duplica. ✅ `src/presentation/scanResultStore.tsx` ·
+`src/presentation/anonScanMigration.ts`.
+
+**El deslogueo borra el disco explícitamente** (`multiRemove`). Es la parte con consecuencia
+de privacidad: como los efectos de persistencia ya no escriben `[]` al quedarse sin sesión,
+sin ese borrado el historial del que se desloguea le quedaría al siguiente que use el
+teléfono. Tiene test de regresión.
+
+🟡 **Lo único pendiente es el copy** del estado vacío del historial anónimo: el texto que hay
+es provisorio y vive aislado en `src/constants/scanCopy.ts`. **Lo define UX**
+(`01-agente-ux.md`).
 
 ✅ **El backend no tiene agujero por acá — verificado.** `recordScan` solo corre cuando
 `resolveUserIdFromToken` devuelve un `userId` (`lookup.ts`), y `/users/me/history` registra
 `requireAuth` y expone **solo `GET`** (`src/routes/users/history.ts`). No hay forma de
 escribir historial sin usuario. El cambio es exclusivamente del cliente.
 
-🟡 **Producto fuera de catálogo: el caso se detecta, pero se presenta como un error**
-(§5.3, §8 B-16). Estado de hoy ✅: el servidor devuelve `404` con un mensaje
-(`src/routes/products/lookup.ts`) y `lookupProduct()` devuelve **`null`** en el 404 — no lanza. `ProductNotInCatalogError` **no participa de este camino**: lo lanza únicamente `saveProductRemote()` al intentar guardar un producto que no está en el catálogo ✅.
+✅ **Producto fuera de catálogo: cartel propio — implementado y testeado el 31/8/2026**
+(§5.3, §8 B-16). El servidor devuelve `404` (`src/routes/products/lookup.ts`) y
+`lookupProduct()` devuelve **`null`** — no lanza. `ProductNotInCatalogError` **no participa
+de este camino**: lo lanza únicamente `saveProductRemote()` al guardar un producto que no
+está en el catálogo ✅.
 
-Los dos hooks de lookup (`useScanFlow`, `useProductSearch`) **sí distinguen** el `null` y
-ponen un mensaje propio ✅. Lo que falta no es la detección, es la presentación: en
-`useScanFlow` los dos casos caen en el mismo `state: "error"`, así que el usuario ve un ícono
-de alerta y un botón *"Volver a intentar"* para algo que reintentar no puede cambiar. Y el
-copy actual promete *"estamos sumando productos todo el tiempo — probá de nuevo más
-adelante"*, justo lo que la decisión prohíbe. Destino: estado propio, **distinto del error de
-red**, con salida a escanear otro producto. **El copy lo define UX.**
+`ProductNotInCatalogCard` se muestra sobre la cámara en `ScanScreen` y bajo la búsqueda en
+`HomeScreen`. **No es un cartel de error, y esa es toda la idea:** sin ícono de alerta, sin
+color de peligro, y con *"Escanear otro producto"* en vez de *"Volver a intentar"* — porque
+reintentar el mismo producto no cambia nada. Muestra además **qué** fue lo que no se
+encontró, que al escanear el usuario nunca tipeó. El error de red sigue siendo otro mensaje,
+con reintento.
 
-⚠️ **`scan_failed` no existe en el código.** `02-agente-frontend.md` lo da por atado a esa
-distinción; el grep en todo `fitogenix-native/src/` da cero. Es deriva doc↔código: o se
-implementa el evento, o el documento deja de darlo por hecho.
+🟡 **Lo único pendiente es el copy**, provisorio y aislado en `src/constants/scanCopy.ts`.
+**Lo define UX** (`01-agente-ux.md`).
+
+✅ **`scan_failed` existe desde el 31/8/2026.** Vive en `src/analytics/`, el primer módulo
+de analítica del cliente, con el contrato que `02-agente-frontend.md` ya tenía escrito: una
+sola función tipada, `snake_case`, cero PII, y **no-op real si el usuario rechaza analítica**.
+Registra `query` (el barcode o el nombre del producto), `queryKind` (`barcode` o `text`, con
+el mismo criterio de 8–14 dígitos del servidor), `reason`, `source` y `scannedAt` en ISO 8601
+UTC. ⚠️ **El sink todavía no está conectado a ningún SDK** — ver §8 B-17.
 
 ---
 
@@ -651,8 +665,9 @@ Ordenados por costo de seguir sin resolverlos.
 | **B-12** | ⚠️ **Sin dueño de la nutrición** (§7). Es la causa raíz de B-2, B-3, B-4 y B-11, no un ítem más de la lista | Jere: crear el rol o asumirlo |
 | **B-13** | 🟡 **C-14 — el copy in-app le miente al usuario** (§1.6, §2.4). El FAQ *"¿Cómo se calcula el puntaje?"* de `HelpScreen.tsx` nombra a NOVA como componente del puntaje (falso desde v2.1) y el FAQ *"¿Por qué no encuentra mi producto?"* promete la cascada OFF→IA retirada el 18/8. Es deriva doc↔código que llegó a la pantalla. **Ya no está bloqueado:** B-4b se cerró el 31/8 y NOVA se sostiene, así que el copy nuevo ya se puede escribir. Es cambio de código, no de documentación | ✅ `HelpScreen.tsx` → los dos FAQs | ux redacta el copy · mobile lo implementa |
 | **B-14** | 🟡 **La Fase 2 del plan está a medias y nadie lo anotó.** Las 8 dependencias sin usar **ya se eliminaron** ✅ (no están en `package.json`, cero usos). Siguen pendientes: `expo-image` instalada con cero imports ✅, y React Query ausente ✅ | Verificado 28/8 | mobile |
-| **B-15** | 🟡 **El anónimo persiste, y no debería** (§1.6, §4.3). `scanResultStore.tsx` hidrata historial y guardados desde AsyncStorage **al montar, sin mirar la sesión** ✅ — no distingue anónimo de logueado. Destino: los escaneos de un anónimo viven en memoria de sesión, no se persisten ni se sincronizan, y **se migran a su historial si se registra en esa sesión**. Decidido el 31/8 | ✅ `scanResultStore.tsx` → el `useEffect` de hidratación | mobile implementa · qa testea |
-| **B-16** | 🟡 **Fuera de catálogo se detecta, pero se le muestra al usuario como un error** (§1.6, §5.3). `lookupProduct()` devuelve `null` en el 404 ✅ y los dos hooks lo distinguen ✅ — pero en `useScanFlow` los dos casos caen en el mismo `state: "error"`, con ícono de alerta y botón *"Volver a intentar"*, y el copy promete que el producto va a estar pronto. Decidido el 31/8: estado propio, distinto del error de red. **El copy lo define UX** | ✅ `client.ts` → `lookupProduct` · `useScanFlow.ts` | ux redacta el copy · mobile implementa · qa testea |
+| ~~**B-15**~~ | ✅ **Cerrado el 31/8/2026: el anónimo ya no persiste.** Implementado y testeado — sin sesión no se lee ni se escribe AsyncStorage, y el deslogueo borra el disco con `multiRemove` (la parte con consecuencia de privacidad, con test de regresión). La migración anónimo→logueado re-emite los lookups con token. **Queda 🟡 solo el copy** del estado vacío, a cargo de UX | ✅ `scanResultStore.tsx` · `anonScanMigration.ts` · 7 tests | ux escribe el copy |
+| ~~**B-16**~~ | ✅ **Cerrado el 31/8/2026: cartel propio de fuera de catálogo.** `ProductNotInCatalogCard` en `ScanScreen` y `HomeScreen`, con estado separado del error de red, sin ícono de alerta y con *"Escanear otro producto"* en vez de reintentar. Emite `scan_failed` con el `reason` distinguido. **Queda 🟡 solo el copy**, a cargo de UX | ✅ `ProductNotInCatalogCard.tsx` · `useScanFlow.ts` · 8 tests | ux escribe el copy |
+| **B-17** | ⚠️ **La analítica no tiene a dónde reportar.** `src/analytics/` existe y emite `scan_failed` ✅, pero **no hay SDK conectado**: sin `setAnalyticsSink()` en el arranque, los eventos se descartan. Es el mismo hueco que B-10 en el backend, ahora también en el cliente. Mientras siga así, la métrica de cobertura de catálogo **no se está midiendo** | ✅ `src/analytics/index.ts` | Jere elige la herramienta · mobile la conecta |
 
 ---
 
@@ -677,6 +692,9 @@ Ordenados por costo de seguir sin resolverlos.
 | 2026-08-31 | **Decisión 3 — pantalla de producto fuera de catálogo.** Nuevo §8 B-16, documentado en §1.6. Hallazgo al verificar: `scan_failed`, que `02-agente-frontend.md` daba por atado a esa distinción, **no existe en el código** | ✅ `client.ts` · `lookup.ts` · grep en `fitogenix-native/src/` |
 | 2026-08-31 | **Corrección de un error de esta misma sesión, y anterior a ella.** Se había escrito que el 404 del lookup se tipifica como `ProductNotInCatalogError` y que nadie lo consume. **Es falso:** `lookupProduct()` devuelve `null`, y ese error lo lanza solo `saveProductRemote()`. El caso fuera-de-catálogo **sí se detecta** en los dos hooks; lo que fallaba era la presentación y el copy. El error venía de `REALINEACION_REPORTE.md` (28/8), que ató `scan_failed` a `ProductNotInCatalogError`, y se propagó sin verificarse contra el call site | ✅ `client.ts` → `lookupProduct` / `saveProductRemote` · `useScanFlow.ts` · `useProductSearch.ts` |
 | 2026-08-31 | **Nuevo §8 B-15 — el anónimo persiste y no debería.** `scanResultStore.tsx` hidrata desde AsyncStorage sin mirar sesión. Se cierra además la sub-decisión que el 28/8 quedó viva: los escaneos de la sesión **se migran** al historial si el anónimo se registra en esa sesión. Verificado que el backend no acepta escrituras de historial sin usuario | ✅ `scanResultStore.tsx` · `users/history.ts` (requireAuth, solo GET) |
+| 2026-08-31 | **B-15 y B-16 cerrados: el código, no solo la documentación.** El anónimo ya no persiste, el deslogueo borra el disco con `multiRemove`, y la migración anónimo→logueado re-emite los lookups con token. Fuera de catálogo tiene cartel propio, separado del error de red. **Queda 🟡 solo el copy de las dos pantallas**, a cargo de UX | ✅ `scanResultStore.tsx` · `anonScanMigration.ts` · `ProductNotInCatalogCard.tsx` · `useScanFlow.ts` |
+| 2026-08-31 | **Primer módulo de analítica del cliente (`src/analytics/`) y `scan_failed` implementado.** Una sola función tipada, `snake_case`, cero PII, no-op real sin consentimiento. El evento registra el barcode o nombre del producto, su tipo, el motivo, el origen y la fecha del escaneo. **Nuevo B-17:** el sink no está conectado a ningún SDK, así que la métrica de cobertura de catálogo todavía no se mide | ✅ `src/analytics/index.ts` · `analytics-events.ts` |
+| 2026-08-31 | **El cliente dejó de no tener tests: 49 en verde.** `@testing-library/react` + `jsdom`, con `react-native` aliasado a `react-native-web` (que ya era dependencia). No se usó `@testing-library/react-native`: necesita `react-test-renderer`, deprecado en React 19, y que el runner transforme el Flow sin transpilar de `react-native`. **Testea render web, no plataforma nativa** — no reemplaza device ni Detox | ✅ `vitest.config.ts` · 5 archivos de test |
 | 2026-08-31 | **La suite se corrió, por primera vez desde que se documentó: 410 tests en 27 archivos, todos en verde, y `tsc --noEmit` limpio.** Cierra el *"416 tests en verde"* que arrastraba ⚠️ desde el 18/8 sin reproducir. El conteo estático del 28/8 (~345 `it()`) subestimaba: no contaba los casos generados dentro de tablas | `vitest run` + `npm ci` limpio sobre el `package-lock.json` de `d73f378` |
 
 ### Pendiente inmediato (fuera de este documento)

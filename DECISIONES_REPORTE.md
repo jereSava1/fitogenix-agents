@@ -198,9 +198,87 @@ perder datos del usuario en silencio: orden de re-emisión, cap conservando las 
 tolerancia a fallas, y que la re-emisión sea en serie y no en paralelo. El módulo recibe el
 `lookup` por parámetro justamente para poder testearse sin React Native ni red.
 
-⚠️ **Lo que no tiene test:** las guardas de persistencia y el `multiRemove` del `SIGNED_OUT`.
-Testearlas requiere renderizar el Provider, y `@testing-library/react-native` no está
-instalado. Agregarlo es una decisión de Jere, no una que corresponda tomar de costado.
+~~⚠️ Lo que no tiene test~~ → **cerrado el mismo día.** Ver §5.b: se instaló la librería de
+testing de UI y las guardas de persistencia, incluido el `multiRemove` del `SIGNED_OUT`,
+tienen 7 casos propios.
+
+
+---
+
+## 5.b · Segunda tanda del 31/8 — lo que quedaba abierto del código
+
+Los tres pendientes que este reporte había dejado marcados se cerraron el mismo día.
+
+### `scan_failed` existe (`src/analytics/`)
+
+Primer módulo de analítica del cliente, con el contrato que `02-agente-frontend.md` ya tenía
+escrito: **una sola función tipada**, `snake_case`, cero PII, y **no-op real** si el usuario
+rechaza analítica — no encola ni manda después.
+
+El evento registra:
+
+| Campo | Qué es |
+|---|---|
+| `query` | El barcode escaneado o el nombre del producto tipeado |
+| `queryKind` | `barcode` o `text`, con el mismo criterio de 8–14 dígitos del servidor |
+| `reason` | `out_of_catalog` o `network_error` — **la distinción es el punto del evento** |
+| `source` | `scan` o `search` |
+| `scannedAt` | Fecha y hora del escaneo, ISO 8601 en UTC |
+
+Clasificar la query no es adorno: la métrica "cuánto le falta al catálogo" se lee distinto si
+viene de alguien escaneando en la góndola o de alguien tipeando un nombre a mano.
+
+⚠️ **Nuevo bloqueante, B-17: el sink no está conectado a ningún SDK.** El módulo emite y
+descarta. Es el mismo hueco que B-10 en el backend, ahora también en el cliente — y mientras
+siga así, **la métrica no se está midiendo**. Conectarlo es una línea en el arranque
+(`setAnalyticsSink()`), pero primero hay que elegir la herramienta.
+
+### El cartel
+
+`ProductNotInCatalogCard`, sobre la cámara en `ScanScreen` y bajo la búsqueda en
+`HomeScreen`. **No es un cartel de error, y esa es toda la idea:** sin ícono de alerta, sin
+color de peligro, y con *"Escanear otro producto"* en vez de *"Volver a intentar"*.
+
+Muestra además **qué** fue lo que no se encontró — al escanear el usuario nunca tipeó el
+código, así que sin eso no sabe cuál producto faltó.
+
+En Home reemplaza el renglón rojo debajo del input, que hacía pasar por falla del usuario
+algo que es una falta del catálogo.
+
+### Testing de UI, y el hueco de privacidad que ahora sí tiene test
+
+`@testing-library/react` + `jsdom`, con `react-native` **aliasado a `react-native-web`** —
+que ya era dependencia del proyecto, porque `npm run build` exporta para web.
+
+**Por qué no `@testing-library/react-native`:** necesita `react-test-renderer` (deprecado en
+React 19) y que el runner transforme el código Flow sin transpilar del paquete
+`react-native`, cosa que Jest hace con su preset de Babel y Vite/esbuild no.
+
+**Lo que este setup testea:** estructura, copy, roles de accesibilidad, handlers y estado.
+**Lo que no:** nada específico de la plataforma nativa — medidas reales, gestos, módulos
+nativos. No reemplaza device ni Detox, y la config lo dice para que nadie lo lea como más
+cobertura de la que da.
+
+**49 tests en verde**, `tsc --noEmit` limpio, `expo lint` sin errores (queda un warning
+preexistente de `useRef` sin usar en `ScoreDial.tsx`):
+
+| Archivo | Casos | Qué protege |
+|---|---|---|
+| `anonScanMigration.test.ts` | 14 | Orden de re-emisión, cap, tolerancia a fallas, serie vs paralelo |
+| `analytics.test.ts` | 13 | Forma del payload de `scan_failed`, consentimiento, sink que lanza |
+| `ProductNotInCatalogCard.test.tsx` | 8 | Copy, que **no prometa** que el producto va a estar pronto, acción correcta, rol de alerta |
+| `useProductSearch.test.tsx` | 7 | Que fuera-de-catálogo y error-de-red no se confundan, ni en UI ni en analítica |
+| `scanResultStore.test.tsx` | 7 | Las guardas de persistencia — **incluido el borrado del disco en `SIGNED_OUT`** |
+
+Ese último cierra el ⚠️ que este reporte había dejado en §5. Es la única parte del cambio con
+consecuencia de privacidad: como los efectos de persistencia ya no escriben `[]` al quedarse
+sin sesión, sin el `multiRemove` explícito el historial del que se desloguea le quedaría al
+siguiente que use el teléfono. Ahora tiene test de regresión.
+
+**Efecto colateral del `npm install`, para que no sorprenda:** se agregaron los bindings
+linux de `rolldown` junto al darwin, que sigue presente. La suite ahora corre en macOS y en
+Linux — lo que también significa que la nota vieja de *"npm test falla por el binding nativo
+de rolldown"* queda definitivamente cerrada.
 
 ---
 
@@ -277,7 +355,7 @@ espera de revisión.
 | 5 | Consistencia entre agentes | Los 8 dicen lo mismo sobre las tres decisiones |
 | 6 | Estados | 0 🔴 sin puntero a §8 · 0 🟡 escritos en presente · los ✅ citan archivo |
 | 7 | Tests | Server **410/410** ✅ · Native **14/14** ✅ · `tsc` limpio en los dos |
-| 8 | El código nuevo tiene tests | **Parcial** ⚠️ — la migración anónimo→logueado sí; las guardas de persistencia y el borrado en `SIGNED_OUT` no (falta `@testing-library/react-native`) |
+| 8 | El código nuevo tiene tests | ✅ **49 en verde.** Migración anónima, guardas de persistencia, borrado en `SIGNED_OUT`, cartel de fuera de catálogo, camino de búsqueda y payload de `scan_failed` |
 
 ---
 
@@ -304,13 +382,15 @@ catálogo, estado vacío del historial anónimo, y los dos FAQs de `HelpScreen.t
 
 **Nuevo, y esperando decisión:**
 
-1. **`scan_failed` no existe.** Es la métrica que dice cuánto le falta al catálogo medido con
-   usuarios reales — probablemente el dato más valioso del MVP. Quedaron TODOs en los cuatro
-   call sites en vez de inventar el módulo `src/analytics/`, que `02-agente-frontend.md` ya
-   tiene contratado.
-2. **`@testing-library/react-native`**, o el cliente se queda sin poder testear su UI.
-3. **`REVISION_diff_rescate.md`** quedó en `Desktop/Fitogenix project/` para revisión. Se
+1. **B-17 — elegir la herramienta de analítica y conectar el sink.** `scan_failed` ya se
+   emite con todo lo que hace falta, pero sin SDK los eventos se descartan: la métrica de
+   cobertura de catálogo **no se está midiendo todavía**. Es la única cosa que separa "el
+   evento existe" de "el dato existe".
+2. **`REVISION_diff_rescate.md`** quedó en `Desktop/Fitogenix project/` para revisión. Se
    puede borrar.
+
+~~`@testing-library/react-native`~~ → resuelto: se instaló `@testing-library/react` + `jsdom`
+con alias a `react-native-web`. Ver §5.b.
 
 **Del entorno agéntico (Fases 2–6):** sin empezar. La Fase 1 era la precondición — construir
 la orquestación sobre documentación que todavía decía "va con cuota" habría horneado el error

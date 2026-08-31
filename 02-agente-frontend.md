@@ -110,13 +110,22 @@ spinner eterno ni un "algo salió mal". Coordinalo con UX (`01-agente-ux.md`).
   Ver `src/presentation/scanResultStore.tsx`.
 
 ### Tests
-- Runner Vitest, entorno `node`, `include: src/**/*.test.ts`.
-- **Hoy no hay ningún test en el cliente, y es deliberado:** `vitest.config.ts` declara
-  `passWithNoTests: true` porque la lógica de dominio vive en el servidor, que tiene su
-  suite. No lo leas como permiso general: cualquier función pura nueva que escribas acá
-  (formateo, agrupación, normalización de vista) sí lleva test.
-- Testear componentes requiere sumar `@testing-library/react-native`: consultá al
-  Orquestador antes.
+- Runner Vitest. `include: src/**/*.test.ts` **y `*.test.tsx`**. Entorno `node` por
+  defecto; los tests de UI declaran `jsdom` con el docblock `@vitest-environment jsdom`.
+- **Sí se testea UI, desde el 31/8/2026.** `@testing-library/react` + `jsdom`, con
+  `react-native` **aliasado a `react-native-web`** en `vitest.config.ts` — `react-native-web`
+  ya era dependencia del proyecto (`npm run build` exporta para web).
+- **Por qué no `@testing-library/react-native`:** necesita `react-test-renderer` (deprecado
+  en React 19) y que el runner transforme el código Flow sin transpilar del paquete
+  `react-native`, cosa que Jest hace con su preset de Babel y Vite/esbuild no.
+- **Lo que este setup testea y lo que no.** Testea estructura, copy, roles de accesibilidad,
+  handlers y estado. **No testea nada específico de la plataforma nativa** — medidas reales,
+  gestos, módulos nativos. No reemplaza device ni Detox; no lo presentes como si lo hiciera.
+- La lógica de dominio sigue viviendo en el servidor, que tiene su suite. Pero cualquier
+  función pura nueva que escribas acá (formateo, agrupación, normalización de vista), y
+  cualquier componente con reglas de producto adentro, **sí llevan test**.
+- `passWithNoTests: true` se queda: hay carpetas sin tests todavía, y no queremos que eso
+  rompa el pre-push.
 
 ### Nunca
 - Recalcules el puntaje, la banda, el sello o el estado. Llegan derivados (`CONTEXT.md §3.4`).
@@ -149,23 +158,27 @@ se ejecutó**. Las ocho que el documento anterior listaba como candidatas (`@exp
 
 | # | Qué | Estado verificado hoy |
 |---|---|---|
-| 4 | **Estado propio para producto fuera de catálogo** (`CONTEXT.md §8` B-16) | El servidor devuelve 404 y `lookupProduct()` devuelve `null` ✅. Los dos hooks lo detectan ✅ — pero en `useScanFlow` comparte `state: "error"` con el fallo de red, con ícono de alerta y *"Volver a intentar"* ✅ |
-| 5 | **El anónimo no persiste** (`CONTEXT.md §8` B-15) | `scanResultStore.tsx` hidrata `history` y `saved` desde AsyncStorage en un `useEffect` **al montar, sin mirar la sesión** ✅ |
+| ~~4~~ | ✅ **Fuera de catálogo — hecho el 31/8.** `ProductNotInCatalogCard` con estado propio, separado del error de red, y `scan_failed` emitido. Queda 🟡 el copy, de UX |
+| ~~5~~ | ✅ **El anónimo no persiste — hecho el 31/8.** Más el borrado del disco en `SIGNED_OUT` y la migración anónimo→logueado. Queda 🟡 el copy del estado vacío, de UX |
 | 6 | **Copy de `HelpScreen.tsx`** (`CONTEXT.md §8` B-13) | **Ya no está bloqueado:** B-4b se cerró el 31/8 (NOVA se sostiene, `§2.4`). UX escribe el texto, vos lo implementás |
+| 7 | **Conectar el sink de analítica** (`CONTEXT.md §8` B-17) | `src/analytics/` emite `scan_failed` ✅ pero **no hay SDK**: sin `setAnalyticsSink()` en el arranque los eventos se descartan. Jere elige la herramienta; vos la conectás en un solo lugar |
 
-**Cómo se implementa el 4.** Dos estados distintos, no uno: `lookupProduct()` devuelve
-`null` → estado de fuera de catálogo, sin reintento del mismo producto (no cambia nada);
-`lookupProduct()` lanza → mensaje de red **con** reintento. Salida clara a volver a escanear en los dos.
-Accesibilidad según `04-agente-qa.md` (contraste, área táctil ≥44pt, lector de pantalla).
+**Cómo quedaron implementados el 4 y el 5** (para que un refactor no los deshaga):
+`lookupProduct()` devuelve `null` → `state: "not-found"` y `ProductNotInCatalogCard`, sin
+reintento del mismo producto; `lookupProduct()` lanza → `state: "error"` y mensaje de red
+**con** reintento. Todo el texto vive en `src/constants/scanCopy.ts` para que cambiar el copy
+no toque lógica. Accesibilidad según `04-agente-qa.md` (contraste, área táctil ≥44pt, lector
+de pantalla).
 
-**Cómo se implementa el 5.** El anónimo escanea y ve el resultado; ese resultado vive en
-memoria de sesión — **no** se escribe en AsyncStorage ni se sincroniza con el backend — y se
-pierde al reiniciar. El historial de un anónimo muestra el estado vacío que redacte UX.
-**Al registrarse en esa misma sesión, sus escaneos se migran a su historial** (decisión del
-31/8, `CONTEXT.md §4.3`): re-emitir los lookups de la sesión con el token después del login,
-capeado a `MAX_HISTORY`. `recordScan` en el servidor es un upsert idempotente ✅
-(`lookup.ts`), así que re-emitir no duplica. **No inventes el patrón:**
-`migrateLocalSavedIfNeeded()` en ese mismo archivo ya resuelve la forma one-shot.
+**La guarda que más fácil se rompe:** los efectos de persistencia de `scanResultStore.tsx`
+no escriben sin sesión, así que el handler de `SIGNED_OUT` **tiene que borrar el disco a
+mano** (`multiRemove`). Si alguien saca ese borrado, el historial del que se desloguea le
+queda al siguiente que use el teléfono. Hay test de regresión; no lo borres con el código.
+
+**`scan_failed` se emite desde los dos hooks de lookup**, nunca desde una pantalla, y siempre
+vía `trackScanFailed()` — así la clasificación de la query y el timestamp se deciden en un
+solo lugar. `reason` separa `out_of_catalog` de `network_error`: **si los unificás, se pierde
+la métrica de cobertura de catálogo y no se recupera hacia atrás** (`CONTEXT.md §4.4`).
 
 **Lo que NO tenés que hacer, y no es un olvido:** no hay cuota ni paywall en el MVP. El tier
 inicial es gratuito y `POST /products/lookup` es abierto y sin límite ✅ (`CONTEXT.md §4.3`,

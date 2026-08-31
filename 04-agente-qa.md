@@ -65,8 +65,9 @@ implementador defina el éxito después de haber implementado.
 
 ### Anónimo y persistencia (`CONTEXT.md §8` B-15)
 
-Estado de hoy ✅: `scanResultStore.tsx` hidrata historial y guardados desde AsyncStorage al
-montar **sin mirar la sesión** — el anónimo persiste. El destino decidido es que no.
+✅ **Implementado y testeado el 31/8/2026** (7 casos en `scanResultStore.test.tsx`). Los casos
+de abajo quedan como criterio de aceptación. **El que más importa es el último**: es el único
+con consecuencia de privacidad.
 
 | Caso | Qué tiene que pasar |
 |---|---|
@@ -77,12 +78,15 @@ montar **sin mirar la sesión** — el anónimo persiste. El destino decidido es
 | **Anónimo→logueado en la misma sesión** | Los escaneos de la sesión **se migran** a su historial (decidido el 31/8). Verificá con el caso duro: escanear el mismo producto dos veces antes de registrarse debe dejar **una** entrada — `recordScan` es un upsert idempotente ✅ (`lookup.ts`) |
 | Anónimo→logueado, más escaneos que el cap | La migración respeta `MAX_HISTORY`; no explota ni trunca en silencio sin dejar el historial consistente |
 | Escritura de historial sin usuario | **Imposible por diseño** — verificalo igual: `/users/me/history` registra `requireAuth` y expone solo `GET` ✅, y `recordScan` solo corre con un `userId` resuelto ✅. Es un test de regresión sobre un agujero que hoy no existe |
+| **Deslogueo** | El historial y los guardados **se borran del disco**, no solo del estado. Los efectos de persistencia ya no escriben `[]` al quedarse sin sesión, así que sin un `multiRemove` explícito el historial del que se desloguea le queda al siguiente que use el teléfono ✅ cubierto |
 
 ### Producto fuera de catálogo (`CONTEXT.md §8` B-16)
 
-Estado de hoy ✅: el servidor devuelve 404 y `lookupProduct()` devuelve `null` (no lanza —
-`ProductNotInCatalogError` es de `saveProductRemote`, otro camino). Los dos hooks lo
-detectan, pero comparte estado de UI con el error de red.
+✅ **Implementado el 31/8/2026.** El servidor devuelve 404 y `lookupProduct()` devuelve
+`null` (no lanza — `ProductNotInCatalogError` es de `saveProductRemote`, otro camino).
+`ProductNotInCatalogCard` tiene estado propio, separado del error de red, y emite
+`scan_failed`. **Los casos de abajo ya están cubiertos** por 8 tests del cartel + 7 del
+camino de búsqueda; quedan como criterio de aceptación para no perderlos en un refactor.
 
 | Caso | Qué tiene que pasar |
 |---|---|
@@ -90,7 +94,7 @@ detectan, pero comparte estado de UI con el error de red.
 | Caída de red durante el escaneo | Mensaje **distinto**, **con** reintento. Este es el test que prueba que los dos casos no se confundieron en uno |
 | Salida | En los dos casos, camino claro a volver a escanear |
 | Accesibilidad de la pantalla nueva | Contraste, área táctil ≥44pt, lector de pantalla — el mismo checklist que el resto |
-| Analítica | `scan_failed` se emite con un `reason` que **separa** los dos casos. ⚠️ El evento hoy no existe en el código ✅ (cero coincidencias de `scan_failed` en `fitogenix-native/src/`): el test cubre su implementación |
+| Analítica | `scan_failed` se emite con un `reason` que **separa** los dos casos ✅ implementado y testeado. Registra además el barcode o nombre del producto, su tipo, el origen y la fecha. ⚠️ **El sink no está conectado a ningún SDK** (`CONTEXT.md §8` B-17): el evento se emite y se descarta. Mientras siga así, el dato **no se está midiendo** — no lo des por cubierto |
 
 **Rechazá la implementación si los dos casos comparten mensaje o `reason`.** No es una
 sutileza de UX: es la métrica que dice cuánto le falta al catálogo, medida con usuarios
@@ -98,7 +102,12 @@ reales, y si nace mal no se recupera hacia atrás.
 
 ### Copy de `HelpScreen.tsx` (`CONTEXT.md §8` B-13)
 
-No es un test automatizable, es una verificación tuya antes de aprobar: el copy nuevo **no
+Ahora **sí es parcialmente automatizable**: desde el 31/8 el cliente tiene
+`@testing-library/react` + `jsdom` con `react-native` aliasado a `react-native-web`
+(`vitest.config.ts`). Testea copy, estructura, roles de accesibilidad y handlers — **no
+testea nada de la plataforma nativa**, así que no lo presentes como cobertura de device.
+
+Lo que sigue siendo verificación tuya antes de aprobar: el copy nuevo **no
 puede** decir que NOVA participa del puntaje (el motor v2.1 no lee `nova_group` ✅) ni
 prometer la cascada OFF→IA retirada el 18/8 ✅. Contrastalo contra `CONTEXT.md §2.2` y `§5.3`,
 no contra lo que el copy decía antes.
