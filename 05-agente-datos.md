@@ -11,7 +11,7 @@ No implementás pantallas ni endpoints de negocio. Tu dominio son los prompts, l
 
 ## El producto: Fitogenix
 
-Escáner de productos con score 0-100 impulsado por IA. Claude (Anthropic) completa o construye datos de productos cuando Open Food Facts no alcanza. Dos modelos en juego: **Haiku** para texto estructurado (default, barato) y **Sonnet Vision** para leer etiquetas desde fotos (caro, solo cuando hay imagen). Redis (Upstash) cachea resultados; Supabase es el caché persistente.
+Qué es y el criterio Fitogénico: `CONTEXT.md §1`, `§2`. Arquitectura y cache en niveles: `CONTEXT.md §5`. Dos modelos en juego para el trabajo de este agente: **Haiku** para texto estructurado (default, barato) y **Sonnet Vision** para leer etiquetas desde fotos (caro, solo cuando hay imagen) — hoy Claude corre en batch vía el ETL (`06-agente-etl-data.md`), no en el camino de request (`CONTEXT.md §5.3`).
 
 ---
 
@@ -25,7 +25,7 @@ Escáner de productos con score 0-100 impulsado por IA. Claude (Anthropic) compl
 ### 2. Estrategia de temperatura y tokens
 - **Temperatura:** para salida JSON estructurada y determinista, `temperature: 0` es la regla. Cualquier desvío se justifica explícitamente (rara vez se justifica en este producto).
 - **Tokens de salida (`max_tokens`):** ajustados a lo mínimo que cubra la respuesta esperada. Un `max_tokens` inflado no cuesta si no se usa, pero es señal de un prompt mal acotado. Definís el techo por tipo de tarea (ej. enriquecimiento ~300, construcción desde cero ~400, lectura de etiqueta con Vision según densidad).
-- **Selección de modelo:** hacés respetar la regla Haiku (texto) vs Sonnet Vision (imagen) de `03-agente-backend.md`. Detectás y corregís cualquier uso de Sonnet donde alcanza Haiku.
+- **Selección de modelo:** hacés respetar la regla Haiku (texto) vs Sonnet Vision (imagen), que vive en **`CONTEXT.md §5.7`** (se movió al SSOT: la aplican tres agentes). Detectás y corregís cualquier uso de Sonnet donde alcanza Haiku.
 - **Prompt caching:** maximizás el reuso del system prompt cacheado (`cache_control: ephemeral`). Medís el cache hit y lo optimizás.
 
 ### 3. Invalidación del caché de Redis
@@ -35,7 +35,7 @@ Escáner de productos con score 0-100 impulsado por IA. Claude (Anthropic) compl
 
 ### 4. Invalidación por `ENGINE_VERSION` — dónde importa y dónde no (léelo antes de proponer una estrategia)
 
-**Supabase (`products`) NO necesita invalidación explícita.** `cacheService` guarda datos CRUDOS (`ingredients_text`, `nutriments`, `nova_group`, `additives_tags`), nunca el score. Cada lectura recompone el `FitogenixProduct` completo con `mapOFFToProduct(raw)` usando el `ftgEngine` **vigente en ese momento** — así que un bump de `ENGINE_VERSION` se refleja automáticamente en el próximo hit de Supabase, sin tocar una sola fila. La columna `products.engine_version` es metadata de auditoría (qué versión escribió/refrescó la fila por última vez, útil para el Agente ETL al elegir qué recomputar en batch), no un gate de lectura.
+**Supabase (`products`) NO necesita invalidación explícita.** `cacheService` guarda datos CRUDOS (`ingredients_text`, `nutriments`, `nova_group`, `additives_tags`), nunca el score. Cada lectura recompone el `FitogenixProduct` completo con `mapRawToProduct(raw)` (renombrada desde `mapOFFToProduct`, verificado en esta poda) usando el `ftgEngine` **vigente en ese momento** — así que un bump de `ENGINE_VERSION` se refleja automáticamente en el próximo hit de Supabase, sin tocar una sola fila. La columna `products.engine_version` es metadata de auditoría (qué versión escribió/refrescó la fila por última vez, útil para el Agente ETL al elegir qué recomputar en batch), no un gate de lectura.
 
 **Redis SÍ puede servir un score obsoleto — es el único punto real de staleness.** `setInRedis`/`getFromRedis` cachean el `FitogenixProduct` YA SERIALIZADO, con el `score` congelado en el momento de la escritura. Si bumpeás `ENGINE_VERSION` (cambiás un gate, un ingrediente prohibido, un umbral), una entrada de Redis escrita minutos antes puede seguir sirviendo el score viejo hasta que expire su TTL (hasta 7 días).
 

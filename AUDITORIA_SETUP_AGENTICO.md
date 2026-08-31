@@ -5,6 +5,39 @@
 > `fitogenix-server` y `fitogenix-native`.
 > Todo lo marcado ✅ se verificó contra el código en esta sesión. Lo ⚠️ no.
 
+## ⚠️ Estado de esta auditoría al 28/8/2026 — leer antes de usar cualquier hallazgo
+
+Este documento es del **28/8/2026 a la mañana** y fue el punto de partida de dos tandas de
+trabajo posteriores (`PODA_REPORTE.md` y la realineación del mismo día). **Varios de sus
+hallazgos ya están cerrados, y al menos uno era incorrecto en su origen.** No lo cites como
+estado vigente: el estado vigente está en `CONTEXT.md §8`.
+
+| Hallazgo | Estado hoy |
+|---|---|
+| **C-01** — bandas mal en toda la documentación | **Cerrado**, con una corrección al propio hallazgo: la tabla acusaba a `03-agente-backend.md` de tener 85/70/50/25/0, pero esa copia **ya tenía los números correctos** (75/50/25/0, sin banda "Peligroso"). El diccionario sí estaba mal y se corrigió; `00-orquestador.md` los transcribía y hoy apunta a `CONTEXT.md §3` |
+| **C-02** — lookup público vs cuotas | **Decidido el 28/8/2026 (Jere): el lookup va con cuota.** Pasó de 🔴 a 🟡 — falta implementarlo. Ver `CONTEXT.md §4.3` y `§8` B-1 |
+| **C-03** — agentes citando archivos y tests que no existen | **Cerrado y verificado:** cero citas remanentes a `scoring.ts`, `ftgEngine.test.ts`, `scoring.test.ts` o `ftgEngine.regression.test.ts` en los 8 archivos |
+| **C-04** — `02-agente-frontend.md` describe la arquitectura pre-migración | **Cerrado:** el archivo se reescribió completo el 28/8/2026 contra `fitogenix-native` `b7715b8` |
+| **C-05** — estado mutable dentro de un system prompt | **Cerrado:** el plan de migración y el checklist fechado salieron de `00-orquestador.md`. Lo abierto vive en `CONTEXT.md §8`, la historia en `BITACORA_DECISIONES.md` |
+| **C-06** — contexto de negocio duplicado en los 8 | **Cerrado:** los 8 citan `CONTEXT.md §X` en vez de transcribir |
+| §3 — hechos de dominio verificados | **Siguen válidos**, salvo *"416 tests en verde"*, que sigue **sin reproducir**. Conteo estático del 28/8: 27 archivos de test, ~345 casos `it()`. La suite no se pudo correr |
+| §4 — el problema de datos sucios | **Sigue válido y sin avanzar.** Nadie corrió la auditoría sobre lo que ya está en la base; la cola de curaduría se sigue calculando y descartando (`CONTEXT.md §8` B-3) |
+| §5 — falta un dueño de la nutrición | **Sigue válido.** Es `CONTEXT.md §8` B-12, y la causa raíz de otros cuatro bloqueantes |
+| §6 — roster propuesto | **Sin ejecutar:** `architect` y `nutrition` siguen sin existir |
+| §7 — plan de acción | Pasos 1, 3, 4 y 5 **hechos**. Paso 2 **decidido**, sin implementar. Pasos 6 (harness LangGraph) y 7 (auditoría de `products`) **sin empezar** |
+
+**Dos hallazgos que esta auditoría no vio**, encontrados al verificar contra el código el
+mismo día y hoy en `CONTEXT.md §8`: **C-07** (la cascada `OFF→OBF→Edamam→Claude` seguía
+documentada como camino de request diez días después de retirarse) y **C-14** (el copy
+in-app le describe al usuario el motor v2 y esa misma cascada — la única deriva que llegó al
+usuario final).
+
+**Sobre sus mediciones de tamaño:** la estimación de que los archivos pesan "entre 5,6 KB y
+25,5 KB" quedó ~22% por debajo de lo medido después. No se investigó de dónde salió la
+diferencia; se reporta.
+
+---
+
 ## Resumen ejecutivo
 
 1. **El setup es bueno.** Mejor de lo que suele encontrarse: identidad, responsabilidades

@@ -15,7 +15,13 @@
 > |---|---|
 > | ✅ | Verificado contra el código en esta sesión. Se nombra el archivo. |
 > | ⚠️ | Declarado en algún `.md` del setup, sin confirmar contra código ni con el cliente. |
+> | 🟡 | **Decidido, no implementado.** Se nombra quién decidió, cuándo, y qué falta para que sea ✅. |
 > | 🔴 | Contradicción abierta entre fuentes. No la resuelve un agente por criterio propio. |
+>
+> Un ✅ sin ruta de archivo no es ✅: es 🔴 hasta que se verifique. Un 🟡 **nunca se escribe
+> en presente** — se escribe como destino ("va a requerir"), con el estado de hoy al lado.
+> Un ⚠️ es distinto de un 🟡: ⚠️ es *no verificado*, 🟡 es *verificado como ausente y ya
+> decidido*.
 >
 > **Sesión de verificación:** 2026-08-28, contra `~/fitogenix-server` (`main`, `a0428bd`)
 > y `~/fitogenix-native` (`main`, limpio). Una marca ✅ vale para ese commit; si el código
@@ -71,6 +77,50 @@ Ingreso (nombre o barcode) → resolución **contra el catálogo propio** → re
 producto con el motor vigente → pantalla de resultado.
 ✅ `src/services/productLookupService.ts`. **Ya no hay cascada a proveedores externos en
 el camino de request** — ver §5.3 y el 🔴 C-07 en §8.
+
+### §1.6 Estado real de la app — pantallas y features
+
+Lo necesitan UX (qué rediseñar), Frontend (qué existe) y QA (qué auditar). **Envejece
+rápido:** verificado contra `fitogenix-native` `b7715b8`, y se re-verifica antes de citarlo
+como vigente.
+
+| Pantalla | Estado | Ruta |
+|---|---|---|
+| Inicio (búsqueda por nombre) | Funcional ✅ | `src/screens/HomeScreen.tsx` · tab `index` |
+| Historial ("Mis productos": recientes + guardados) | Funcional ✅ | `src/screens/HistoryScreen.tsx` · tab `historial` |
+| Escanear (cámara / código de barras) | Funcional ✅ | `src/screens/ScanScreen.tsx` |
+| Resultado | Funcional ✅ — la más trabajada | `src/screens/ScanResultScreen.tsx` |
+| Guía (contenido estático) | Funcional ✅ | `src/screens/GuideScreen.tsx` |
+| Perfil | Funcional ✅ | `src/screens/ProfileScreen.tsx` |
+| Datos personales · Privacidad · Ayuda | Funcionales ✅ | `personal-data.tsx` · `privacy.tsx` · `help.tsx` |
+| Welcome · Sign-up (email + Google) | Funcional ✅ | `src/screens/WelcomeScreen.tsx`, `SignUpEmailScreen.tsx`, `SignUpDetailsScreen.tsx` |
+| Recuperar / resetear contraseña | Funcional ✅ | `ForgotPasswordScreen.tsx` (`supabase.auth.resetPasswordForEmail`), `ResetPasswordScreen.tsx` |
+
+**La pestaña "Comunidad" ya no existe.** ✅ Las cinco pestañas son Inicio · Historial ·
+Escanear · Guía · Perfil (`src/app/(tabs)/_layout.tsx`). El lugar que ocupaba el
+placeholder lo tomó Historial.
+
+**Features todavía no implementadas** ✅ verificadas una por una:
+
+| Feature | Estado real |
+|---|---|
+| Login con Facebook | No existe. Google sí funciona (`src/lib/googleAuth.ts`) |
+| Notificaciones | Ítem de menú que abre `Alert('Próximamente')` (`ProfileScreen.tsx:187`) |
+| Foto de etiqueta | **No existe**, pero el copy de la Guía la promete: *"Buscá por nombre o fotografiá la etiqueta"* (`GuideScreen.tsx:77`). Copy a corregir o feature a construir |
+| Alternativas de producto | No existe, y el campo `alternatives` **no sirve para eso**: es texto de ambigüedad por ingrediente ("aceite de girasol o soja") ✅ `scoring/types.ts:184` |
+| Sin tests en el cliente | ✅ cero archivos `*.test.ts` en `fitogenix-native/src/`; `vitest.config.ts` declara `passWithNoTests: true` a propósito — la lógica se testea en el servidor |
+
+🔴 **C-14 — el copy in-app contradice al motor y al flujo.** `src/screens/HelpScreen.tsx`
+le dice al usuario dos cosas que ya no son ciertas:
+
+- L16-18: el puntaje *"combina la calidad de los ingredientes, la información nutricional,
+  el nivel de procesamiento (NOVA) y la transparencia"* — es la descripción del motor **v2**,
+  el de cuatro componentes ponderados que v2.1 reemplazó (§2.2). ✅
+- L10: *"Buscamos primero en Open Food Facts y completamos lo que falta con IA"* — es la
+  cascada retirada del request el 2026-08-18 (§5.3). ✅
+
+Es la contradicción de mayor alcance del set: no vive en un prompt de agente, la lee el
+usuario. Ver §8 B-13.
 
 ---
 
@@ -211,9 +261,14 @@ código, no acá.**
 ✅ **Hoy no existe ninguna implementación de cuotas.** Cero coincidencias de `user_quotas`,
 `credits_used` o `quota` en `src/` y en `migrations/` de `fitogenix-server`.
 
-### §4.3 🔴 C-02 — Lookup público vs atribución de consumo
+### §4.3 🟡 C-02 — Lookup público vs atribución de consumo — **DECIDIDO**
 
-Dos afirmaciones del setup no pueden ser ciertas a la vez:
+> **Decisión (Jere, 2026-08-28): `POST /products/lookup` VA CON CUOTA.** La atribución de
+> consumo gana; el flujo anónimo sin límite se retira. **Esto es 🟡, no ✅** — hoy el
+> endpoint sigue siendo público y no hay cuotas. Ver el gap de implementación abajo.
+
+Contexto de la contradicción que esta decisión cierra — dos afirmaciones que no podían ser
+ciertas a la vez:
 
 - `00-orquestador.md`: *"Cada análisis consumido debe poder atribuirse a un usuario para el
   descuento de crédito"*.
@@ -224,9 +279,26 @@ Dos afirmaciones del setup no pueden ser ciertas a la vez:
 `requireAuth` (lo dice en un comentario propio) y solo lee el Bearer si viene, para
 registrar el escaneo; todas las rutas de `users/` sí lo registran.
 
-**Es una decisión de producto tuya, no técnica.** Opciones sobre la mesa: cuota por
-dispositivo para anónimos · límite anónimo más bajo · forzar login al análisis N.
-Ningún agente la resuelve por criterio propio. Ver §8.
+**Estado de hoy ✅:** el endpoint es público, no descuenta nada, y no existe tabla de
+cuotas (`grep` de `user_quotas`/`credits_used`/`quota` en `src/` y `migrations/`: cero).
+
+**Destino 🟡:** el lookup **va a requerir** atribución y **va a descontar** cuota. Lo que
+falta para que esto sea ✅ — la lista es el alcance del ticket, no está implementado:
+
+1. Registrar autenticación en `src/routes/products/lookup.ts` (hoy no la registra).
+2. Definir **qué pasa con el usuario anónimo**: es la sub-decisión que queda viva dentro de
+   la decisión tomada (cuota por dispositivo · límite anónimo más bajo · login forzado al
+   análisis N). Sin esto, el resto no se puede implementar.
+3. Tabla de cuotas + RPC de descuento **atómico** (nunca read-modify-write desde Node).
+4. RLS: escritura solo por service role; el cliente lee su propia fila, nunca la escribe.
+5. Comportamiento al agotar la cuota: código de respuesta y payload de estado que el
+   cliente pueda renderizar como paywall (§4.2).
+6. Decidir si un hit servido 100% desde caché consume crédito — hoy declarado "a confirmar"
+   en `03-agente-backend.md`.
+7. Tests de QA que hoy no existen (ver `04-agente-qa.md`).
+
+Esquema propuesto y detalle de implementación: `03-agente-backend.md` (§ Lógica de Cuotas),
+que es el dueño del contrato. Ver §8 B-1.
 
 ### §4.4 La palanca de costo
 
@@ -275,8 +347,10 @@ duplicaba trabajo que el ETL ya hace en batch. **`offService`, `claudeService`,
 `openBeautyFactsApi` y `fallbackFoodApi` siguen existiendo y los usa el ETL**, no el
 request path. ✅
 
-🔴 **C-07:** `03-agente-backend.md` y `00-orquestador.md` siguen documentando la cascada
-`OFF → OBF → Edamam → Claude` como contrato vigente del lookup. Está desactualizado. Ver §8.
+✅ **C-07 — cerrado el 28/8/2026.** `03-agente-backend.md`, `06-agente-etl-data.md`,
+`00-orquestador.md` y el `README.md` de `fitogenix-server` documentaban la cascada
+`OFF → OBF → Edamam → Claude` como contrato vigente del lookup. Los cuatro están corregidos
+y verificados: cero descripciones remanentes de una cascada en el camino de request.
 
 ### §5.4 Caché en niveles
 
@@ -310,6 +384,56 @@ El contrato vigente de endpoints (método, auth, body, respuestas) se cita por p
 verificadas: `products/lookup`, `products/image`, `users/deleteMe`, `users/saved`,
 `users/history`. **Regla:** un endpoint nuevo se agrega al contrato en el mismo commit que
 lo implementa.
+
+### §5.7 Selección de modelo de IA
+
+Regla del proyecto, aplicada por tres agentes (Backend implementa los call sites, Datos la
+hace cumplir y tunea los prompts, ETL la consume en batch). Vive acá porque ninguno de los
+tres es su dueño exclusivo.
+
+**¿La entrada incluye una imagen a interpretar? → Sonnet Vision. ¿Es solo texto o barcode?
+→ Haiku.** Nunca Sonnet donde alcanza Haiku: el costo importa a escala.
+
+- **Haiku — texto estructurado. Es el default del proyecto.** Enriquecer un producto con
+  campos faltantes, construir uno desde su nombre o barcode, traducir ingredientes. Salida
+  JSON determinista, system prompt cacheado. ✅ el modelo, la temperatura y los `max_tokens`
+  vigentes viven en `src/services/claudeService.ts`; los valores **no se transcriben acá**.
+- **Sonnet Vision — solo cuando hay imagen.** Leer la etiqueta o la tabla nutricional desde
+  una foto. 🟡 **Decidido como regla, sin call site:** hoy no existe análisis por foto en el
+  producto (§1.6) — la regla está escrita para cuando exista, no describe código de hoy.
+
+**Dónde corre esto hoy ✅:** en el ETL, en batch (`scripts/etl/jobs/runMerge.ts`,
+`scripts/etl/lib/qualityAI.ts`), **no en el camino de request** (§5.3).
+
+El tuning de prompts, el presupuesto de tokens y el pricing son dominio de
+`05-agente-datos.md`, que los mantiene con las cifras vigentes.
+
+### §5.8 Stack del cliente y restricciones que impone
+
+Lo comparten UX (qué se puede diseñar) y Frontend (con qué se implementa). Versiones
+exactas: ✅ `fitogenix-native/package.json` — **no se transcriben acá**.
+
+- **Expo + React Native**, una base para iOS y Android. Navegación **file-based con Expo
+  Router**, con rutas tipadas. ✅
+- **Estilos con `StyleSheet` por pantalla.** No hay CSS ni framework de estilos: los tokens
+  de diseño viven en `src/constants/theme.ts`. ✅
+- **`expo-camera`** para el escaneo de códigos de barras. ✅ `src/screens/ScanScreen.tsx`.
+  No hay captura de foto de etiqueta (§1.6).
+- **`expo-blur`** en el tab bar, **`lucide-react-native`** para los íconos. ✅
+- **Animación:** el `ScoreDial` usa `react-native-svg` con la `Animated` API de React
+  Native. ✅ `src/components/ScoreDial.tsx`. `react-native-reanimated` está instalado. No
+  hay otras animaciones complejas.
+- **Persistencia local:** `@react-native-async-storage/async-storage` — historial y
+  guardados se hidratan desde ahí al abrir. ✅ `src/presentation/scanResultStore.tsx`.
+- **Estado global:** dos Context (`scanResultStore`, `signUpStore`). **No hay React
+  Query.** ✅ (sin `@tanstack/*` en `package.json`).
+
+**Latencia — el dato cambió y el copy de UX no lo siguió.** ⚠️→✅ La cifra "un análisis
+tarda 2-8 segundos porque hay una llamada a Anthropic" describía la cascada retirada. Desde
+que el request es catalog-only (§5.3) **no hay llamada a IA en el camino de request**: la
+latencia es la de Redis y Supabase. ✅ `productLookupService.ts` no importa `claudeService`.
+El estado de carga sigue siendo necesario, pero dimensionarlo contra "8 segundos de IA" es
+diseñar para un flujo que ya no existe.
 
 ---
 
@@ -382,6 +506,7 @@ jobs de auditoría y de fix. ✅ inventario verificado en la auditoría; `audit:
 un **criterio versionado de qué es un dato sucio** en términos de dominio (no de patrón de
 texto). ✅ verificado: la cola de curaduría **se calcula y se descarta** —
 `CURATION_QUEUE` se puebla en `scripts/audit-scores.ts:121` y nunca se imprime.
+Ver §8 B-3 (la cola) y B-12 (el dueño que falta para definir "dato sucio").
 
 **Conclusión:** el ETL guarda bien la puerta de entrada. **Nadie auditó lo que ya está
 adentro.**
@@ -422,11 +547,12 @@ Ordenados por costo de seguir sin resolverlos.
 
 | # | Bloqueante | Estado | Quién decide |
 |---|---|---|---|
-| **B-1** | 🔴 **C-02** — lookup público vs cuotas freemium (§4.3). Las dos afirmaciones no pueden convivir cuando exista el plan Free | Sin implementación de cuotas ✅ | **Jere.** Decisión de producto, no técnica |
+| **B-1** | 🟡 **C-02 — DECIDIDO (Jere, 28/8/2026): el lookup va CON CUOTA** (§4.3). La contradicción está cerrada; queda el gap de implementación | Endpoint público, cero cuotas ✅ | **Decidido.** Sub-decisión viva: qué pasa con el anónimo. Implementa backend, testea qa |
 | **B-2** | 🔴 **C-11** — el motor **emite puntaje sin entender la etiqueta**: 1.453 productos con 0% de cobertura, casos "Excelente" entre ellos (§6.4 C) | Medido 28/8 ✅ · sin gate | nutrition define el umbral · architect dónde vive · backend implementa |
 | **B-3** | 🔴 **C-10** — cola de curaduría de **8.991 términos** que se calcula y se tira (§6.5) | ✅ `audit-scores.ts:121` | nutrition (clasifica) · backend (imprime) |
-| **B-4** | 🔴 **C-08 / C-09** — el criterio documentado (4 componentes ponderados, NOVA como componente) **no es el motor v2.1** (§2.2, §2.4) | ✅ contra `constants.ts` | nutrition + orchestrator: qué se corrige, el doc o la expectativa |
-| **B-5** | 🔴 **C-07** — el contrato documentado del lookup describe una cascada externa que ya no existe (§5.3) | ✅ contra `productLookupService.ts` | backend, en la poda de punteros |
+| **B-4** | 🔴 **C-08** — el criterio documentado (4 componentes ponderados) **no es el motor v2.1** (§2.2) | ✅ contra `constants.ts` | nutrition + orchestrator: qué se corrige, el doc o la expectativa |
+| **B-4b** | 🔴 **C-09 — NOVA sigue vivo, pero no en el puntaje.** Se ingiere de OFF/OBF, se persiste en `products.nova_group`, lo mergea el ETL, `audit-scores.ts` lo usa como **señal de calidad** (NOVA 4 puntuando Excelente = flag), y el copy de la app se lo nombra al usuario — pero el motor v2.1 **no lo lee para el puntaje** ✅ (`steps.ts`/`pipeline.ts`/`rubric/`: cero referencias). **No se borra de la doc**: se documenta el hecho exacto. La limpieza de código, si se decide, es tarea aparte (§2.4) | ✅ mapeado 28/8 | Producto (Jere): si NOVA se le sigue diciendo al usuario, se sostiene; si no, sale del copy Y de la doc |
+| ~~**B-5**~~ | ✅ **C-07 cerrado (28/8/2026).** La cascada externa ya no se documenta como camino de request en ningún archivo del set ni en el `README.md` del servidor (§5.3) | Verificado por grep en los 8 agentes + `CONTEXT.md` + READMEs | — |
 | **B-6** | 🔴 Migraciones que **se corren a mano en el SQL Editor** de Supabase — `013_score_nullable.sql` y `014_product_search_trgm.sql` están marcadas NO APLICADAS en su propio archivo ✅. No hay forma automática de saber qué esquema está vivo | devops + architect |
 | **B-7** | ⚠️ **Umbral del sello a 70** — decidido, ~40 productos afectados, ticket aparte; hoy sigue derivado de `TIERS` ✅. Cuando se aplique, se cambia **en `constants.ts` y en ningún otro lado** | orchestrator (prioriza) |
 | **B-8** | ⚠️ Redis puede servir puntajes viejos: el prefijo de clave **no está versionado** por versión del motor ✅ (`redisService.ts`) | data-ai propone · backend aplica |
@@ -434,6 +560,8 @@ Ordenados por costo de seguir sin resolverlos.
 | **B-10** | ⚠️ Sin observabilidad conectada (Sentry/Datadog). El contrato de logging está escrito; no tiene a dónde reportar | devops + backend |
 | **B-11** | ⚠️ Los octógonos se calculan con umbrales **nunca contrastados contra el texto del decreto** (§2.5), y el propio archivo lo advierte ✅ | nutrition |
 | **B-12** | ⚠️ **Sin dueño de la nutrición** (§7). Es la causa raíz de B-2, B-3, B-4 y B-11, no un ítem más de la lista | Jere: crear el rol o asumirlo |
+| **B-13** | 🔴 **C-14 — el copy in-app le miente al usuario** (§1.6): `HelpScreen.tsx` describe el motor v2 y la cascada retirada. Es deriva doc↔código que salió del repo y llegó a la pantalla. **Es cambio de código, no de documentación** — no se corrige desde el setup agéntico | ✅ `HelpScreen.tsx:10,16-18` | ux redacta el copy nuevo · mobile lo implementa. Bloqueado por B-4/B-4b: no se puede describir el motor hasta cerrar qué se dice de NOVA |
+| **B-14** | 🟡 **La Fase 2 del plan está a medias y nadie lo anotó.** Las 8 dependencias sin usar **ya se eliminaron** ✅ (no están en `package.json`, cero usos). Siguen pendientes: `expo-image` instalada con cero imports ✅, y React Query ausente ✅ | Verificado 28/8 | mobile |
 
 ---
 
@@ -447,6 +575,12 @@ Ordenados por costo de seguir sin resolverlos.
 |---|---|---|
 | 2026-08-28 | Creación. §1–§8 armados desde `AUDITORIA_SETUP_AGENTICO.md`, `DICCIONARIO_DOMINIO.md` (ya corregido) y `tareas/FTG-001`. Números de §6 tomados de FTG-001 sin recalcular | `~/fitogenix-server` `main` `a0428bd` · `~/fitogenix-native` `main` |
 | 2026-08-28 | Contradicciones nuevas encontradas en la verificación de esta sesión: **C-07** (cascada retirada, docs desactualizados), **C-08** (composición del score describe v2), **C-09** (rol de NOVA), **C-10** (cola de curaduría descartada), **C-11** (puntaje sin cobertura). Todas en §8 | `productLookupService.ts` · `scoring/constants.ts` · `scripts/audit-scores.ts` |
+| 2026-08-28 | **Decisión de Jere aplicada:** C-02 pasa de 🔴 abierto a 🟡 decidido — el lookup va con cuota. §4.3 reescrito con el estado de hoy y la lista de 7 ítems que faltan para que sea ✅; §8 B-1 actualizado. La sub-decisión del usuario anónimo queda viva dentro de la decisión | `src/routes/products/lookup.ts` (sigue público) |
+| 2026-08-28 | **Convención de marcas ampliada a cuatro:** se suma 🟡 (decidido, no implementado) a ✅/⚠️/🔴. ⚠️ = no verificado; 🟡 = verificado como ausente y ya decidido | — |
+| 2026-08-28 | **Tres huecos del SSOT cerrados** (autorizados por Jere): §1.6 estado real de pantallas y features · §5.7 selección de modelo de IA · §5.8 stack del cliente. **Ninguna sección existente se renumeró** — los punteros `§X` de los 8 agentes siguen válidos | `fitogenix-native` `b7715b8` · `claudeService.ts` |
+| 2026-08-28 | **C-09 mapeado, no cerrado:** NOVA se ingiere, se persiste, lo usa `audit-scores.ts` como señal de calidad y se le nombra al usuario, pero el motor no lo lee. B-4 se desdobla en B-4 (C-08) y B-4b (C-09) | `steps.ts`/`pipeline.ts` · `audit-scores.ts:84-109` · `HelpScreen.tsx:18` |
+| 2026-08-28 | **C-07 cerrado.** Corregido en `00-orquestador.md` (reescrito), `02-agente-frontend.md` (reescrito), `03`, `06` y el `README.md` de `fitogenix-server` — que documentaba la cascada como *la* arquitectura y decía "Unit tests (119)" cuando hay 27 archivos y ~345 casos | grep en los 9 documentos + `productLookupService.test.ts` |
+| 2026-08-28 | **C-14 nuevo (B-13):** el copy de `HelpScreen.tsx` describe el motor v2 y la cascada retirada. Primer caso de deriva que llegó al usuario final. **C-15 nuevo (B-14):** la poda de dependencias de la Fase 2 ya se hizo sin registrarse | `HelpScreen.tsx` · `fitogenix-native/package.json` |
 
 ### Pendiente inmediato (fuera de este documento)
 

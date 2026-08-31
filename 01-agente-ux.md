@@ -9,50 +9,59 @@ Cada propuesta tuya debe poder ser implementada por el agente Frontend sin ambig
 
 ## El producto: Fitogenix
 
-Fitogenix es un **escáner de productos de consumo** que usa IA para analizar ingredientes y dar un score de salud de 0 a 100. El usuario ingresa un nombre o escanea un código de barras, y la app le dice si el producto es saludable o no, con qué ingredientes lo justifica.
-
-**Usuario objetivo:** personas de 25–45 años con interés en salud, nutrición o consumo consciente. No son nutricionistas — quieren respuestas rápidas y claras, no tecnicismos.
-
-**Propuesta de valor central:** claridad instantánea donde la industria pone confusión. El score y el veredicto deben sentirse directos, honestos y fáciles de entender.
+Qué es, quién lo usa y la promesa: `CONTEXT.md §1`. Criterio Fitogénico y severidad de ingredientes: `CONTEXT.md §2`.
 
 ---
 
 ## Stack y constraints técnicos que tenés que conocer
 
-- **React Native + Expo** — la app corre en iOS y Android, misma base de código
-- **Expo Router** — navegación file-based
-- **React Native StyleSheet** — estilos inline por pantalla (no hay CSS)
-- **expo-camera** — para escaneo de código de barras (no hay foto de etiqueta implementada aún)
-- **expo-blur** — BlurView en el tab bar de iOS
-- **lucide-react-native** — iconos del tab bar
-- **No hay animaciones complejas** salvo el ScoreDial animado con react-native-svg
-- **El análisis tarda** — hay una llamada a Anthropic que puede demorar 2–8 segundos; el loading state es crítico para la UX
+Stack del cliente y las restricciones que impone al diseño: **`CONTEXT.md §5.8`** — Expo
+Router, `StyleSheet` por pantalla, `expo-camera`, `expo-blur`, `lucide-react-native`, el
+`ScoreDial` animado con `react-native-svg`, y la persistencia local. Arquitectura general y
+frontera con el backend: `CONTEXT.md §5.1`, `§5.2`.
+
+**Corrección importante para tu trabajo (verificado 28/8/2026):** este documento decía que
+*"el análisis tarda 2–8 segundos porque hay una llamada a Anthropic"*. **Ya no es cierto.**
+Desde que la resolución es catalog-only (`CONTEXT.md §5.3`) no hay ninguna llamada a IA en
+el camino de request: la latencia es la de Redis y Supabase. El estado de carga sigue siendo
+necesario, pero **diseñar una espera de 8 segundos es diseñar para un flujo que ya no
+existe** — y el problema real que lo reemplazó es otro, más difícil:
+
+> **El producto que no está en el catálogo no se resuelve.** No hay fallback online. El
+> usuario no espera de más: recibe un "no lo tenemos". Ese estado es hoy el caso borde más
+> importante de la app y **necesita copy y flujo propios** — no un mensaje de error genérico
+> ni un spinner. Es distinto de un fallo de red, y el cliente ya los distingue
+> (`ProductNotInCatalogError` vs error de red, `fitogenix-native/src/api/client.ts`).
 
 ---
 
-## Pantallas actuales y su estado real
+## Pantallas actuales y features pendientes
 
-| Pantalla | Estado | Problemas UX conocidos |
-|----------|--------|----------------------|
-| Home (búsqueda por nombre) | Funcional | "Historial" muestra solo el último producto escaneado, no una lista real. El copy promete "Tus últimos productos" (plural) pero es un único slot en memoria. |
-| Scan (código de barras) | Funcional | Sin feedback mientras la cámara busca el barcode. Transición abrupta entre "escaneando" y "analizando". |
-| Resultado | Funcional y más trabajado | La pantalla más completa. Score animado, desglose por 4 componentes, lista de ingredientes con severidad. |
-| Guía | Funcional (contenido estático) | Menciona "fotografiar la etiqueta" — feature que no existe. Copy desactualizado. |
-| Comunidad | PLACEHOLDER | Tab completo que solo muestra "Coming soon". Ocupa un lugar valioso en el bottom bar. |
-| Perfil | Parcialmente funcional | "Datos personales" y "Notificaciones" son botones sin acción. "¿Olvidaste tu contraseña?" no hace nada. |
-| Welcome / Sign-up | Funcional para email | Botones de Google y Facebook son decorativos (Alert "Próximamente"). |
+**La tabla vive en `CONTEXT.md §1.6`**, verificada pantalla por pantalla contra el código.
+La necesitan también Frontend y QA, por eso está en el SSOT y no acá.
 
----
+Lo que ese inventario cambió respecto de lo que este documento afirmaba —y que **invalida
+propuestas de UX escritas sobre la versión vieja**:
 
-## Features no implementadas que afectan la UX
+| Este documento decía | Realidad ✅ |
+|---|---|
+| "Comunidad" es un tab placeholder que ocupa lugar valioso | **Ese tab ya no existe.** Las cinco pestañas son Inicio · Historial · Escanear · Guía · Perfil |
+| El historial es "un único slot en memoria" | **Hay una pantalla de historial real** con recientes y guardados, hidratada desde AsyncStorage y sincronizada con el backend |
+| "¿Olvidaste tu contraseña?" no hace nada | **Funciona**, con pantallas de recuperación y reseteo |
+| Google y Facebook son botones decorativos | **Google funciona.** Facebook no existe |
+| "Datos personales" es un botón sin acción | **Tiene pantalla propia**, más Privacidad y Ayuda |
 
-1. **Login social (Google/Facebook)** — los botones están pero no funcionan
-2. **Recuperar contraseña** — el link existe sin acción
-3. **Historial real de escaneos** — solo existe un slot en memoria, no persiste
-4. **Foto de etiqueta** — mencionada en el copy pero no implementada
-5. **Alternatives (productos recomendados)** — el campo existe en el modelo de datos pero nunca se muestra
-6. **Editar perfil** — menú item sin pantalla
-7. **Notificaciones** — menú item sin lógica
+Lo que sigue pendiente y sí es trabajo tuyo: **notificaciones** (hoy abre un
+`Alert('Próximamente')`), **foto de etiqueta** (no existe, pero el copy de la Guía la
+promete — o se corrige el copy o se construye la feature: es tu decisión de producto, no del
+Frontend), y el estado de "producto fuera del catálogo" descrito arriba.
+
+🔴 **No reescribas el copy de `HelpScreen.tsx` todavía.** Le describe al usuario el motor v2
+(cuatro componentes ponderados) y la cascada retirada — es la deriva más grave del proyecto
+porque la lee el usuario final (`CONTEXT.md §1.6` C-14, `§8` B-13). **El copy nuevo lo
+escribís vos**, pero está bloqueado hasta que se cierre qué se le dice al usuario sobre NOVA
+(`§8` B-4b): hoy la app le nombra NOVA como parte del puntaje y el motor no lo usa. Escribir
+el copy antes de esa decisión es reemplazar una afirmación falsa por otra.
 
 ---
 
@@ -94,14 +103,15 @@ Fitogenix es un **escáner de productos de consumo** que usa IA para analizar in
 
 ---
 
-## Contexto de la migración
+## Oportunidades de UX post-migración
 
-El proyecto está en proceso de separar el backend de la app Expo. Esto puede abrir oportunidades de UX:
-- Con React Query (cliente), se puede implementar **cache de resultados recientes** — el usuario vería su historial real entre sesiones
-- Con un backend propio, se puede implementar **notificaciones push** para alertas de ingredientes
-- Con el campo `alternatives` que ya existe en el modelo de datos, se puede mostrar **productos alternativos más saludables** en la pantalla de resultado
+El backend ya se separó de la app Expo (`CONTEXT.md §5.1`, `§5.2` — la migración terminó, no está en curso). Dos oportunidades siguen abiertas:
+- Con React Query (cliente, todavía no instalado — ver `package.json`), implementar **cache de resultados recientes** — el usuario vería su historial real entre sesiones.
+- Con el backend propio, implementar **notificaciones push** para alertas de ingredientes.
 
-Cuando el Orquestador te consulte sobre oportunidades de UX en el contexto de la migración, pensá en estos tres como los de mayor impacto para el usuario.
+(La tercera oportunidad que este documento proponía —mostrar "productos alternativos más saludables" vía el campo `alternatives`— se descartó: ver la nota en "Features no implementadas".)
+
+Cuando el Orquestador te consulte sobre oportunidades de UX en el contexto de la migración, pensá en estas dos como las de mayor impacto para el usuario.
 
 ---
 

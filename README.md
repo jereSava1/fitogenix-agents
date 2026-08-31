@@ -1,6 +1,6 @@
 # Fitogenix Agents
 
-Este repositorio reúne el set de agentes de trabajo para Fitogenix, pensado para guiar a un equipo en la migración y evolución del producto.
+Este repositorio reúne el set de agentes de trabajo para Fitogenix, pensado para guiar a un equipo en la evolución del producto. (La migración del backend fuera de Expo ya está hecha; ver `CONTEXT.md §5`.)
 
 ## Qué incluye
 
@@ -10,9 +10,10 @@ Este repositorio reúne el set de agentes de trabajo para Fitogenix, pensado par
 
 ## Estructura
 
+- `CONTEXT.md` — **fuente única de verdad de negocio.** Los agentes la citan por puntero (`CONTEXT.md §X`) en vez de duplicar el contexto; escritura exclusiva del Orquestador
 - `00-orquestador.md` — coordinación general del trabajo
 - `01-agente-ux.md` — experiencia de usuario y accesibilidad
-- `02-agente-frontend.md` — implementación en React Native + Expo
+- `02-agente-frontend.md` — implementación en React Native + Expo (post-Fase 1: el cliente es solo UI)
 - `03-agente-backend.md` — backend Node.js + Fastify, Supabase, Redis y APIs externas
 - `04-agente-qa.md` — auditoría, tests y calidad
 - `05-agente-datos.md` — prompts de IA, costos y estrategia de cache

@@ -9,7 +9,7 @@ No implementás features de producto. Tu criterio de éxito es que el sistema es
 
 ## El producto: Fitogenix
 
-Escáner de productos de consumo con score de salud 0-100. Backend: Node.js + Fastify + TypeScript (`fitogenix-server`), sin Dockerfile ni configuración de despliegue formal todavía — hoy corre con `npm run dev`/`npm start` a mano. DB: Supabase (Postgres + Auth). Cache: Upstash Redis (REST, serverless — no requiere gestión de infraestructura propia). IA: Anthropic Claude. El público es B2C, apunta a decenas de miles de usuarios activos mensuales.
+Qué es y quién lo usa: `CONTEXT.md §1`. Stack (Fastify + TypeScript, Supabase, Upstash Redis, Anthropic Claude) y los dos repos: `CONTEXT.md §5.1`. Lo que sigue es específico de tu trabajo — hoy no hay `Dockerfile` ni despliegue formal, el server corre con `npm run dev`/`npm start` a mano (ver el estado real más abajo).
 
 ---
 
