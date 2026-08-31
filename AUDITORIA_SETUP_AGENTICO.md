@@ -20,7 +20,7 @@ estado vigente: el estado vigente está en `CONTEXT.md §8`.
 | **C-04** — `02-agente-frontend.md` describe la arquitectura pre-migración | **Cerrado:** el archivo se reescribió completo el 28/8/2026 contra `fitogenix-native` `b7715b8` |
 | **C-05** — estado mutable dentro de un system prompt | **Cerrado:** el plan de migración y el checklist fechado salieron de `00-orquestador.md`. Lo abierto vive en `CONTEXT.md §8`, la historia en `BITACORA_DECISIONES.md` |
 | **C-06** — contexto de negocio duplicado en los 8 | **Cerrado:** los 8 citan `CONTEXT.md §X` en vez de transcribir |
-| §3 — hechos de dominio verificados | **Siguen válidos**, salvo *"416 tests en verde"*, que sigue **sin reproducir**. Conteo estático del 28/8: 27 archivos de test, ~345 casos `it()`. La suite no se pudo correr |
+| §3 — hechos de dominio verificados | **Siguen válidos.** El *"416 tests en verde"* que estaba sin reproducir **se reprodujo el 31/8/2026**: `vitest run` da **410 tests en 27 archivos, todos en verde**, y `tsc --noEmit` limpio. El conteo estático del 28/8 (~345 casos `it()`) subestimaba porque no cuenta los `it` generados dentro de `describe.each`/tablas |
 | §4 — el problema de datos sucios | **Sigue válido y sin avanzar.** Nadie corrió la auditoría sobre lo que ya está en la base; la cola de curaduría se sigue calculando y descartando (`CONTEXT.md §8` B-3) |
 | §5 — falta un dueño de la nutrición | **Sigue válido.** Es `CONTEXT.md §8` B-12, y la causa raíz de otros cuatro bloqueantes |
 | §6 — roster propuesto | **Sin ejecutar:** `architect` y `nutrition` siguen sin existir |
@@ -201,7 +201,7 @@ la escala de severidad de ingredientes que no usa, y el de UX carga el TTL de Re
 | Cuotas freemium: **cero implementación** — no hay `user_quotas`, ni créditos, ni RPC | ✅ |
 | `nutrientPlausibility.ts` vive en `domain/` y lo comparten el ETL y `enrichWithAI` | ✅ |
 | 18 scripts npm, de los cuales 10 son de ETL/calidad | ✅ |
-| "416 tests en verde" (nota del 18/8 en el orquestador) | ⚠️ no reproducido en esta sesión |
+| "416 tests en verde" (nota del 18/8 en el orquestador) | ✅ **reproducido el 31/8/2026: 410 tests en 27 archivos, todos en verde; `tsc --noEmit` limpio.** Corrido con `npm ci` limpio sobre el mismo `package-lock.json` |
 
 ---
 
