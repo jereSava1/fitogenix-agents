@@ -146,8 +146,9 @@ presente**, y al delegar decís siempre el estado de hoy y el destino.
 
 **🟡 No hay pantalla para producto fuera de catálogo** (`CONTEXT.md §8` B-16).
 
-- **Hoy ✅:** el servidor devuelve 404, `client.ts` lo tipifica como
-  `ProductNotInCatalogError`, y **ningún archivo de la UI lo consume**.
+- **Hoy ✅:** el servidor devuelve 404 y `lookupProduct()` devuelve `null`. Los dos hooks lo
+  detectan, pero en `useScanFlow` comparte estado con el error de red: al usuario se le
+  muestra como una falla reintentable, y no lo es.
 - **Destino:** pantalla propia, distinta del error de red, con salida a volver a escanear.
 - **Delegación:** UX escribe el copy **primero** — mobile no implementa contra un texto
   provisorio. QA audita accesibilidad y los dos eventos de analítica.

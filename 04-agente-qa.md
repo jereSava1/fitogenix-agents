@@ -80,8 +80,9 @@ montar **sin mirar la sesión** — el anónimo persiste. El destino decidido es
 
 ### Producto fuera de catálogo (`CONTEXT.md §8` B-16)
 
-Estado de hoy ✅: el servidor devuelve 404, `client.ts` lo tipifica como
-`ProductNotInCatalogError`, y **ningún archivo de la UI lo consume**.
+Estado de hoy ✅: el servidor devuelve 404 y `lookupProduct()` devuelve `null` (no lanza —
+`ProductNotInCatalogError` es de `saveProductRemote`, otro camino). Los dos hooks lo
+detectan, pero comparte estado de UI con el error de red.
 
 | Caso | Qué tiene que pasar |
 |---|---|

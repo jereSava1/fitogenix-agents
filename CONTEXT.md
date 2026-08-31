@@ -154,13 +154,17 @@ estado vacío que explica que hay que crear cuenta — **el copy lo define UX**.
 `requireAuth` y expone **solo `GET`** (`src/routes/users/history.ts`). No hay forma de
 escribir historial sin usuario. El cambio es exclusivamente del cliente.
 
-🟡 **Producto fuera de catálogo: no hay pantalla** (§5.3, §8 B-16). Estado de hoy ✅: el
-servidor devuelve `404` con un mensaje (`src/routes/products/lookup.ts`), `src/api/client.ts`
-lo tipifica como `ProductNotInCatalogError` — y **ningún archivo de la UI lo consume** ✅
-(cero coincidencias fuera de su propia definición y su `throw`). El usuario que escanea algo
-que no está en el catálogo no ve nada diseñado. Destino: pantalla propia, **distinta del
-error de red** (en uno reintentar sirve, en el otro no), con salida clara a volver a
-escanear. **El copy lo define UX.**
+🟡 **Producto fuera de catálogo: el caso se detecta, pero se presenta como un error**
+(§5.3, §8 B-16). Estado de hoy ✅: el servidor devuelve `404` con un mensaje
+(`src/routes/products/lookup.ts`) y `lookupProduct()` devuelve **`null`** en el 404 — no lanza. `ProductNotInCatalogError` **no participa de este camino**: lo lanza únicamente `saveProductRemote()` al intentar guardar un producto que no está en el catálogo ✅.
+
+Los dos hooks de lookup (`useScanFlow`, `useProductSearch`) **sí distinguen** el `null` y
+ponen un mensaje propio ✅. Lo que falta no es la detección, es la presentación: en
+`useScanFlow` los dos casos caen en el mismo `state: "error"`, así que el usuario ve un ícono
+de alerta y un botón *"Volver a intentar"* para algo que reintentar no puede cambiar. Y el
+copy actual promete *"estamos sumando productos todo el tiempo — probá de nuevo más
+adelante"*, justo lo que la decisión prohíbe. Destino: estado propio, **distinto del error de
+red**, con salida a escanear otro producto. **El copy lo define UX.**
 
 ⚠️ **`scan_failed` no existe en el código.** `02-agente-frontend.md` lo da por atado a esa
 distinción; el grep en todo `fitogenix-native/src/` da cero. Es deriva doc↔código: o se
@@ -648,7 +652,7 @@ Ordenados por costo de seguir sin resolverlos.
 | **B-13** | 🟡 **C-14 — el copy in-app le miente al usuario** (§1.6, §2.4). El FAQ *"¿Cómo se calcula el puntaje?"* de `HelpScreen.tsx` nombra a NOVA como componente del puntaje (falso desde v2.1) y el FAQ *"¿Por qué no encuentra mi producto?"* promete la cascada OFF→IA retirada el 18/8. Es deriva doc↔código que llegó a la pantalla. **Ya no está bloqueado:** B-4b se cerró el 31/8 y NOVA se sostiene, así que el copy nuevo ya se puede escribir. Es cambio de código, no de documentación | ✅ `HelpScreen.tsx` → los dos FAQs | ux redacta el copy · mobile lo implementa |
 | **B-14** | 🟡 **La Fase 2 del plan está a medias y nadie lo anotó.** Las 8 dependencias sin usar **ya se eliminaron** ✅ (no están en `package.json`, cero usos). Siguen pendientes: `expo-image` instalada con cero imports ✅, y React Query ausente ✅ | Verificado 28/8 | mobile |
 | **B-15** | 🟡 **El anónimo persiste, y no debería** (§1.6, §4.3). `scanResultStore.tsx` hidrata historial y guardados desde AsyncStorage **al montar, sin mirar la sesión** ✅ — no distingue anónimo de logueado. Destino: los escaneos de un anónimo viven en memoria de sesión, no se persisten ni se sincronizan, y **se migran a su historial si se registra en esa sesión**. Decidido el 31/8 | ✅ `scanResultStore.tsx` → el `useEffect` de hidratación | mobile implementa · qa testea |
-| **B-16** | 🟡 **No hay pantalla para producto fuera de catálogo** (§1.6, §5.3). El servidor devuelve 404 ✅ (`lookup.ts`) y `client.ts` lo tipifica como `ProductNotInCatalogError` ✅ — **con cero consumidores en toda la UI** ✅. El usuario que escanea algo que no está en el catálogo no ve nada diseñado. Decidido el 31/8: se muestra una pantalla propia, distinta del error de red. **El copy lo define UX** | ✅ `client.ts` → `ProductNotInCatalogError` | ux redacta el copy · mobile implementa · qa testea |
+| **B-16** | 🟡 **Fuera de catálogo se detecta, pero se le muestra al usuario como un error** (§1.6, §5.3). `lookupProduct()` devuelve `null` en el 404 ✅ y los dos hooks lo distinguen ✅ — pero en `useScanFlow` los dos casos caen en el mismo `state: "error"`, con ícono de alerta y botón *"Volver a intentar"*, y el copy promete que el producto va a estar pronto. Decidido el 31/8: estado propio, distinto del error de red. **El copy lo define UX** | ✅ `client.ts` → `lookupProduct` · `useScanFlow.ts` | ux redacta el copy · mobile implementa · qa testea |
 
 ---
 
@@ -670,7 +674,8 @@ Ordenados por costo de seguir sin resolverlos.
 | 2026-08-31 | **Convención de citas al código:** archivo + símbolo o cita textual, nunca número de línea. Se convirtieron los 10 punteros con línea del set vivo. Encontrado al aplicarla: `ENGINE_VERSION` se citaba como `ftgEngine.ts:24` y vive en `scoring/constants.ts:24` — archivo equivocado, número correcto, error invisible durante tres días. Los rangos de línea quedan permitidos solo en reportes fechados | `HelpScreen.tsx` · `ProfileScreen.tsx` · `ingredientData.ts` · `audit-scores.ts` · `scoring/constants.ts` |
 | 2026-08-31 | **Decisión 1 — tier inicial gratuito.** §4.3 reescrita entera: de 🟡 *lookup con cuota* a ✅ *tier inicial gratuito*. El encuadre pasa de **deuda a diseño del MVP** — el endpoint público ya no tiene fecha de vencimiento. §4.1 y §4.2 alineadas (§4.2 marcada explícitamente como no-MVP), §8 B-1 cerrado, los 7 ítems del gap eliminados. **Revierte la decisión del 28/8**, cuya entrada sale de este changelog: la evolución vive en `BITACORA_DECISIONES.md` | ✅ `src/routes/products/lookup.ts` · `src/routes/users/history.ts` |
 | 2026-08-31 | **Decisión 2 — NOVA se sostiene.** §2.4 reescrita: las tres formas en que NOVA participa, y ninguna es el puntaje. §8 B-4b cerrado como *sostenido*. Se registra por primera vez el uso de `audit-scores.ts` como señal de calidad — la razón operativa más fuerte para conservar el campo, que ningún documento tenía. **La limpieza de código queda descartada.** B-13 se desbloquea (era 🔴 bloqueado por B-4b, ahora 🟡) | ✅ `steps.ts`/`pipeline.ts`/`rubric/` · `audit-scores.ts` · `scoring/types.ts` |
-| 2026-08-31 | **Decisión 3 — pantalla de producto fuera de catálogo.** Nuevo §8 B-16, documentado en §1.6. Hallazgo al verificar: `ProductNotInCatalogError` existe en `client.ts` y **no lo consume ni un archivo de la UI**; y `scan_failed`, que `02-agente-frontend.md` daba por atado, **no existe en el código** | ✅ `client.ts` · `lookup.ts` · grep en `fitogenix-native/src/` |
+| 2026-08-31 | **Decisión 3 — pantalla de producto fuera de catálogo.** Nuevo §8 B-16, documentado en §1.6. Hallazgo al verificar: `scan_failed`, que `02-agente-frontend.md` daba por atado a esa distinción, **no existe en el código** | ✅ `client.ts` · `lookup.ts` · grep en `fitogenix-native/src/` |
+| 2026-08-31 | **Corrección de un error de esta misma sesión, y anterior a ella.** Se había escrito que el 404 del lookup se tipifica como `ProductNotInCatalogError` y que nadie lo consume. **Es falso:** `lookupProduct()` devuelve `null`, y ese error lo lanza solo `saveProductRemote()`. El caso fuera-de-catálogo **sí se detecta** en los dos hooks; lo que fallaba era la presentación y el copy. El error venía de `REALINEACION_REPORTE.md` (28/8), que ató `scan_failed` a `ProductNotInCatalogError`, y se propagó sin verificarse contra el call site | ✅ `client.ts` → `lookupProduct` / `saveProductRemote` · `useScanFlow.ts` · `useProductSearch.ts` |
 | 2026-08-31 | **Nuevo §8 B-15 — el anónimo persiste y no debería.** `scanResultStore.tsx` hidrata desde AsyncStorage sin mirar sesión. Se cierra además la sub-decisión que el 28/8 quedó viva: los escaneos de la sesión **se migran** al historial si el anónimo se registra en esa sesión. Verificado que el backend no acepta escrituras de historial sin usuario | ✅ `scanResultStore.tsx` · `users/history.ts` (requireAuth, solo GET) |
 | 2026-08-31 | **La suite se corrió, por primera vez desde que se documentó: 410 tests en 27 archivos, todos en verde, y `tsc --noEmit` limpio.** Cierra el *"416 tests en verde"* que arrastraba ⚠️ desde el 18/8 sin reproducir. El conteo estático del 28/8 (~345 `it()`) subestimaba: no contaba los casos generados dentro de tablas | `vitest run` + `npm ci` limpio sobre el `package-lock.json` de `d73f378` |
 

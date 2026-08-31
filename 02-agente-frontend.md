@@ -76,8 +76,10 @@ Todo lo que sale del cliente pasa por ahí. Exporta `lookupProduct`, `fetchSaved
 
 **Consecuencia de que el request sea catalog-only (`CONTEXT.md §5.3`):** un producto que no
 está en el catálogo **no se resuelve en vivo**. No hay fallback a Open Food Facts ni a IA
-esperando atrás. `ProductNotInCatalogError` no es un error de red ni un timeout: es la
-respuesta correcta del sistema, y el usuario merece un estado que lo diga como tal — no un
+esperando atrás. ⚠️ **Cuidado con este puntero, se documentó mal dos veces:** el 404 del lookup **no** es
+`ProductNotInCatalogError`. `lookupProduct()` devuelve **`null`**; ese error lo lanza solo
+`saveProductRemote()`. Un producto fuera de catálogo no es un error de red ni un timeout: es
+la respuesta correcta del sistema, y el usuario merece un estado que lo diga como tal — no un
 spinner eterno ni un "algo salió mal". Coordinalo con UX (`01-agente-ux.md`).
 
 ---
@@ -147,13 +149,13 @@ se ejecutó**. Las ocho que el documento anterior listaba como candidatas (`@exp
 
 | # | Qué | Estado verificado hoy |
 |---|---|---|
-| 4 | **Pantalla de producto fuera de catálogo** (`CONTEXT.md §8` B-16) | El servidor devuelve 404 ✅, `client.ts` lo tipifica como `ProductNotInCatalogError` ✅, y **ningún archivo de la UI lo consume** ✅. El usuario no ve nada diseñado |
+| 4 | **Estado propio para producto fuera de catálogo** (`CONTEXT.md §8` B-16) | El servidor devuelve 404 y `lookupProduct()` devuelve `null` ✅. Los dos hooks lo detectan ✅ — pero en `useScanFlow` comparte `state: "error"` con el fallo de red, con ícono de alerta y *"Volver a intentar"* ✅ |
 | 5 | **El anónimo no persiste** (`CONTEXT.md §8` B-15) | `scanResultStore.tsx` hidrata `history` y `saved` desde AsyncStorage en un `useEffect` **al montar, sin mirar la sesión** ✅ |
 | 6 | **Copy de `HelpScreen.tsx`** (`CONTEXT.md §8` B-13) | **Ya no está bloqueado:** B-4b se cerró el 31/8 (NOVA se sostiene, `§2.4`). UX escribe el texto, vos lo implementás |
 
-**Cómo se implementa el 4.** Dos estados distintos, no uno: `ProductNotInCatalogError` →
-pantalla de fuera de catálogo, sin botón de reintentar (reintentar no cambia nada); error de
-red → mensaje de red **con** reintento. Salida clara a volver a escanear en los dos.
+**Cómo se implementa el 4.** Dos estados distintos, no uno: `lookupProduct()` devuelve
+`null` → estado de fuera de catálogo, sin reintento del mismo producto (no cambia nada);
+`lookupProduct()` lanza → mensaje de red **con** reintento. Salida clara a volver a escanear en los dos.
 Accesibilidad según `04-agente-qa.md` (contraste, área táctil ≥44pt, lector de pantalla).
 
 **Cómo se implementa el 5.** El anónimo escanea y ve el resultado; ese resultado vive en

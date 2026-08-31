@@ -31,7 +31,8 @@ existe** — y el problema real que lo reemplazó es otro, más difícil:
 > usuario no espera de más: recibe un "no lo tenemos". Ese estado es hoy el caso borde más
 > importante de la app y **necesita copy y flujo propios** — no un mensaje de error genérico
 > ni un spinner. Es distinto de un fallo de red, y el cliente ya los distingue
-> (`ProductNotInCatalogError` vs error de red, `fitogenix-native/src/api/client.ts`).
+> (`lookupProduct()` devuelve `null` en el 404 vs. lanza en el error de red,
+> `fitogenix-native/src/api/client.ts`).
 
 ---
 
@@ -66,9 +67,12 @@ es el entregable — no un wireframe, no una recomendación.
 
 ### 1. Producto fuera de catálogo (`CONTEXT.md §8` B-16)
 
-Hoy el usuario que escanea algo que no está en el catálogo **no ve nada diseñado**: el
-servidor devuelve 404, `client.ts` lo tipifica como `ProductNotInCatalogError`, y ningún
-archivo de la UI lo consume ✅.
+Hoy el usuario que escanea algo que no está en el catálogo ve **un error**: el servidor
+devuelve 404, `lookupProduct()` devuelve `null`, y los dos hooks lo detectan ✅ — pero en la
+pantalla de escaneo el caso comparte estado con el fallo de red, así que se muestra con ícono
+de alerta y un botón *"Volver a intentar"* que no puede cambiar nada. El copy actual además
+promete *"estamos sumando productos todo el tiempo — probá de nuevo más adelante"*, que es
+exactamente lo que no se puede sostener.
 
 La intención decidida es *"Lo sentimos, el producto no está disponible para escanear por
 ahora. Probá con otro."* — **eso es el sentido, no el literal.** El texto final es tuyo.

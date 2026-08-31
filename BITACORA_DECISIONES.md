@@ -299,10 +299,16 @@ calidad de `audit-scores.ts`. **La limpieza de código propuesta queda descartad
 ### Contexto
 
 El rediseño catalog-only del 18/8 (ADR-002, parte 2) hizo que un miss de catálogo devuelva
-`null` → 404 en vez de resolver contra OFF/IA. Eso abrió un hueco que quedó sin cubrir: el
-servidor devuelve el 404 con mensaje, `src/api/client.ts` lo tipifica como
-`ProductNotInCatalogError` — y **ningún archivo de la UI lo consume**. El usuario que escanea
-un producto que no está en el catálogo no ve nada diseñado.
+`null` → 404 en vez de resolver contra OFF/IA. El hueco que quedó no es que el caso no se
+detecte —`lookupProduct()` devuelve `null` y los dos hooks lo distinguen— sino que **se le
+muestra al usuario como un error**: en `useScanFlow` comparte estado con el fallo de red, con
+ícono de alerta y un botón *"Volver a intentar"* que no puede cambiar nada, y con un copy que
+promete *"estamos sumando productos todo el tiempo — probá de nuevo más adelante"*.
+
+*(Nota de precisión, agregada el mismo día: la primera redacción de esta ADR decía que el 404
+se tipifica como `ProductNotInCatalogError` y que nadie lo consume. Es falso — ese error lo
+lanza solo `saveProductRemote()`. El dato venía de `REALINEACION_REPORTE.md` y se propagó sin
+verificarse contra el call site.)*
 
 ### Decisión
 
