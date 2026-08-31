@@ -21,6 +21,8 @@ Cada archivo `.md` es el prompt inicial de un agente de Claude Code. Para activa
 | `05-agente-datos.md` | Datos e IA | Cuando tocás prompts de Claude, parámetros de inferencia, o la estrategia de invalidación de cache. |
 | `06-agente-etl-data.md` | ETL / Data Engineering | Cuando necesitás poblar el catálogo masivamente: dump de Open Food Facts, scrapers, pre-población sintética. |
 | `07-agente-devops.md` | DevOps & Infraestructura | Cuando trabajás en Dockerfile, despliegue, rate limiting de infraestructura, o auditoría de secretos. |
+| *(`08` reservado)* | Arquitecto | **Decidido el 31/8/2026, sin escribir.** Dueño del contrato de producto cross-repo y de las migraciones. |
+| **`09-agente-nutricion.md`** | Nutrición | Cuando la pregunta es *"¿esto que le afirmamos al usuario sobre un alimento es cierto?"*: umbrales, octógonos, cobertura, cola de curaduría. Dueño de `nutricion/NUTRICION.md`. **Nace vacío: cita fuente primaria o devuelve 🔴.** |
 
 ## Flujo de trabajo recomendado
 

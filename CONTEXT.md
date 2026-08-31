@@ -634,10 +634,14 @@ exactamente lo que pasó con la tabla de ingredientes (§6.4 A).
 | Flujos, copy, estados de UI, paywall | **ux** *(bajo demanda)* | Especifica todos los estados o no se implementa |
 | Contenedor, despliegue, secretos, rate limit de infra | **devops** *(bajo demanda)* | No toca lógica de negocio |
 
-⚠️ El roster es propuesta de `AUDITORIA_SETUP_AGENTICO.md`. **`architect` y `nutrition` no
-existen todavía**: hoy la nutrición está repartida de hecho entre backend, data-ai y etl —
-y repartido de hecho es sin dueño. Es el único rol cuyo error llega al usuario como un
-consejo de salud equivocado, no como un bug.
+✅ **`nutrition` existe desde el 31/8/2026:** `09-agente-nutricion.md`, con su SSOT propio
+en `nutricion/NUTRICION.md`. Nace **vacío de conocimiento y con contrato duro**: toda
+afirmación cita fuente primaria o sale 🔴, y su schema no admite un ✅ sin cita. Eso lo hace
+seguro de crear antes de tener la base de datos cargada — ver §8 B-12.
+
+🟡 **`architect` sigue sin existir.** Decidido el 31/8 que se crea (dueño del contrato de
+producto cross-repo y de las migraciones); el archivo `08-agente-arquitecto.md` está
+reservado y sin escribir.
 
 **Regla de dominios exclusivos:** dos agentes nunca tocan el mismo archivo en paralelo, y
 ningún agente edita un artefacto del que no es dueño — se lo pide al dueño.
@@ -661,8 +665,8 @@ Ordenados por costo de seguir sin resolverlos.
 | **B-8** | ⚠️ Redis puede servir puntajes viejos: el prefijo de clave **no está versionado** por versión del motor ✅ (`redisService.ts`) | data-ai propone · backend aplica |
 | **B-9** | ⚠️ **En `fitogenix-server`:** sin `Dockerfile`, sin config de despliegue, sin `engines.node` en `package.json` ✅. Rate limit en memoria: con N instancias el límite real es N veces el nominal. **En `fitogenix-native` la mitad de `engines.node` se cerró el 31/8** — ver B-18, que muestra lo que cuesta no declararla | devops |
 | **B-10** | ⚠️ Sin observabilidad conectada (Sentry/Datadog). El contrato de logging está escrito; no tiene a dónde reportar | devops + backend |
-| **B-11** | ⚠️ Los octógonos se calculan con umbrales **nunca contrastados contra el texto del decreto** (§2.5), y el propio archivo lo advierte ✅ | nutrition |
-| **B-12** | ⚠️ **Sin dueño de la nutrición** (§7). Es la causa raíz de B-2, B-3, B-4 y B-11, no un ítem más de la lista | Jere: crear el rol o asumirlo |
+| **B-11** | 🟡 **4 de 5 umbrales verificados el 31/8.** Azúcares, grasas saturadas, grasas totales y sodio **coinciden exactamente** con el perfil de OPS, que es la fuente que la ley adopta ✅. Queda 🔴 **el umbral de calorías** (275/70): no sale de OPS —su modelo no define criterio de energía— sino del Anexo II del Decreto 151/2022, **que no está disponible online**. Verificado además que la ausencia de octógono de grasas trans es correcta ✅ | nutrition |
+| **B-12** | 🟡 **El rol existe desde el 31/8** (`09-agente-nutricion.md`), pero **su base de conocimiento está vacía**: `nutricion/NUTRICION.md §N7` lista tres fuentes primarias que faltan, y sin ellas B-2, B-3 y B-4 terminan en `blocked`. Crear el agente movió el problema de *"no hay a quién preguntarle"* a *"hay a quién preguntarle y todavía no tiene con qué responder"* — que es progreso real, pero no es cierre | Jere: conseguir las fuentes de §N7 |
 | **B-13** | 🟡 **C-14 — el copy in-app le miente al usuario** (§1.6, §2.4). El FAQ *"¿Cómo se calcula el puntaje?"* de `HelpScreen.tsx` nombra a NOVA como componente del puntaje (falso desde v2.1) y el FAQ *"¿Por qué no encuentra mi producto?"* promete la cascada OFF→IA retirada el 18/8. Es deriva doc↔código que llegó a la pantalla. **Ya no está bloqueado:** B-4b se cerró el 31/8 y NOVA se sostiene, así que el copy nuevo ya se puede escribir. Es cambio de código, no de documentación | ✅ `HelpScreen.tsx` → los dos FAQs | ux redacta el copy · mobile lo implementa |
 | **B-14** | 🟡 **La Fase 2 del plan está a medias y nadie lo anotó.** Las 8 dependencias sin usar **ya se eliminaron** ✅ (no están en `package.json`, cero usos). Siguen pendientes: `expo-image` instalada con cero imports ✅, y React Query ausente ✅ | Verificado 28/8 | mobile |
 | ~~**B-15**~~ | ✅ **Cerrado el 31/8/2026: el anónimo ya no persiste.** Implementado y testeado — sin sesión no se lee ni se escribe AsyncStorage, y el deslogueo borra el disco con `multiRemove` (la parte con consecuencia de privacidad, con test de regresión). La migración anónimo→logueado re-emite los lookups con token. **Queda 🟡 solo el copy** del estado vacío, a cargo de UX | ✅ `scanResultStore.tsx` · `anonScanMigration.ts` · 7 tests | ux escribe el copy |
@@ -697,6 +701,9 @@ Ordenados por costo de seguir sin resolverlos.
 | 2026-08-31 | **Primer módulo de analítica del cliente (`src/analytics/`) y `scan_failed` implementado.** Una sola función tipada, `snake_case`, cero PII, no-op real sin consentimiento. El evento registra el barcode o nombre del producto, su tipo, el motivo, el origen y la fecha del escaneo. **Nuevo B-17:** el sink no está conectado a ningún SDK, así que la métrica de cobertura de catálogo todavía no se mide | ✅ `src/analytics/index.ts` · `analytics-events.ts` |
 | 2026-08-31 | **El cliente dejó de no tener tests: 49 en verde.** `@testing-library/react` + `jsdom`, con `react-native` aliasado a `react-native-web` (que ya era dependencia). No se usó `@testing-library/react-native`: necesita `react-test-renderer`, deprecado en React 19, y que el runner transforme el Flow sin transpilar de `react-native`. **Testea render web, no plataforma nativa** — no reemplaza device ni Detox | ✅ `vitest.config.ts` · 5 archivos de test |
 | 2026-08-31 | **CI de `fitogenix-native` roto por el Node del runner, y arreglado** (§8 B-18). El workflow corría Node 20 y `jsdom@30` pide `^22.22.2` — los tres tests de UI no arrancaban el worker. Es deuda preexistente que se hizo visible ahora: `react-native@0.85` ya pedía Node 20.19.4+ y el repo no tenía `engines` para decirlo. La versión pasa a vivir en `.nvmrc`, no en un literal del YAML que se desincroniza en silencio | ✅ `npm ci` limpio sobre el mismo `package-lock`: 49 en verde, `tsc` limpio |
+| 2026-08-31 | **Nace el Agente de Nutrición** (`09-agente-nutricion.md`) con su SSOT propio `nutricion/NUTRICION.md` (§N1–§N7). Cierra el rol que §7 marcaba como faltante y que B-12 señala como causa raíz de otros cuatro bloqueantes. Nace **vacío y con contrato duro**: cita fuente primaria o devuelve 🔴, y distingue ✅ (primaria) de 📄 (prensa) — un 📄 nunca alcanza para cambiar código | `Ley 27.642` art. 7 · perfil de nutrientes de OPS · `scoring/seals.ts` |
+| 2026-08-31 | **B-11 avanza: 4 de 5 umbrales de octógonos verificados** contra el perfil de OPS. Los cuatro coinciden exactamente; el de calorías queda 🔴 porque el Anexo II del Decreto 151/2022 no está accesible. Verificado además que la ausencia de octógono de grasas trans **es correcta** (la ley no lo incluye; OPS sí). Registrado en el encabezado de `seals.ts`, donde se usa | `fitogenix-server` `0712f2d` |
+| 2026-08-31 | **Corrección de un error de análisis, registrada porque el método importa.** Se reportó que `seals.ts` no implementaba la excepción del art. 7. **Es falso:** está en `steps.ts` → `applyNutrition`, un nivel más arriba. El error salió de concluir sobre un archivo aislado sin verificar el call site — el mismo método que produjo C-07 y C-14. Es el caso que justifica el contrato del agente nuevo, y está citado en su prompt | ✅ `scoring/steps.ts` |
 | 2026-08-31 | **La suite se corrió, por primera vez desde que se documentó: 410 tests en 27 archivos, todos en verde, y `tsc --noEmit` limpio.** Cierra el *"416 tests en verde"* que arrastraba ⚠️ desde el 18/8 sin reproducir. El conteo estático del 28/8 (~345 `it()`) subestimaba: no contaba los casos generados dentro de tablas | `vitest run` + `npm ci` limpio sobre el `package-lock.json` de `d73f378` |
 
 ### Pendiente inmediato (fuera de este documento)

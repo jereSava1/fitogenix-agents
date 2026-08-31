@@ -19,6 +19,7 @@ Este repositorio reúne el set de agentes de trabajo para Fitogenix, pensado par
 - `05-agente-datos.md` — prompts de IA, costos y estrategia de cache
 - `06-agente-etl-data.md` — poblamiento masivo de datos: ingesta de Open Food Facts, scrapers, pre-población sintética
 - `07-agente-devops.md` — Dockerfile, despliegue, rate limiting de infraestructura y auditoría de secretos
+- `09-agente-nutricion.md` — criterio nutricional, octógonos y definición de dato sucio. Dueño de `nutricion/NUTRICION.md`, su SSOT propio con fuentes citadas *(el `08` queda reservado para el Arquitecto, decidido y sin escribir)*
 - `CONVENCIONES_EQUIPO.md` — reglas operativas del equipo
 - `DICCIONARIO_DOMINIO.md` — vocabulario y conceptos clave
 - `BITACORA_DECISIONES.md` — registro de decisiones relevantes
