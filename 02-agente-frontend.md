@@ -126,6 +126,13 @@ spinner eterno ni un "algo salió mal". Coordinalo con UX (`01-agente-ux.md`).
   cualquier componente con reglas de producto adentro, **sí llevan test**.
 - `passWithNoTests: true` se queda: hay carpetas sin tests todavía, y no queremos que eso
   rompa el pre-push.
+- **La versión de Node vive en `.nvmrc`**, y el workflow la lee con `node-version-file`. No
+  la escribas como literal en el YAML: se desincroniza del entorno local sin que nadie lo
+  note, y es lo que rompió esta suite el 31/8 (runner en Node 20, `jsdom@30` pide
+  `^22.22.2`). `engines.node` en `package.json` tiene la unión real de las restricciones.
+- ⚠️ **`engines` no se valida sin `engine-strict`.** Declararla sirve para que la
+  incompatibilidad se vea al instalar, no para que `npm ci` falle. Si volvés a tocar la
+  versión de Node, verificá con un `npm ci` limpio, no con el `node_modules` que ya tenés.
 
 ### Nunca
 - Recalcules el puntaje, la banda, el sello o el estado. Llegan derivados (`CONTEXT.md §3.4`).

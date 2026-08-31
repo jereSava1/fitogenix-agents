@@ -280,6 +280,56 @@ linux de `rolldown` junto al darwin, que sigue presente. La suite ahora corre en
 Linux — lo que también significa que la nota vieja de *"npm test falla por el binding nativo
 de rolldown"* queda definitivamente cerrada.
 
+
+---
+
+## 5.c · El CI se rompió con el push, y por qué
+
+Después de subir el trabajo, `fitogenix-native` falló en GitHub Actions:
+
+```
+TypeError: webidl.util.markAsUncloneable is not a function
+  at new CacheStorage  node_modules/undici/lib/web/cache/cachestorage.js
+  at Object.<anonymous> node_modules/jsdom/lib/api.js:12:33
+```
+
+**Lo primero a leer bien es el resumen del runner**, porque miente por omisión:
+*"Test Files 2 passed (2) · Tests 27 passed"* con `exit code 1`. No falló ninguna assertion:
+**tres archivos de test no llegaron a arrancar su worker**. Los dos que pasaron son los de
+lógica pura, que no tocan `jsdom`.
+
+**La causa la declaran los propios paquetes:**
+
+| Paquete | `engines.node` |
+|---|---|
+| `jsdom@30.0.1` | `^22.22.2 \|\| ^24.15.0 \|\| >=26.0.0` |
+| `undici@8.10.0` | `>=22.19.0` |
+| `react-native@0.85.3` | `^20.19.4 \|\| ^22.13.0 \|\| ^24.3.0 \|\| >=25` |
+
+El workflow fijaba **`node-version: 20`**. `undici` toma `markAsUncloneable` de
+`node:worker_threads`; en ese runner no existe, así que `webidl.util` queda sin el método y
+`jsdom` explota al cargarse.
+
+**`npm ci` no protestó porque `engines` no se valida sin `engine-strict`.** Declararla sirve
+para que la incompatibilidad se vea al instalar, no para que la instalación falle — vale
+tenerlo presente antes de confiar en ese campo como red de seguridad.
+
+**No es solo culpa del cambio nuevo.** `react-native@0.85` ya pedía Node 20.19.4+ y el repo
+**no tenía `engines`** para decirlo: es la misma deuda que `§8` B-9 marca en el servidor,
+que acá estaba latente y la suite de UI la hizo visible.
+
+**El arreglo** (`dce8400`): la versión de Node pasa a `.nvmrc` y el workflow la lee con
+`node-version-file`, en vez de un literal en el YAML que se desincroniza del entorno local
+sin que nadie lo note — que es exactamente lo que pasó. Se agregó `engines.node` con la
+unión real de las tres restricciones, y un paso `npx tsc --noEmit` antes de los tests,
+porque hoy un error de tipos pasaba CI en verde.
+
+**Verificación, y su límite.** Se reprodujo el camino de CI con un `npm ci` limpio sobre el
+mismo `package-lock.json`, fuera del repo para no tocar `node_modules`: **49 tests en verde,
+`tsc` limpio**. Lo que **no** se pudo hacer es reproducir el rojo con Node 20 — el proxy de
+la sesión bloquea `nodejs.org` y no se pudo instalar esa versión. El diagnóstico se apoya en
+los `engines` declarados y en el stack trace, no en una reproducción. Nuevo `§8` B-18.
+
 ---
 
 ## 6 · Costo de contexto — medido, no estimado
