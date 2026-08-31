@@ -183,7 +183,7 @@ la escala de severidad de ingredientes que no usa, y el de UX carga el TTL de Re
 
 | Hecho | Marca |
 |---|---|
-| `ENGINE_VERSION = 'ftg-rubric-v2.1'` (`ftgEngine.ts:24`) | ✅ |
+| `ENGINE_VERSION = 'ftg-rubric-v2.1'` (`scoring/constants.ts`; `ftgEngine.ts` solo lo re-exporta — la cita original decía `ftgEngine.ts:24`, archivo equivocado con el número correcto) | ✅ |
 | Bandas reales: 75 / 50 / 25 / 0 (`scoring/constants.ts` `TIERS`) | ✅ |
 | `EXCELLENT_FROM = 75`, `BAD_BELOW = 25` — sello y estado salen de ahí | ✅ |
 | `null` es una banda legítima: "Sin datos suficientes", no se coerciona a 0 | ✅ |

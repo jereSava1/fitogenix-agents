@@ -23,9 +23,20 @@
 > Un ⚠️ es distinto de un 🟡: ⚠️ es *no verificado*, 🟡 es *verificado como ausente y ya
 > decidido*.
 >
-> **Sesión de verificación:** 2026-08-28, contra `~/fitogenix-server` (`main`, `a0428bd`)
-> y `~/fitogenix-native` (`main`, limpio). Una marca ✅ vale para ese commit; si el código
-> se movió, se re-verifica antes de citarla.
+> **Cómo se cita el código: archivo + símbolo o texto, nunca número de línea.** Un
+> `HelpScreen.tsx:18` deja de ser cierto en cuanto alguien inserta una línea más arriba, y
+> **falla en silencio**: el puntero sigue pareciendo válido. Peor todavía, un número de
+> línea correcto puede sobrevivir a un archivo equivocado — `ENGINE_VERSION` se citó como
+> `ftgEngine.ts:24` cuando vive en `scoring/constants.ts:24`, y la coincidencia del 24
+> escondió el error. Se cita **`HelpScreen.tsx` → FAQ *"¿Cómo se calcula el puntaje?"***, o
+> **`audit-scores.ts` → `CURATION_QUEUE`**: un símbolo o una cita textual se puede volver a
+> encontrar con `grep` después de cualquier edición. Los rangos de línea se admiten **solo
+> dentro de un reporte fechado** (`PODA_REPORTE.md`, `REALINEACION_REPORTE.md`), que es
+> registro de un momento y no pretende seguir siendo cierto.
+>
+> **Sesión de verificación:** 2026-08-31, contra `~/fitogenix-server` (`main`, `d73f378`)
+> y `~/fitogenix-native` (`main`, `b7715b8`). Una marca ✅ vale para ese commit; si el
+> código se movió, se re-verifica antes de citarla.
 >
 > **Dueño del documento:** el Orquestador. Único escritor del §9. Cualquier agente puede
 > proponer un cambio; ninguno lo escribe solo.
@@ -105,19 +116,21 @@ placeholder lo tomó Historial.
 | Feature | Estado real |
 |---|---|
 | Login con Facebook | No existe. Google sí funciona (`src/lib/googleAuth.ts`) |
-| Notificaciones | Ítem de menú que abre `Alert('Próximamente')` (`ProfileScreen.tsx:187`) |
-| Foto de etiqueta | **No existe**, pero el copy de la Guía la promete: *"Buscá por nombre o fotografiá la etiqueta"* (`GuideScreen.tsx:77`). Copy a corregir o feature a construir |
-| Alternativas de producto | No existe, y el campo `alternatives` **no sirve para eso**: es texto de ambigüedad por ingrediente ("aceite de girasol o soja") ✅ `scoring/types.ts:184` |
+| Notificaciones | Ítem de menú que abre `Alert('Próximamente')` (`ProfileScreen.tsx` → `handleMenuPress`) |
+| Foto de etiqueta | **No existe**, pero el copy de la Guía la promete: *"Buscá por nombre o fotografiá la etiqueta"* (`GuideScreen.tsx` → subtítulo del encabezado). Copy a corregir o feature a construir |
+| Alternativas de producto | No existe, y el campo `alternatives` **no sirve para eso**: es texto de ambigüedad por ingrediente ("aceite de girasol o soja") ✅ `scoring/types.ts` → campo `alternatives` de la entrada |
 | Sin tests en el cliente | ✅ cero archivos `*.test.ts` en `fitogenix-native/src/`; `vitest.config.ts` declara `passWithNoTests: true` a propósito — la lógica se testea en el servidor |
 
 🔴 **C-14 — el copy in-app contradice al motor y al flujo.** `src/screens/HelpScreen.tsx`
 le dice al usuario dos cosas que ya no son ciertas:
 
-- L16-18: el puntaje *"combina la calidad de los ingredientes, la información nutricional,
-  el nivel de procesamiento (NOVA) y la transparencia"* — es la descripción del motor **v2**,
-  el de cuatro componentes ponderados que v2.1 reemplazó (§2.2). ✅
-- L10: *"Buscamos primero en Open Food Facts y completamos lo que falta con IA"* — es la
-  cascada retirada del request el 2026-08-18 (§5.3). ✅
+- FAQ *"¿Cómo se calcula el puntaje?"*: el puntaje *"combina la calidad de los ingredientes,
+  la información nutricional, el nivel de procesamiento (NOVA) y la transparencia"* — es la
+  descripción del motor **v2**, el de cuatro componentes ponderados que v2.1 reemplazó
+  (§2.2). ✅
+- FAQ *"¿Por qué no encuentra mi producto?"*: *"Buscamos primero en Open Food Facts y
+  completamos lo que falta con IA"* — es la cascada retirada del request el 2026-08-18
+  (§5.3). ✅
 
 Es la contradicción de mayor alcance del set: no vive en un prompt de agente, la lee el
 usuario. Ver §8 B-13.
@@ -483,8 +496,8 @@ ni se redondean: se citan como están, con la fecha.**
 ### §6.4 Los tres defectos, medidos
 
 - **A — Ingredientes reales sin alias.** El motor no los ve y **calcula mal** el puntaje.
-  Caso testigo: `jmaf` en 322 productos. ✅ `src/domain/product/ingredientData.ts:82` — la
-  sigla figura en la descripción, no en los alias.
+  Caso testigo: `jmaf` en 322 productos. ✅ `src/domain/product/ingredientData.ts` → entrada `"jarabe de maíz"` — la
+  sigla figura en la descripción (`desc`), no en los `aliases`.
 - **B — Fragmentos de rotulado tratados como ingredientes** (dosis `N mg/kg`, `CONTIENE`,
   códigos INS pegados a su nombre): ≈740 apariciones de nada, que hunden la cobertura
   artificialmente. ✅ medido.
@@ -505,7 +518,7 @@ jobs de auditoría y de fix. ✅ inventario verificado en la auditoría; `audit:
 🔴 **No existe:** constraints en la base que impidan que un dato sucio vuelva a entrar, y
 un **criterio versionado de qué es un dato sucio** en términos de dominio (no de patrón de
 texto). ✅ verificado: la cola de curaduría **se calcula y se descarta** —
-`CURATION_QUEUE` se puebla en `scripts/audit-scores.ts:121` y nunca se imprime.
+`CURATION_QUEUE` se puebla en `scripts/audit-scores.ts` (el `for` sobre `bd.unidentified`) y nunca se imprime.
 Ver §8 B-3 (la cola) y B-12 (el dueño que falta para definir "dato sucio").
 
 **Conclusión:** el ETL guarda bien la puerta de entrada. **Nadie auditó lo que ya está
@@ -549,7 +562,7 @@ Ordenados por costo de seguir sin resolverlos.
 |---|---|---|---|
 | **B-1** | 🟡 **C-02 — DECIDIDO (Jere, 28/8/2026): el lookup va CON CUOTA** (§4.3). La contradicción está cerrada; queda el gap de implementación | Endpoint público, cero cuotas ✅ | **Decidido.** Sub-decisión viva: qué pasa con el anónimo. Implementa backend, testea qa |
 | **B-2** | 🔴 **C-11** — el motor **emite puntaje sin entender la etiqueta**: 1.453 productos con 0% de cobertura, casos "Excelente" entre ellos (§6.4 C) | Medido 28/8 ✅ · sin gate | nutrition define el umbral · architect dónde vive · backend implementa |
-| **B-3** | 🔴 **C-10** — cola de curaduría de **8.991 términos** que se calcula y se tira (§6.5) | ✅ `audit-scores.ts:121` | nutrition (clasifica) · backend (imprime) |
+| **B-3** | 🔴 **C-10** — cola de curaduría de **8.991 términos** que se calcula y se tira (§6.5) | ✅ `audit-scores.ts` → `CURATION_QUEUE` | nutrition (clasifica) · backend (imprime) |
 | **B-4** | 🔴 **C-08** — el criterio documentado (4 componentes ponderados) **no es el motor v2.1** (§2.2) | ✅ contra `constants.ts` | nutrition + orchestrator: qué se corrige, el doc o la expectativa |
 | **B-4b** | 🔴 **C-09 — NOVA sigue vivo, pero no en el puntaje.** Se ingiere de OFF/OBF, se persiste en `products.nova_group`, lo mergea el ETL, `audit-scores.ts` lo usa como **señal de calidad** (NOVA 4 puntuando Excelente = flag), y el copy de la app se lo nombra al usuario — pero el motor v2.1 **no lo lee para el puntaje** ✅ (`steps.ts`/`pipeline.ts`/`rubric/`: cero referencias). **No se borra de la doc**: se documenta el hecho exacto. La limpieza de código, si se decide, es tarea aparte (§2.4) | ✅ mapeado 28/8 | Producto (Jere): si NOVA se le sigue diciendo al usuario, se sostiene; si no, sale del copy Y de la doc |
 | ~~**B-5**~~ | ✅ **C-07 cerrado (28/8/2026).** La cascada externa ya no se documenta como camino de request en ningún archivo del set ni en el `README.md` del servidor (§5.3) | Verificado por grep en los 8 agentes + `CONTEXT.md` + READMEs | — |
@@ -560,7 +573,7 @@ Ordenados por costo de seguir sin resolverlos.
 | **B-10** | ⚠️ Sin observabilidad conectada (Sentry/Datadog). El contrato de logging está escrito; no tiene a dónde reportar | devops + backend |
 | **B-11** | ⚠️ Los octógonos se calculan con umbrales **nunca contrastados contra el texto del decreto** (§2.5), y el propio archivo lo advierte ✅ | nutrition |
 | **B-12** | ⚠️ **Sin dueño de la nutrición** (§7). Es la causa raíz de B-2, B-3, B-4 y B-11, no un ítem más de la lista | Jere: crear el rol o asumirlo |
-| **B-13** | 🔴 **C-14 — el copy in-app le miente al usuario** (§1.6): `HelpScreen.tsx` describe el motor v2 y la cascada retirada. Es deriva doc↔código que salió del repo y llegó a la pantalla. **Es cambio de código, no de documentación** — no se corrige desde el setup agéntico | ✅ `HelpScreen.tsx:10,16-18` | ux redacta el copy nuevo · mobile lo implementa. Bloqueado por B-4/B-4b: no se puede describir el motor hasta cerrar qué se dice de NOVA |
+| **B-13** | 🔴 **C-14 — el copy in-app le miente al usuario** (§1.6): `HelpScreen.tsx` describe el motor v2 y la cascada retirada. Es deriva doc↔código que salió del repo y llegó a la pantalla. **Es cambio de código, no de documentación** — no se corrige desde el setup agéntico | ✅ `HelpScreen.tsx` → FAQs *"¿Por qué no encuentra mi producto?"* y *"¿Cómo se calcula el puntaje?"* | ux redacta el copy nuevo · mobile lo implementa. Bloqueado por B-4/B-4b: no se puede describir el motor hasta cerrar qué se dice de NOVA |
 | **B-14** | 🟡 **La Fase 2 del plan está a medias y nadie lo anotó.** Las 8 dependencias sin usar **ya se eliminaron** ✅ (no están en `package.json`, cero usos). Siguen pendientes: `expo-image` instalada con cero imports ✅, y React Query ausente ✅ | Verificado 28/8 | mobile |
 
 ---
@@ -578,9 +591,10 @@ Ordenados por costo de seguir sin resolverlos.
 | 2026-08-28 | **Decisión de Jere aplicada:** C-02 pasa de 🔴 abierto a 🟡 decidido — el lookup va con cuota. §4.3 reescrito con el estado de hoy y la lista de 7 ítems que faltan para que sea ✅; §8 B-1 actualizado. La sub-decisión del usuario anónimo queda viva dentro de la decisión | `src/routes/products/lookup.ts` (sigue público) |
 | 2026-08-28 | **Convención de marcas ampliada a cuatro:** se suma 🟡 (decidido, no implementado) a ✅/⚠️/🔴. ⚠️ = no verificado; 🟡 = verificado como ausente y ya decidido | — |
 | 2026-08-28 | **Tres huecos del SSOT cerrados** (autorizados por Jere): §1.6 estado real de pantallas y features · §5.7 selección de modelo de IA · §5.8 stack del cliente. **Ninguna sección existente se renumeró** — los punteros `§X` de los 8 agentes siguen válidos | `fitogenix-native` `b7715b8` · `claudeService.ts` |
-| 2026-08-28 | **C-09 mapeado, no cerrado:** NOVA se ingiere, se persiste, lo usa `audit-scores.ts` como señal de calidad y se le nombra al usuario, pero el motor no lo lee. B-4 se desdobla en B-4 (C-08) y B-4b (C-09) | `steps.ts`/`pipeline.ts` · `audit-scores.ts:84-109` · `HelpScreen.tsx:18` |
+| 2026-08-28 | **C-09 mapeado, no cerrado:** NOVA se ingiere, se persiste, lo usa `audit-scores.ts` como señal de calidad y se le nombra al usuario, pero el motor no lo lee. B-4 se desdobla en B-4 (C-08) y B-4b (C-09) | `steps.ts`/`pipeline.ts` · `audit-scores.ts` (chequeos `nova_group === 4` / `=== 1`) · `HelpScreen.tsx` |
 | 2026-08-28 | **C-07 cerrado.** Corregido en `00-orquestador.md` (reescrito), `02-agente-frontend.md` (reescrito), `03`, `06` y el `README.md` de `fitogenix-server` — que documentaba la cascada como *la* arquitectura y decía "Unit tests (119)" cuando hay 27 archivos y ~345 casos | grep en los 9 documentos + `productLookupService.test.ts` |
 | 2026-08-28 | **C-14 nuevo (B-13):** el copy de `HelpScreen.tsx` describe el motor v2 y la cascada retirada. Primer caso de deriva que llegó al usuario final. **C-15 nuevo (B-14):** la poda de dependencias de la Fase 2 ya se hizo sin registrarse | `HelpScreen.tsx` · `fitogenix-native/package.json` |
+| 2026-08-31 | **Convención de citas al código:** archivo + símbolo o cita textual, nunca número de línea. Se convirtieron los 10 punteros con línea del set vivo. Encontrado al aplicarla: `ENGINE_VERSION` se citaba como `ftgEngine.ts:24` y vive en `scoring/constants.ts:24` — archivo equivocado, número correcto, error invisible durante tres días. Los rangos de línea quedan permitidos solo en reportes fechados | `HelpScreen.tsx` · `ProfileScreen.tsx` · `ingredientData.ts` · `audit-scores.ts` · `scoring/constants.ts` |
 
 ### Pendiente inmediato (fuera de este documento)
 
