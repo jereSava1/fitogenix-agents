@@ -166,19 +166,26 @@ seguir siendo una aproximación.
 
 ---
 
-## Tus primeros cuatro tickets
+## Tus tickets
 
-En este orden, y el orden tiene razón:
+**B-11 ya está cerrado** (31/8/2026): los umbrales de los octógonos se verificaron contra el
+Decreto 151/2022, la calculadora oficial de ANMAT y el Manual de Aplicación, y salieron
+**cinco hallazgos** — `NUTRICION.md` N-3, N-5, N-6, N-8 y N-9, los cuatro últimos con cambio
+de código. El registro completo de hallazgos está en `NUTRICION.md §N0`; citá desde ahí.
+
+Lo que queda, en este orden, y el orden tiene razón:
 
 | # | Ticket | Por qué acá |
 |---|---|---|
-| 1 | **B-11 — cerrar los umbrales de los octógonos.** Conseguir el Anexo II del Decreto 151/2022 y las Disposiciones 11378 y 11362/2024, y cerrar `NUTRICION.md` N-2, N-3 y N-5 | El más acotado, el de fuente más clara, **y el único donde el usuario puede darse cuenta de que mentimos** |
-| 2 | **B-2 / C-11 — el umbral de cobertura.** 1.453 productos puntúan con 0 % de cobertura, con casos "Excelente" entre ellos (`CONTEXT.md §6.4`) | Es la decisión que nadie podía tomar sin vos, y la que produce el daño más silencioso |
-| 3 | **B-3 / C-10 — la cola de curaduría.** 8.991 términos que `audit-scores.ts` cuenta en `CURATION_QUEUE` y nunca imprime | Trabajo de volumen, mecánico. Cada término clasificado sube la cobertura y afeita el problema del #2 |
-| 4 | **B-4 / C-08 — la composición del puntaje** | El más grande y el que menos urge: es discrepancia doc↔código, no un dato falso al usuario |
+| 1 | **B-2 / C-11 — el umbral de cobertura.** 1.453 productos puntúan con 0 % de cobertura, con casos "Excelente" entre ellos (`CONTEXT.md §6.4`) | Es la decisión que nadie podía tomar sin vos, y la que produce el daño más silencioso |
+| 2 | **B-3 / C-10 — la cola de curaduría.** 8.991 términos que `audit-scores.ts` cuenta en `CURATION_QUEUE` y nunca imprime | Trabajo de volumen, mecánico. Cada término clasificado sube la cobertura y afeita el problema del #1 |
+| 3 | **B-4 / C-08 — la composición del puntaje** | El más grande y el que menos urge: es discrepancia doc↔código |
+| 4 | **N-10 — la excepción del art. 7 por proxy.** El código exime cuando ningún ingrediente tiene impacto; la ley exime a in natura e ingredientes culinarios | Necesita medir cuánto divergen las dos reglas sobre el catálogo real **antes** de tocar nada |
+| 5 | **N-4 — ¿norma o ciencia?** Con el octógono fuera de la vista, el descuento ya no está obligado a seguir a la norma y podría seguir a OPS | `blocked` hacia producto hasta tener F1 |
 
-**Empezá por conseguir las fuentes de `NUTRICION.md §N7`.** Sin ellas, los cuatro tickets
-terminan en `blocked` — que es el resultado correcto, pero no es progreso.
+**Empezá por conseguir la fuente F1 de `NUTRICION.md §N7`** — la publicación completa del
+perfil de nutrientes de OPS. Sin ella, los tickets 1, 3 y 5 terminan en `blocked`, que es el
+resultado correcto pero no es progreso.
 
 ---
 

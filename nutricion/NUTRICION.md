@@ -9,7 +9,8 @@
 > bandas mal en tres documentos a la vez.
 >
 > **Punteros:** las secciones son `§N1`, `§N2`… con `N` de nutrición, para que nunca se
-> confundan con las `§X` de `CONTEXT.md`.
+> confundan con las `§X` de `CONTEXT.md`. Los hallazgos son `N-1`, `N-2`… y **todos** están
+> listados en `§N0`: si vas a citar un `N-x`, verificá ahí que sea el que creés.
 >
 > **Dueño:** el Agente de Nutrición (`09-agente-nutricion.md`). Único escritor.
 >
@@ -22,8 +23,40 @@
 > | ⚠️ | Declarado en el código o en un documento del setup, sin contrastar contra fuente. |
 > | 🟡 | Decidido, no implementado. |
 > | 🔴 | Abierto. No lo resuelve un agente por criterio propio. |
+> | 🔧 | Discrepancia encontrada **y ya corregida en el código**. Lleva el `N-x` que la cerró. |
 >
 > **Sesión de verificación:** 2026-08-31, contra `~/fitogenix-server` `main` `415577c`.
+
+---
+
+## §N0 — Registro de hallazgos
+
+Todo hallazgo de este documento lleva un `N-x`. **Esta tabla es la única lista completa**, y
+existe porque sin ella los números colisionan: `N-6` estuvo usado dos veces —uno cerrado y
+uno abierto— y un lector que cargue solo la sección del cerrado concluye que el abierto está
+resuelto. Con punteros por sección, eso no es hipotético.
+
+| # | Estado | Vive en | De qué se trata |
+|---|---|---|---|
+| **N-1** | ✅ Resuelto 31/8 | §N2 | Las dos capas compartían un solo cálculo. Se resolvió eliminando una capa, no duplicando el cálculo |
+| **N-2** | ✅ Cerrado 31/8 | — | *"¿Las dos etapas tenían umbrales distintos o solo plazos?"* Lo respondió la Tabla 1 (§N3): **umbrales distintos**. El ticket se borró en vez de cerrarse — es el caso que motiva la regla de abajo |
+| **N-3** | ✅ Cerrado 31/8 | §N5 | Qué exige exactamente el Manual de Aplicación. Leído completo (F10) |
+| **N-4** | 🟡 Abierto | §N5 | La norma de 2024 está judicializada y cuestionada. Ahora que el octógono no se muestra, el descuento **puede** seguir a OPS en vez de a la norma — sin decidir. Necesita F1 |
+| **N-5** | ✅ Cerrado 31/8 | §N6 | Al sodio le faltaba la condición alternativa `≥300 mg/100 g` |
+| **N-6** | ✅ Cerrado 31/8 | §N6 | El corte de calorías de bebidas era 70; la norma dice 25 |
+| **N-7** | ✅ Resuelto 31/8 | §N5 | **El límite estructural.** El cálculo oficial parte de la formulación y nosotros solo tenemos la etiqueta. Resuelto por decisión de producto: el octógono resta y no se muestra (`CONTEXT.md §2.5`) |
+| **N-8** | ✅ Cerrado 31/8 | §N6 | El octógono de calorías salía por energía sola; la norma exige que ya haya otro sello |
+| **N-9** | ✅ Cerrado 31/8 | §N6 | Faltaba la tercera condición de sodio (bebidas sin aporte energético, `≥40 mg/100 ml`) |
+| **N-10** | 🟡 Abierto | §N6 | La excepción del art. 7 se implementa por proxy (*"ningún ingrediente tiene impacto"*) y no por el criterio legal. **Era `N-6`**; renumerado el 1/9 por la colisión |
+
+**Reglas del registro, y las tres salieron de un error real:**
+
+1. **Un número no se recicla nunca**, ni siquiera si el hallazgo se cerró el mismo día. Un
+   `N-x` identifica un hallazgo, no un casillero libre.
+2. **Un hallazgo cerrado no se borra: se marca ✅ y se queda.** Borrar N-2 dejó a
+   `09-agente-nutricion.md` mandando a cerrar un ticket inexistente durante tres días.
+3. **Un hallazgo nuevo se agrega acá antes que a su sección.** Es lo que hace visible la
+   colisión en el momento de crearla, y no tres sesiones después.
 
 ---
 
@@ -153,7 +186,7 @@ exención es el nivel de procesamiento**, no la composición.
 > exención: NOVA 1 (in natura o mínimamente procesado) y NOVA 2 (ingrediente culinario)
 > quedan fuera; NOVA 3 y 4, dentro. `products.nova_group` ya se ingiere y se persiste ✅
 > (`CONTEXT.md §2.4`). **Este es un uso concreto y legalmente fundado del campo que el
-> proyecto decidió sostener** (ADR-004), y hasta hoy no estaba identificado. Ver §N6/N-4.
+> proyecto decidió sostener** (ADR-004), y hasta hoy no estaba identificado. Ver §N5/N-4.
 
 ---
 
@@ -261,7 +294,7 @@ Contrastado el 2026-08-31 contra `fitogenix-server` `415577c`.
 | Azúcares añadidos | ≥ 10 % E | ≥ 10 % E | ✅ |
 | Grasas saturadas | ≥ 10 % E | ≥ 10 % E | ✅ |
 | Grasas totales | ≥ 30 % E | ≥ 30 % E | ✅ |
-| Sodio | ≥ 1 mg/kcal **o ≥ 300 mg/100 g** | ≥ 1 mg/kcal, **sin la alternativa** | 🟡 **N-5** |
+| Sodio | ≥ 1 mg/kcal **o ≥ 300 mg/100 g** | ≥ 1 mg/kcal, **sin la alternativa** | 🔧 **N-5** |
 | Calorías — alimentos | ≥ 275 kcal/100 g **+ otro sello** | 275, **sin la segunda condición** | 🔧 **N-8** |
 | Calorías — bebidas | ≥ 25 kcal/100 ml **+ otro sello** | **70**, sin la segunda condición | 🔧 **N-6 + N-8** |
 | Sodio — bebida sin energía | ≥ 40 mg/100 ml | **ausente** | 🔧 **N-9** |
@@ -317,7 +350,7 @@ guarda cada entrada dentro de un **sobre** con la versión que la generó y trat
 toda entrada cuya versión no coincida. **Sin el bump, los octógonos viejos se seguirían
 sirviendo una semana.**
 
-> 🟡 **N-6 — La excepción se implementa por proxy, no por el criterio legal.** El código
+> 🟡 **N-10 — La excepción se implementa por proxy, no por el criterio legal.** El código
 > exime cuando *"ningún ingrediente tiene impacto"*; la ley exime a *"in natura e
 > ingredientes culinarios sin adición de nutrientes críticos"*. Se parecen y coinciden en
 > los casos típicos, pero no son la misma regla: un ingrediente culinario cuyo impacto la
