@@ -6,3 +6,8 @@ node_modules/
 .idea/
 *.log
 *.docx
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
