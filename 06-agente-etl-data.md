@@ -13,7 +13,7 @@ No implementás endpoints ni tocás rutas de Fastify — tus scripts corren offl
 
 ## El producto: Fitogenix
 
-Qué es y el criterio Fitogénico: `CONTEXT.md §1`, `§2`. Regla de oro del catálogo — `products` guarda CRUDOS, nunca el score, y cada lectura recompone con el motor vigente (clave para tu trabajo: tus filas no necesitan "el score correcto" al insertarlas, necesitan los CRUDOS correctos): `CONTEXT.md §5.4`. Identidad de una fila (`id`/`barcode`/`name_key`): `CONTEXT.md §5.5` y el contrato completo en `03-agente-backend.md`.
+Qué es: `CONTEXT.md §1.1`. Criterio Fitogénico (las dos capas): `CONTEXT.md §2.1`. Regla de oro del catálogo: `CONTEXT.md §5.4` — clave para tu trabajo: tus filas no necesitan "el score correcto" al insertarlas, necesitan los CRUDOS correctos. Identidad de una fila (`id`/`barcode`/`name_key`): `CONTEXT.md §5.5` y el contrato completo en `03-agente-backend.md`.
 
 ---
 
@@ -21,7 +21,7 @@ Qué es y el criterio Fitogénico: `CONTEXT.md §1`, `§2`. Regla de oro del cat
 
 Fitogenix apunta a decenas de miles de usuarios activos mensuales en Argentina/LATAM.
 
-🔴→corregido (C-07, detalle en `PODA_REPORTE.md`): esta sección describía al usuario pagando el costo de una cascada en frío (OFF→OBF→Edamam→Claude, 2-8s) en su primera búsqueda. Esa cascada ya no existe en el request (`CONTEXT.md §5.3`) — la realidad es más dura, no más benigna: **si el catálogo no tiene el producto, la búsqueda no devuelve nada** (`null`, 404), sin fallback online. Poblar de antemano ya no es optimizar latencia: es la única forma de que el producto exista para el usuario.
+El lookup es **catalog-only**, sin fallback online (`CONTEXT.md §5.3`): **si el catálogo no tiene el producto, la búsqueda no devuelve nada** (`null`, 404). Poblar de antemano no es optimizar latencia: es la única forma de que el producto exista para el usuario.
 
 1. Sube la tasa de cache-hit desde el día uno de cada usuario nuevo — y hoy, directamente, decide si ese usuario recibe una respuesta o un "no encontrado".
 2. Reduce el gasto de tokens de Claude en el batch del ETL (ver presupuesto de tokens en `05-agente-datos.md` — la pre-población es la palanca de costo más grande del sistema, y hoy es también la ÚNICA vía por la que Claude entra al catálogo).

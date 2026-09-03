@@ -23,8 +23,8 @@ sola implementación. Ver `CONTEXT.md §3.4` y `§5.2`.
 
 No se transcribe acá. Se cita:
 
-- Qué es Fitogenix, quién lo usa y qué promete: `CONTEXT.md §1`.
-- El criterio Fitogénico y la severidad de ingredientes: `CONTEXT.md §2`.
+- Qué es Fitogenix, quién lo usa, qué promete y su límite declarado: `CONTEXT.md §1.1`–`§1.4`.
+- El criterio Fitogénico y la severidad de ingredientes: `CONTEXT.md §2.1`–`§2.3`.
 - Bandas, sello y estado — **fuente única `scoring/constants.ts`**, el cliente los recibe
   ya derivados y **nunca los recalcula**: `CONTEXT.md §3`, y en particular `§3.4`.
 - Modelo de negocio: `CONTEXT.md §4.3` (**tier inicial gratuito — es el vigente**). `§4.2` describe el freemium futuro y **no es el MVP**.
@@ -147,28 +147,18 @@ spinner eterno ni un "algo salió mal". Coordinalo con UX (`01-agente-ux.md`).
 
 Lo que sigue está verificado contra `package.json` y el código, no heredado de un plan.
 
-**Hecho, sin registrar (🟡 → cerrado):** la poda de dependencias sin usar de la Fase 2 **ya
-se ejecutó**. Las ocho que el documento anterior listaba como candidatas (`@expo/ui`,
-`expo-glass-effect`, `expo-device`, `expo-symbols`, `expo-system-ui`, `expo-constants`,
-`expo-status-bar`, `expo-web-browser`) no están en `package.json` y no tienen usos. Ver
-`CONTEXT.md §8` B-14.
+**Tus bloqueantes abiertos viven en `CONTEXT.md §8` y no se transcriben acá.** Los que te
+tocan hoy: **B-13** (copy de `HelpScreen.tsx` — UX redacta, vos implementás), **B-14**
+(`expo-image` instalada con cero imports · React Query ausente) y **B-17** (conectar
+`setAnalyticsSink()` — Jere elige la herramienta, vos la conectás en un solo lugar).
+Leelos ahí antes de arrancar: el estado cambia sin que este archivo se entere.
 
-**Pendiente 🟡 — decidido, no implementado:**
+Los ítems **4** y **5** de la lista vieja — *fuera de catálogo* y *el anónimo no persiste* —
+se cerraron el 31/8 ✅ (`CONTEXT.md §8` B-16 y B-15). De los dos queda 🟡 solo el copy, de UX.
 
-| # | Qué falta | Estado verificado |
-|---|---|---|
-| 1 | Reemplazar `Image` de React Native por `expo-image` | `expo-image` está instalada y tiene **cero imports** ✅ |
-| 2 | React Query + persister sobre AsyncStorage | No hay `@tanstack/*` en `package.json` ✅. Hoy la persistencia es AsyncStorage a mano en `scanResultStore.tsx` |
-| 3 | `git rm` de los dos shims muertos | `ScoreBreakdownSheet.tsx` (nadie lo importa, el propio archivo dice cómo borrarlo) y, cuando no queden imports, `domain/product/ftgEngine.ts` ✅ |
-
-**Pendiente 🟡 — decidido el 31/8, esperando copy de UX. No arranques sin el texto.**
-
-| # | Qué | Estado verificado hoy |
-|---|---|---|
-| ~~4~~ | ✅ **Fuera de catálogo — hecho el 31/8.** `ProductNotInCatalogCard` con estado propio, separado del error de red, y `scan_failed` emitido. Queda 🟡 el copy, de UX |
-| ~~5~~ | ✅ **El anónimo no persiste — hecho el 31/8.** Más el borrado del disco en `SIGNED_OUT` y la migración anónimo→logueado. Queda 🟡 el copy del estado vacío, de UX |
-| 6 | **Copy de `HelpScreen.tsx`** (`CONTEXT.md §8` B-13) | **Ya no está bloqueado:** B-4b se cerró el 31/8 (NOVA se sostiene, `§2.4`). UX escribe el texto, vos lo implementás |
-| 7 | **Conectar el sink de analítica** (`CONTEXT.md §8` B-17) | `src/analytics/` emite `scan_failed` ✅ pero **no hay SDK**: sin `setAnalyticsSink()` en el arranque los eventos se descartan. Jere elige la herramienta; vos la conectás en un solo lugar |
+**Lo único pendiente que no está en `§8`, porque es tuyo y de nadie más:** `git rm` de los
+dos shims muertos — `ScoreBreakdownSheet.tsx` (nadie lo importa; el propio archivo dice cómo
+borrarlo) y, cuando no queden imports, `domain/product/ftgEngine.ts` ✅.
 
 **Cómo quedaron implementados el 4 y el 5** (para que un refactor no los deshaga):
 `lookupProduct()` devuelve `null` → `state: "not-found"` y `ProductNotInCatalogCard`, sin
@@ -177,10 +167,9 @@ reintento del mismo producto; `lookupProduct()` lanza → `state: "error"` y men
 no toque lógica. Accesibilidad según `04-agente-qa.md` (contraste, área táctil ≥44pt, lector
 de pantalla).
 
-**La guarda que más fácil se rompe:** los efectos de persistencia de `scanResultStore.tsx`
-no escriben sin sesión, así que el handler de `SIGNED_OUT` **tiene que borrar el disco a
-mano** (`multiRemove`). Si alguien saca ese borrado, el historial del que se desloguea le
-queda al siguiente que use el teléfono. Hay test de regresión; no lo borres con el código.
+**La guarda que más fácil se rompe:** el borrado explícito del disco (`multiRemove`) en el
+handler de `SIGNED_OUT` de `scanResultStore.tsx`. Por qué existe y qué pasa si falta:
+`CONTEXT.md §1.6`. Hay test de regresión; **no lo borres junto con el código que cubre.**
 
 **`scan_failed` se emite desde los dos hooks de lookup**, nunca desde una pantalla, y siempre
 vía `trackScanFailed()` — así la clasificación de la query y el timestamp se deciden en un
@@ -214,7 +203,7 @@ Aplica a cámara hoy, y a notificaciones cuando se implementen.
 ## Instrumentación y analytics
 
 Los eventos de producto son cómo el negocio mide activación, retención y conversión
-(`CONTEXT.md §4`). Nombres exactos en `snake_case`, sin PII.
+(`CONTEXT.md §4.1`, `§4.4`). Nombres exactos en `snake_case`, sin PII.
 
 | Evento | Cuándo | Propiedades |
 |---|---|---|

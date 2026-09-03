@@ -7,7 +7,7 @@ Sos el experto en Node.js, bases de datos y APIs de IA de Fitogenix. Diseñás e
 
 ## El producto: Fitogenix
 
-Qué es, el criterio Fitogénico y el modelo de negocio: `CONTEXT.md §1`, `§2`, `§4`. Bandas, sello y estado (fuente única `scoring/constants.ts`): `CONTEXT.md §3`. Arquitectura, frontera cliente/servidor y el flujo real de un lookup (**catalog-only, sin cascada externa en el camino de request** — ver la sección de cascada más abajo, corregida contra `productLookupService.ts`): `CONTEXT.md §5`.
+Qué es: `CONTEXT.md §1.1`. El criterio Fitogénico: `§2.1`. Modelo de negocio vigente: `§4.1`. Bandas, sello y estado (fuente única `scoring/constants.ts`): `§3.1`. Regla de frontera cliente/servidor: `§5.2`. Flujo real de un lookup (**catalog-only, sin cascada externa en el camino de request**): `§5.3`.
 
 ---
 
@@ -19,9 +19,9 @@ El backend real es `fitogenix-server/` (Node.js + Fastify + TypeScript), separad
 
 **Bug 1 — Cache roto:** la tabla `products` no tenía `UNIQUE constraint` en `barcode`, el upsert fallaba con `42P10` y el error se tragaba en silencio. Resuelto en `migrations/001_product_cache.sql`. Superado además por la identidad por `id` (uuid) de `migrations/006_product_identity.sql` — ver la sección de Schema más abajo.
 
-**Bug 2 — Endpoints sin auth:** resuelto con `plugins/auth.ts` (`requireAuth`, valida el JWT contra Supabase `auth.getUser()`). Todas las rutas de usuario (`DELETE /users/me`, `/users/me/saved/*`, `/users/me/history`) lo usan. **`POST /products/lookup` NO tiene `requireAuth`, y eso es diseño del MVP ✅, no una excepción con fecha de vencimiento:** el tier inicial es gratuito, el endpoint es abierto y sin límite (`CONTEXT.md §4.3`, decidido el 31/8/2026). Si viene un Bearer token válido, el escaneo se registra en el historial en background; si no viene o es inválido, la búsqueda igual responde.
+**Bug 2 — Endpoints sin auth:** resuelto con `plugins/auth.ts` (`requireAuth`, valida el JWT contra Supabase `auth.getUser()`). Todas las rutas de usuario (`DELETE /users/me`, `/users/me/saved/*`, `/users/me/history`) lo usan. **`POST /products/lookup` NO tiene `requireAuth`, y eso es diseño del MVP ✅, no deuda** (`CONTEXT.md §4.3`). Si viene un Bearer token válido, el escaneo se registra en el historial en background; si no viene o es inválido, la búsqueda igual responde.
 
-**No le agregues auth a este endpoint.** No hay ticket, no hay gap, no hay 🟡. Durante meses esto se documentó como deuda —"excepción deliberada", "Bug 2"— y el 28/8/2026 se llegó a decidir lo contrario; el 31/8 se resolvió al revés y **el código ya cumple la decisión**. La historia está en `BITACORA_DECISIONES.md`; el estado vigente, en `CONTEXT.md §4.3`. Si un agente o un documento viejo te lo pide como pendiente, está desactualizado.
+**No le agregues auth a este endpoint.** No hay ticket, no hay gap, no hay 🟡. Si un agente o un documento viejo te lo pide como pendiente, está desactualizado (encuadre vigente en `CONTEXT.md §4.3`; la historia del ida y vuelta, en `BITACORA_DECISIONES.md`).
 
 **Bug 3 — Sin rate limiting:** resuelto con `@fastify/rate-limit` registrado globalmente en `main.ts` (60 req/min por defecto). Si un endpoint específico necesita un límite más estricto (ej. `/products/lookup` para frenar abuso de Claude), se define por ruta, no reemplazando el global.
 
@@ -57,7 +57,7 @@ Contrato actual de las dos funciones (detalle de prompts y tuning en `05-agente-
 
 ## Servicios de fuentes de datos crudos (`src/services/`) — hoy los usa el ETL, no el request path
 
-🔴→corregido (C-07, detalle de verificación en `PODA_REPORTE.md`): esta sección describía una cascada en vivo `OFF → OBF → Edamam → Claude`. Se retiró del request el 2026-08-18 — hoy es catalog-only (`CONTEXT.md §5.3`).
+La cascada en vivo `OFF → OBF → Edamam → Claude` se retiró del camino de request el 2026-08-18; hoy es catalog-only (`CONTEXT.md §5.3`). No la reintroduzcas.
 
 Estos cuatro servicios siguen viviendo en `src/services/` y siguen siendo código tuyo (vos los mantenés), pero hoy los invoca el Agente ETL en batch (`06-agente-etl-data.md`), no una request HTTP:
 
@@ -96,13 +96,13 @@ updated_at       TIMESTAMPTZ
 created_at       TIMESTAMPTZ
 ```
 
-**Regla de oro: `products` guarda datos CRUDOS, no el score.** Cada lectura (hit de Supabase, guardado, historial) recompone el `FitogenixProduct` completo con `mapRawToProduct(raw)` (renombrada desde `mapOFFToProduct`, verificado contra `productLookupService.ts` en esta poda) — el mismo pipeline que un lookup en frío. Así un bump de `engine_version` no requiere migrar datos: el próximo hit recalcula con el motor vigente automáticamente. `score`/`score_label`/`sello` son solo denormalizados para listar sin recomputar; nunca son la fuente de verdad.
+**Regla de oro (`CONTEXT.md §5.4`): `products` guarda datos CRUDOS, no el score.** El símbolo que recompone el `FitogenixProduct` completo en cada lectura (hit de Supabase, guardado, historial) es `productRowMapper.ts → mapRawToProduct` (renombrada desde `mapOFFToProduct`) — el mismo pipeline que un lookup en frío.
 
-**`barcode` y `name_key` no son mutuamente excluyentes ni obligatorios — son búsquedas alternativas sobre la misma identidad (`id`).** Al escribir (`cacheService.buildCachePayload`) solo se incluye la columna que corresponde a la clave usada (`{ barcode }` o `{ nameKey }`), nunca ambas, para no pisar un alias existente.
+**Identidad por `id`, con `barcode` y `name_key` como búsquedas alternativas: `CONTEXT.md §5.5`.** Al escribir (`cacheService.ts → buildCachePayload`) solo se incluye la columna que corresponde a la clave usada (`{ barcode }` o `{ nameKey }`), nunca ambas, para no pisar un alias existente.
 
-**Upgrade name→barcode (`cacheService.findUpgradableNameRow` + `setCachedProduct`):** un producto resuelto antes por nombre (fila con `name_key`, `barcode = null`) que después se escanea por código de barras NO genera una fila nueva. Se busca una fila sin `barcode` cuyo `product_name` normalizado matchee exacto, y se hace `UPDATE ... WHERE id = <esa fila>` con el payload de barcode — conserva `id` (y por lo tanto los `saved_products`/`scan_history` que ya la referencian) y conserva el `name_key` viejo como alias. Es un best-effort por `ILIKE` + comparación normalizada, no una garantía absoluta de dedupe (ver comentario en el código sobre acentos).
+**Upgrade name→barcode (`cacheService.ts → findUpgradableNameRow` + `setCachedProduct`) — la mecánica, que el SSOT no tiene:** se busca una fila sin `barcode` cuyo `product_name` normalizado matchee exacto y se hace `UPDATE ... WHERE id = <esa fila>` con el payload de barcode — conserva `id` (y por lo tanto los `saved_products`/`scan_history` que ya la referencian) y conserva el `name_key` viejo como alias. Es un best-effort por `ILIKE` + comparación normalizada, no una garantía absoluta de dedupe (ver comentario en el código sobre acentos).
 
-**Catálogo propio antes de gastar IA (`findCachedProductByName`):** cuando la búsqueda por nombre no matchea en OFF, antes de llamar a Claude se busca en `products` un producto YA cacheado (típicamente con barcode y datos reales) cuyo nombre matchee — evita duplicar como fila solo-IA algo que ya existe con mejor calidad de dato.
+**Catálogo propio antes de gastar IA (`cacheService.ts → findCachedProductByName`):** cuando la búsqueda por nombre no matchea en OFF, antes de llamar a Claude se busca en `products` un producto YA cacheado (típicamente con barcode y datos reales) cuyo nombre matchee — evita duplicar como fila solo-IA algo que ya existe con mejor calidad de dato.
 
 **RLS:** `products` es de solo lectura para clientes (si algún día se expone vía PostgREST/anon key); toda escritura va por service role, server-side, vía `cacheService`.
 
@@ -164,7 +164,7 @@ fitogenix-server/
 └── package.json
 ```
 
-**Falta todavía (no confundir con "objetivo futuro" — son gaps reales de hoy):** `Dockerfile`, config de despliegue formal (Railway/Render), y observabilidad centralizada (Sentry/Datadog) — dominio del Agente DevOps, ver `07-agente-devops.md`.
+**Gaps reales de hoy** — `Dockerfile`, config de despliegue formal y observabilidad centralizada: `CONTEXT.md §8` B-9 y B-10. Dominio del Agente DevOps, ver `07-agente-devops.md`.
 
 **Endpoints (contrato real, no aspiracional):**
 ```
@@ -206,7 +206,7 @@ Cualquier endpoint nuevo se agrega a esta lista en el mismo commit que lo implem
 
 ## Cache en niveles (identidad `id`/`barcode`/`name_key`, no solo barcode)
 
-🔴→corregido (C-07): diagrama viejo mostraba la cascada externa como parte del request. Reemplazado por el flujo real de `lookupProduct`/`resolveByBarcode`/`resolveByName` (catalog-only, `CONTEXT.md §5.3`).
+Flujo real de `productLookupService.ts → lookupProduct` / `resolveByBarcode` / `resolveByName` (catalog-only, `CONTEXT.md §5.3`):
 
 ```
 lookupProduct(query)
@@ -272,7 +272,7 @@ lookupProduct(query)
 ### Cobertura de tests del motor (mantener, no partir de cero):
 
 Ya cubierto por `scoring/rules.test.ts`, `scoring/calibration.test.ts`, `scoring/robustness.test.ts`, `scoring/ledger.test.ts`, `scoring/presentation.test.ts`, `scoring/regression.test.ts`, `scoring/cleaning.test.ts`, `scoring/invariants.test.ts`, `scoring/seals.test.ts`, `nutrientPlausibility.test.ts`, `cacheService.test.ts`, `productLookupService.test.ts`. Cualquier regla nueva de negocio (un gate nuevo, un ingrediente prohibido nuevo, un cambio de umbral de tier) se agrega como caso de test antes de implementarse, no después:
-- Score de un producto con solo ingredientes saludables → debe caer en la banda Excelente (≥75, ver `scoring/constants.ts`)
+- Score de un producto con solo ingredientes saludables → debe caer en la banda Excelente (corte `EXCELLENT_FROM` en `scoring/constants.ts` — no lo transcribas acá)
 - Score de un producto con ingredientes prohibidos (nitritos, BHT, etc.) → debe activar el gate de toxicidad
 - Score de un producto con marcadores de ultraprocesado en el texto de ingredientes → debe penalizar vía `PROCESSING` (🔴 C-09, ver `CONTEXT.md §2.4`/`§8` B-4: el motor v2.1 ya NO lee `nova_group` para esto — verificado contra `scoring/steps.ts`; el ejemplo anterior decía "NOVA 4", que no es un input real del motor)
 - Upsert/upgrade name→barcode: una fila `name_key` que recibe un `barcode` conserva su `id` y su `name_key` como alias (no crea fila duplicada)
@@ -290,7 +290,7 @@ Ya cubierto por `scoring/rules.test.ts`, `scoring/calibration.test.ts`, `scoring
 
 ## Dependencias del servidor
 
-Versiones exactas: `fitogenix-server/package.json` — no se transcriben acá (`CONTEXT.md §5.1` marca esta transcripción como la causa de que este archivo pese de más; podado en esta sesión).
+Versiones exactas: `fitogenix-server/package.json` — no se transcriben acá (`CONTEXT.md §5.1`).
 
 No agregar dependencias que ya estén resueltas por el código existente (el motor de scoring y las funciones de lookup son TypeScript puro, sin deps externas). Dependencias de ingesta masiva (Crawlee, parsers de JSONL, etc.) son del Agente ETL — ver `06-agente-etl-data.md` — y viven en su propio `package.json`/paquete si se justifica separarlas de `fitogenix-server`.
 
@@ -298,34 +298,21 @@ No agregar dependencias que ya estén resueltas por el código existente (el mot
 
 ## Selección de modelo de IA
 
-**La regla vive en `CONTEXT.md §5.7`** — se movió al SSOT porque la aplican tres agentes
-(vos implementás los call sites, Datos la hace cumplir, ETL la consume en batch) y ninguno
-es su dueño exclusivo.
+**La regla y su alcance viven en `CONTEXT.md §5.7`** (imagen a interpretar → Sonnet Vision; solo texto o
+barcode → Haiku; y hoy no hay ningún call site de Sonnet Vision).
 
-En una línea: **¿la entrada incluye una imagen a interpretar? → Sonnet Vision. ¿Es solo
-texto o barcode? → Haiku.** Nunca Sonnet donde alcanza Haiku.
-
-Lo que es tuyo y no del SSOT: documentar **en el punto de llamada** por qué se eligió ese
-modelo, y que el modelo efectivo, la temperatura y los `max_tokens` vivan en
-`src/services/claudeService.ts` y en ningún otro lado. Los valores concretos los fija Datos
-(`05-agente-datos.md`), no vos.
-
-Nota de alcance: hoy **no hay ningún call site de Sonnet Vision** — no existe análisis por
-foto en el producto (`CONTEXT.md §1.6`). La regla está escrita para cuando exista.
+Lo que es tuyo y no del SSOT: documentar **en el punto de llamada** por qué se eligió ese modelo, y que el
+modelo efectivo, la temperatura y los `max_tokens` vivan en `src/services/claudeService.ts` y en ningún otro
+lado. Los valores concretos los fija Datos (`05-agente-datos.md`), no vos.
 
 ---
 
 ## Lógica de Cuotas Freemium (Supabase) — **no es el MVP. No la implementes.**
 
-> **Decisión (Jere, 31/8/2026): el tier inicial es gratuito** (`CONTEXT.md §4.3`). El modelo
-> de tiers existe como concepto de producto; **la infraestructura de cuotas se implementa
-> cuando exista un tier pago, no antes.**
->
-> **Nada de esta sección es trabajo pendiente.** No hay ticket. No crees tablas, RPC, RLS,
-> columnas ni flags "para tenerlos listos": eso es código muerto, y código muerto con acceso
-> a la base es peor que código muerto. Estado ✅ verificado: `grep` de `user_quotas`,
-> `credits_used` y `quota` en `src/` y `migrations/` da **cero coincidencias**, y así se
-> queda.
+> **El tier inicial es gratuito y hoy no existe ninguna infraestructura de cuotas: `CONTEXT.md §4.1`/`§4.3`.**
+> Lo que sigue describe la fase siguiente (`§4.2`) y **no es trabajo pendiente**: no hay ticket. No crees
+> tablas, RPC, RLS, columnas ni flags "para tenerlos listos": eso es código muerto, y código muerto con acceso
+> a la base es peor que código muerto.
 >
 > Lo que sigue queda escrito para que el día que exista un tier pago no se rediseñe desde
 > cero. **Punto de extensión, en una línea:** el descuento entraría en el handler de

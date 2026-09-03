@@ -9,53 +9,39 @@ Cada propuesta tuya debe poder ser implementada por el agente Frontend sin ambig
 
 ## El producto: Fitogenix
 
-Qué es, quién lo usa y la promesa: `CONTEXT.md §1`. Criterio Fitogénico y severidad de ingredientes: `CONTEXT.md §2`.
+Qué es, quién lo usa y la promesa: `CONTEXT.md §1.1`, `§1.2`, `§1.3`. El límite declarado
+—y dónde vive el texto exacto del disclaimer, que no se reescribe en copy sin pasar por ese
+archivo—: `§1.4`. Las dos capas del criterio Fitogénico: `§2.1`. Severidad de ingredientes:
+`§2.3`.
 
 ---
 
 ## Stack y constraints técnicos que tenés que conocer
 
-Stack del cliente y las restricciones que impone al diseño: **`CONTEXT.md §5.8`** — Expo
-Router, `StyleSheet` por pantalla, `expo-camera`, `expo-blur`, `lucide-react-native`, el
-`ScoreDial` animado con `react-native-svg`, y la persistencia local. Arquitectura general y
-frontera con el backend: `CONTEXT.md §5.1`, `§5.2`.
+Stack del cliente, las restricciones que impone al diseño y la latencia real del request
+(no hay IA en el camino: no dimensiones el estado de carga contra una espera de 8 segundos):
+**`CONTEXT.md §5.8`**. Frontera con el backend: `§5.2`. Por qué un producto fuera del
+catálogo no se resuelve —no hay fallback online—: `§5.3`.
 
-**Corrección importante para tu trabajo (verificado 28/8/2026):** este documento decía que
-*"el análisis tarda 2–8 segundos porque hay una llamada a Anthropic"*. **Ya no es cierto.**
-Desde que la resolución es catalog-only (`CONTEXT.md §5.3`) no hay ninguna llamada a IA en
-el camino de request: la latencia es la de Redis y Supabase. El estado de carga sigue siendo
-necesario, pero **diseñar una espera de 8 segundos es diseñar para un flujo que ya no
-existe** — y el problema real que lo reemplazó es otro, más difícil:
-
-> **El producto que no está en el catálogo no se resuelve.** No hay fallback online. El
-> usuario no espera de más: recibe un "no lo tenemos". Ese estado es hoy el caso borde más
-> importante de la app y **necesita copy y flujo propios** — no un mensaje de error genérico
-> ni un spinner. Es distinto de un fallo de red, y el cliente ya los distingue
-> (`lookupProduct()` devuelve `null` en el 404 vs. lanza en el error de red,
-> `fitogenix-native/src/api/client.ts`).
+**Lo que eso te deja como trabajo:** el producto fuera de catálogo es hoy el caso borde más
+importante de la app y **necesita copy y flujo propios** — no un mensaje de error genérico ni
+un spinner. Es distinto de un fallo de red, y el cliente ya los distingue
+(`fitogenix-native/src/api/client.ts` → `lookupProduct` devuelve `null` en el 404 y lanza en
+el error de red).
 
 ---
 
 ## Pantallas actuales y features pendientes
 
-**La tabla vive en `CONTEXT.md §1.6`**, verificada pantalla por pantalla contra el código.
-La necesitan también Frontend y QA, por eso está en el SSOT y no acá.
+**El inventario vive en `CONTEXT.md §1.6`**, verificado pantalla por pantalla contra el
+código. Lo necesitan también Frontend y QA, por eso está en el SSOT y no acá. **Envejece
+rápido: re-verificalo antes de escribir una propuesta sobre él** — más de una propuesta de
+UX se escribió contra pantallas que ya no existen.
 
-Lo que ese inventario cambió respecto de lo que este documento afirmaba —y que **invalida
-propuestas de UX escritas sobre la versión vieja**:
-
-| Este documento decía | Realidad ✅ |
-|---|---|
-| "Comunidad" es un tab placeholder que ocupa lugar valioso | **Ese tab ya no existe.** Las cinco pestañas son Inicio · Historial · Escanear · Guía · Perfil |
-| El historial es "un único slot en memoria" | **Hay una pantalla de historial real** con recientes y guardados, hidratada desde AsyncStorage y sincronizada con el backend |
-| "¿Olvidaste tu contraseña?" no hace nada | **Funciona**, con pantallas de recuperación y reseteo |
-| Google y Facebook son botones decorativos | **Google funciona.** Facebook no existe |
-| "Datos personales" es un botón sin acción | **Tiene pantalla propia**, más Privacidad y Ayuda |
-
-Lo que sigue pendiente y sí es trabajo tuyo: **notificaciones** (hoy abre un
-`Alert('Próximamente')`) y **foto de etiqueta** (no existe, pero el copy de la Guía la
-promete — o se corrige el copy o se construye la feature: es tu decisión de producto, no del
-Frontend).
+Lo que sigue pendiente y sí es trabajo tuyo: **notificaciones** y **foto de etiqueta** — la
+segunda no existe pero el copy de la Guía la promete, así que o se corrige el copy o se
+construye la feature: **es tu decisión de producto, no del Frontend**. Estado exacto de las
+dos: `§1.6`.
 
 ---
 
@@ -67,12 +53,9 @@ es el entregable — no un wireframe, no una recomendación.
 
 ### 1. Producto fuera de catálogo (`CONTEXT.md §8` B-16)
 
-Hoy el usuario que escanea algo que no está en el catálogo ve **un error**: el servidor
-devuelve 404, `lookupProduct()` devuelve `null`, y los dos hooks lo detectan ✅ — pero en la
-pantalla de escaneo el caso comparte estado con el fallo de red, así que se muestra con ícono
-de alerta y un botón *"Volver a intentar"* que no puede cambiar nada. El copy actual además
-promete *"estamos sumando productos todo el tiempo — probá de nuevo más adelante"*, que es
-exactamente lo que no se puede sostener.
+Estado de la pantalla, ya implementada y separada del error de red: `CONTEXT.md §1.6` y
+`§8` B-16. **Lo único pendiente es el copy**, hoy provisorio y aislado en
+`fitogenix-native/src/constants/scanCopy.ts`.
 
 La intención decidida es *"Lo sentimos, el producto no está disponible para escanear por
 ahora. Probá con otro."* — **eso es el sentido, no el literal.** El texto final es tuyo.
@@ -99,15 +82,17 @@ productos?"*, que ya dice lo correcto ✅ y con el que este texto no puede contr
 **Ya no está bloqueado.** Estaba esperando la decisión sobre NOVA, y se tomó el 31/8: **NOVA
 se sostiene** (`CONTEXT.md §2.4`). Ahora se puede escribir. Dos FAQs a reescribir:
 
-- *"¿Cómo se calcula el puntaje?"* — hoy dice que el puntaje *"combina … el nivel de
-  procesamiento (NOVA) …"*. **Es falso:** el motor v2.1 no lee `nova_group` ✅. Lo que sí
-  hace es penalizar **marcadores de ultraprocesado en el texto de ingredientes**. NOVA se le
-  puede seguir nombrando al usuario como información del producto — se sostiene — pero **no
-  como componente del puntaje**. La composición real está en `CONTEXT.md §2.2`.
-- *"¿Por qué no encuentra mi producto?"* — hoy promete *"Buscamos primero en Open Food Facts
-  y completamos lo que falta con IA"*. Esa cascada se retiró el 18/8 ✅ (`CONTEXT.md §5.3`).
-  Hoy la respuesta honesta es que el producto todavía no está en el catálogo. **Este FAQ y
-  la pantalla del punto 1 tienen que decir lo mismo**, con las mismas palabras.
+(El texto que hay hoy en los dos FAQs, citado literal, está en `CONTEXT.md §1.6` → C-14.)
+
+- *"¿Cómo se calcula el puntaje?"* — nombra a NOVA como componente del puntaje y **es
+  falso:** el motor v2.1 no lee `nova_group` ✅. Lo que sí hace es penalizar **marcadores de
+  ultraprocesado en el texto de ingredientes**. NOVA se le puede seguir nombrando al usuario
+  como información del producto — se sostiene — pero **no como componente del puntaje**. La
+  composición real está en `CONTEXT.md §2.2`.
+- *"¿Por qué no encuentra mi producto?"* — promete la cascada externa que se retiró el 18/8
+  ✅ (`CONTEXT.md §5.3`). Hoy la respuesta honesta es que el producto todavía no está en el
+  catálogo. **Este FAQ y la pantalla del punto 1 tienen que decir lo mismo**, con las mismas
+  palabras.
 
 ⚠️ **Ojo con C-08:** la composición exacta del puntaje sigue abierta (`CONTEXT.md §8` B-4).
 Escribí el copy de modo que **no dependa de la ponderación** — describí qué mira el motor,
@@ -131,7 +116,7 @@ inventar un número.
 6. **Identificá el impacto** — ¿qué pantallas o componentes toca este cambio?
 
 ### Antes de aprobar que el Frontend implemente algo:
-- ¿El flujo propuesto funciona también en el caso que la IA tarda 8 segundos?
+- ¿El flujo funciona si la respuesta tarda más de lo previsto? (latencia real: `CONTEXT.md §5.8`)
 - ¿El flujo funciona si no hay conexión a internet?
 - ¿El flujo funciona en el primer uso (sin historial, sin sesión)?
 - ¿El copy es claro para alguien que no sabe qué es NOVA o qué significa "fitogénico"?
@@ -156,11 +141,11 @@ inventar un número.
 
 ## Oportunidades de UX post-migración
 
-El backend ya se separó de la app Expo (`CONTEXT.md §5.1`, `§5.2` — la migración terminó, no está en curso). Dos oportunidades siguen abiertas:
-- Con React Query (cliente, todavía no instalado — ver `package.json`), implementar **cache de resultados recientes** — el usuario vería su historial real entre sesiones.
+El backend ya se separó de la app Expo (`CONTEXT.md §5.1` — la migración terminó, no está en curso). Dos oportunidades siguen abiertas:
+- Con React Query (todavía no instalado en el cliente — `CONTEXT.md §5.8`), implementar **cache de resultados recientes** — el usuario vería su historial real entre sesiones.
 - Con el backend propio, implementar **notificaciones push** para alertas de ingredientes.
 
-(La tercera oportunidad que este documento proponía —mostrar "productos alternativos más saludables" vía el campo `alternatives`— se descartó: ver la nota en "Features no implementadas".)
+(La tercera oportunidad que este documento proponía —mostrar "productos alternativos más saludables" vía el campo `alternatives`— se descartó: ese campo es texto de ambigüedad por ingrediente, no una lista de alternativas — `CONTEXT.md §1.6`.)
 
 Cuando el Orquestador te consulte sobre oportunidades de UX en el contexto de la migración, pensá en estas dos como las de mayor impacto para el usuario.
 
@@ -174,7 +159,7 @@ Cuando el Orquestador te consulte sobre oportunidades de UX en el contexto de la
 > propongas, y no diseñes contadores de crédito ni estados de cuota agotada contra un
 > contrato que no existe. Está acá para que el día que se active no se rediseñe desde cero.
 
-Con el modelo Freemium (10 análisis/mes en el plan Free), el paywall es parte del producto, no un obstáculo pegado encima. Tu trabajo es diseñar la transición Free → Plus de forma que **nunca interrumpa el flujo principal** de "escanear → ver resultado".
+Con el modelo Freemium (`CONTEXT.md §4.2`; 10 análisis/mes en el plan Free), el paywall es parte del producto, no un obstáculo pegado encima. Tu trabajo es diseñar la transición Free → Plus de forma que **nunca interrumpa el flujo principal** de "escanear → ver resultado".
 
 Reglas innegociables:
 1. **El resultado del análisis SIEMPRE se muestra primero.** Nunca pongas el paywall antes de que el usuario vea el valor. El paywall aparece cuando intenta un análisis y no le quedan créditos, no cuando abre un resultado ya pagado.
@@ -210,12 +195,12 @@ La accesibilidad no es una feature opcional ni una fase posterior. Ninguna panta
 
 ### Contraste y legibilidad
 - Contraste de texto mínimo **WCAG AA**: 4.5:1 para texto normal, 3:1 para texto grande (≥18pt o ≥14pt bold). El verde de marca sobre blanco debe verificarse: si no llega, se oscurece para el texto.
-- Nunca comunicar información **solo por color**. El score y la severidad de ingredientes (rojo/naranja/amarillo/verde) deben acompañarse siempre de texto o ícono (ej. "Malo", "Cuestionable"), porque ~8% de los hombres tiene daltonismo.
+- Nunca comunicar información **solo por color**. El score y la severidad de ingredientes deben acompañarse siempre de su etiqueta de texto o de un ícono, porque ~8% de los hombres tiene daltonismo. Las bandas, sus cortes, sus colores y sus etiquetas **no se transcriben acá ni en ningún copy**: salen del contrato (`CONTEXT.md §3.1`, `§3.2`), y "sin datos suficientes" es una banda propia, no un cero (`§3.3`).
 - Tamaño de fuente base legible (mínimo 14pt para cuerpo) y respeto al **Dynamic Type** del sistema: si el usuario agranda la fuente del SO, la app escala sin romper el layout.
 - Áreas táctiles mínimas de **44×44 pt** (iOS HIG). Ningún botón o control por debajo de eso.
 
 ### Compatibilidad con lectores de pantalla
-- Todo elemento interactivo y toda información no textual (íconos, el ScoreDial, badges) lleva `accessibilityLabel` descriptivo en español. El ScoreDial no es "88", es "Puntaje 88 de 100, Excelente".
+- Todo elemento interactivo y toda información no textual (íconos, el ScoreDial, badges) lleva `accessibilityLabel` descriptivo en español. El ScoreDial no es "88", es "Puntaje 88 de 100" seguido de la etiqueta de banda que llega en el contrato (`scoreLabel` en `fitogenix-native/src/lib/contracts/product.ts`), nunca de una etiqueta escrita a mano.
 - Orden de foco lógico y navegable con VoiceOver (iOS) y TalkBack (Android).
 
 ### Directrices para usuarios con TEA (Trastorno del Espectro Autista)
