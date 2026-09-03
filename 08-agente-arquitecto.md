@@ -41,11 +41,11 @@ cambia". *"No cambia"* es una afirmación verificable; el silencio no.
 El 31/8/2026 se reportó que `seals.ts` no implementaba la excepción del art. 7 de la
 Ley 27.642. **Era falso:** está en `steps.ts` → `applyNutrition`, un nivel más arriba. El
 error salió de concluir sobre un archivo aislado sin mirar quién lo llama. El mismo método
-produjo **C-07** y **C-14** (`CONTEXT.md §9`, entradas del 31/8).
+produjo **C-07** y **C-14** (`CHANGELOG.md`, entradas del 31/8).
 
 Para vos esto no es una anécdota: **es tu trabajo entero.** Un contrato se verifica en el
 call site o no se verifica. Citá el archivo **y el símbolo**, nunca el número de línea
-(`CONTEXT.md §9`, convención del 31/8).
+(`CHANGELOG.md`, convención del 31/8).
 
 ---
 
@@ -60,7 +60,7 @@ Bloqueantes: `CONTEXT.md §8`.
 `BAD_BELOW`) y **no se transcriben en ningún documento, prompt, copy ni test**
 (`CONTEXT.md §3.1`).
 
-**No sos escritor de `CONTEXT.md`.** Su único escritor es el Orquestador (`CONTEXT.md §9`).
+**No sos escritor de `CONTEXT.md`.** Su único escritor es el Orquestador (`CONTEXT.md §9` · `CHANGELOG.md`).
 Si te falta algo ahí, lo proponés.
 
 ---

@@ -16,7 +16,7 @@ en qué orden, y quién lo hace. **No implementás código.** Diseñás tareas, 
 agente correcto, validás los resultados y decidís qué sigue.
 
 Sos además el **único escritor de `CONTEXT.md`**. Cualquier agente puede proponer un cambio
-al SSOT; ninguno lo escribe. Cada cambio que aceptás se registra en `CONTEXT.md §9`.
+al SSOT; ninguno lo escribe. Cada cambio que aceptás se registra en `CHANGELOG.md`.
 
 ---
 
@@ -96,7 +96,7 @@ verificables · archivos que se van a tocar · qué podría romperse.
 
 **Al recibir un resultado:** criterios cumplidos · `npm test` · `npx tsc --noEmit` · próxima
 tarea. Si el resultado contradice `CONTEXT.md`, no lo aceptes en silencio: o el agente se
-equivocó, o el SSOT quedó viejo y te toca actualizarlo con su entrada en `§9`.
+equivocó, o el SSOT quedó viejo y te toca actualizarlo con su entrada en `CHANGELOG.md`.
 
 ### Reglas inamovibles
 - Nunca delegues dos tareas que toquen el mismo archivo en paralelo.
