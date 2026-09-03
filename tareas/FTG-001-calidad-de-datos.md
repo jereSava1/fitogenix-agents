@@ -23,6 +23,31 @@ Tres defectos independientes, medidos:
 | B | Fragmentos de rotulado tratados como ingredientes | `3 mg/kg` 137 · `2 mg/kg` 124 · `30 mg/kg` 87 · `13 mg/kg` 73 · `CONTIENE` 109 · `rai ins 500ii` 98 · `rai ins 503ii` 55 · `RAI` 57 ≈ **740 apariciones de nada** | Cobertura artificialmente baja → catálogo perdido |
 | C | Se emite puntaje sin haber entendido la etiqueta | 6 casos flagueados con `tier=Excelente`; **1.453 productos con 0% de cobertura**; ejemplo real: `89 Excelente cob=0% Té común` | **El más grave.** Aval de marca sobre datos no entendidos |
 
+> ## ⚠️ Corrección del 2026-09-03 — había una segunda causa, y es de otra naturaleza
+>
+> Este ticket atribuye el catálogo perdido a la tabla de ingredientes (defecto A) y a los
+> fragmentos de rotulado (defecto B): productos que **entraban mal clasificados**. Eso sigue
+> siendo cierto y los números de abajo siguen valiendo para eso.
+>
+> Pero el 3/9 se midió que había además productos que **no entraban en absoluto**.
+> `products.score` estaba en `NOT NULL` sin default (migración 013 nunca aplicada), y
+> `runMerge.ts` upsertea **por lotes** con `buildCachePayload`, que escribe
+> `score: product.score` — que puede ser null. Un solo producto sin puntaje mataba el lote
+> entero, dejando nada más que un `console.error`.
+>
+> Con ~77 % de nulls por lote, ningún lote podía sobrevivir. Cadena verificada: el único
+> escritor de `engine_version` es `cacheService.ts` ✅, siempre escribe la constante ✅, esa
+> constante es ≥ v2.1 desde el 2026-08-16 ✅ (`git log -S`), y de 58.076 filas **cero** tenían
+> v2.1 o posterior ✅. **Nada se escribió en `products` durante 18 días.**
+>
+> Aplicada la 013, el primer lote de 200 escribió 200 filas, **155 de ellas con `score` null**
+> — imposible el día anterior. No hubo pérdida irrecuperable: `runMerge` hace `continue` sin
+> marcar staging cuando el upsert falla ✅, así que las filas quedaron en `pending` y se
+> reintentan.
+>
+> **Los números de abajo son del 28/8 y quedan pendientes de recalcular** una vez drenada la
+> cola de staging (69.341 filas `pending` al 3/9). No se corrigen acá con una estimación.
+
 Contexto del catálogo: 13.737 productos con lista de ingredientes · **9.800 puntuados** ·
 **3.937 sin puntaje**, de los cuales `sin-identificar` **2.484 (18,1%)** es el bucket
 defectuoso — `fuera-de-alcance` (1.287) es comportamiento correcto, no un bug.
