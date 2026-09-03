@@ -585,7 +585,40 @@ producto final al que contribuyó, con su corrida de origen. ✅
 una fila sirve — no uno nuevo y paralelo. ⚠️ *(declarado; no re-verificado línea a línea
 en esta sesión)*
 
-### §6.3 Estado de calidad **medido** — 28/8/2026
+### §6.3 Estado de calidad **medido**
+
+> **⚠️ Los números del 28/8 miden un catálogo que ya no existe.** El 3/9/2026 se destrabó una
+> carga que llevaba **18 días congelada** (ver `CHANGELOG.md`) y el catálogo pasó de 13.737
+> productos con ingredientes a **81.450 productos**. Se conservan las dos mediciones, con su
+> fecha, porque `tareas/FTG-001` está construido sobre la del 28/8 y todavía no se recalculó.
+
+#### Catálogo — medido el 3/9/2026
+
+| Métrica | Valor | Fuente |
+|---|---|---|
+| Productos | **81.450** | ✅ `npm run verify:schema` |
+| Sin puntaje (`score` null) | **20.091** | ✅ ídem |
+| Con `engine_version` distinto al vigente | **56.671** | ✅ ídem |
+| Filas de `products_staging` | 235.746 · `pending` **0** | ✅ SQL directo |
+| — de ellas, `merged_incomplete` (entraron sin ingredientes) | **151.527 (64,3 %)** | ✅ ídem |
+| — `merged` (completas) | 77.818 (33,0 %) | ✅ ídem |
+| — `discarded_incomplete` | 6.149 (2,6 %) | ✅ ídem |
+
+**El 24,7 % de "sin puntaje" engaña, y hay que leerlo así:** solo las **24.779** filas escritas
+el 3/9 (las que llevan `ftg-rubric-v2.3`) pudieron guardar un `score` null — las otras 56.671
+son anteriores al 16/8, cuando la columna era `NOT NULL` y un null hacía fallar la escritura.
+Sobre lo escrito el 3/9, la tasa real de productos sin puntaje es **20.091 / 24.779 ≈ 81 %**,
+consistente con el 77-78 % medido lote a lote.
+
+**Consecuencia:** el puntaje denormalizado de esas 56.671 filas está calculado con un motor
+anterior a la reescritura de ADR-002 **y además puede estar tapando nulls**. La tasa real de
+productos no puntuables sobre el catálogo entero **no se conoce** hasta que corra el job de
+recompute — que no existe: es `§8` **B-19**. No rompe nada visible (`§5.4`: ningún camino de
+lectura sirve la columna denormalizada), pero significa que este `§6.3` mide lo que se puede
+medir hoy, no el estado real del criterio sobre el catálogo.
+
+#### Catálogo — medido el 28/8/2026 (histórico, base de `FTG-001`)
+
 
 Números de `npm run audit:scores` + `scripts/score-histogram.ts` contra el catálogo real,
 tomados de `tareas/FTG-001-calidad-de-datos.md`. ✅ medidos, con fecha. **No se recalculan
