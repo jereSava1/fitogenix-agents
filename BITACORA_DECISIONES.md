@@ -339,3 +339,87 @@ El evento `scan_failed` tiene que separar los dos casos en su `reason`.
   (cero coincidencias en `fitogenix-native/src/`), aunque `02-agente-frontend.md` lo daba por
   atado a esta distinción. Se implementa junto con la pantalla. Si los dos casos nacen
   compartiendo `reason`, el dato no se recupera hacia atrás.
+
+---
+
+## ADR-006: El octógono resta puntos y no se muestra
+
+- **Fecha:** 2026-08-31
+- **Estado:** Aceptado
+- **Decididores:** Jere (producto)
+- **Registrado:** 2026-09-03 — la decisión se aplicó en `CONTEXT.md §2.5` y en
+  `nutricion/NUTRICION.md §N7` el mismo 31/8, pero no se registró como ADR. Este ADR
+  no cambia nada: cierra el hueco de historia.
+
+### Contexto
+
+Los octógonos de la Ley 27.642 / Decreto 151/2022 se **calculan** en `scoring/seals.ts`,
+no se leen de la fuente: el campo "sellos" de los retailers trae certificaciones positivas,
+no advertencias.
+
+Durante agosto se invirtió trabajo considerable en que esos umbrales fueran exactos. B-11 se
+cerró tres veces y cada cierre encontró más: primero cuatro de cinco umbrales verificados
+contra el perfil de OPS, después la Tabla 1 del Decreto 151/2022 con dos discrepancias, y
+finalmente el Manual de Aplicación oficial de ANMAT (`IF-2024-135393117`, 60 págs.) con dos
+reglas más — entre ellas que el octógono de calorías **exige que ya haya un sello de azúcares
+o grasas**, porque *"las calorías no son un nutriente crítico, sino una unidad de medida"*.
+El motor marcaba por energía sola: el único error que iba **de más**.
+
+Con ese trabajo hecho, el Agente de Nutrición encontró el problema que ninguna corrección de
+umbrales resuelve, registrado como **N-7** en `nutricion/NUTRICION.md §N5`:
+
+> El método oficial calcula el nutriente **añadido** a partir de la **formulación** del
+> producto — receta con porcentajes y fichas técnicas del proveedor (Manual, págs. 14-15).
+> Fitogenix tiene la **etiqueta**: lista de ingredientes y panel por 100 g. Se puede saber
+> que un ingrediente aporta azúcar, no *cuánto*.
+
+Es estructural. No es un umbral mal puesto ni una fuente que falta: es que **la entrada no
+alcanza para reproducir el cálculo oficial**, y no va a alcanzar nunca por esta vía. Y chocaba
+de frente con lo que la versión anterior de `§2.5` le prometía al usuario, que era poder
+contrastar el octógono mirando el envase.
+
+### Decisión
+
+**El octógono sigue restando puntos y deja de mostrarse.** `sealPenalty()` sigue descontando;
+la app no exhibe los octógonos ni afirma que el producto los tenga.
+
+El criterio que sostiene la asimetría: **una aproximación exhibida como dato contrastable
+contra el envase es deshonesta; la misma aproximación alimentando un criterio declarado y
+opinable es legítima.** Fitogenix nunca prometió reproducir la etiqueta — prometió una
+opinión fundada sobre el producto.
+
+Consecuencia operativa: ningún documento, prompt ni copy puede volver a describir el octógono
+como *"lo que el usuario puede contrastar mirando el envase"*. La vara de precisión deja de
+ser regulatoria y pasa a ser de **discriminación**: importa que el descuento ordene bien los
+productos, no que reproduzca la etiqueta.
+
+El estado vigente vive en `CONTEXT.md §2.5`; el fundamento nutricional, en
+`nutricion/NUTRICION.md §N7`.
+
+### Alternativas consideradas
+
+- **Mostrar el octógono con un disclaimer de aproximación.** Descartada: el octógono es
+  binario y el envase está en la mano del usuario. Un disclaimer no arregla un dato que se
+  puede verificar en dos segundos y sale distinto; solo traslada la culpa al lector.
+- **Sacar los octógonos del motor.** Descartada, y es la alternativa que más tentaba después
+  de N-7. El descuento es señal real: un producto con perfil desfavorable **es** peor, y las
+  cuatro correcciones de B-11 cambian el puntaje. Borrarlo hubiera tirado el trabajo de B-11
+  junto con el problema.
+- **Conseguir la formulación de los productos.** Descartada por ahora: exige fichas técnicas
+  de proveedor, que no existen en ninguna fuente pública del catálogo. Queda como la única
+  vía real si algún día el octógono se quiere mostrar.
+
+### Consecuencias
+
+- **Positivas:** resuelve **N-7**, que era estructural y no tenía otra salida. Resuelve además
+  **N-1**: ya no hay dos capas que servir con un solo cálculo, queda una.
+- **Neutras / seguimiento:** ✅ **El contrato no cambia.** `warnings` sigue en
+  `scoring/types.ts` → `ScoreBreakdown` y se sostiene deliberadamente — es información
+  verdadera y útil para curaduría y depuración. Lo que cambia es que nadie lo renderiza.
+  Sacarlo del payload sería un cambio de contrato cross-repo y lo decide el **arquitecto**,
+  no esta decisión.
+- **Negativas / costos:** ⚠️ hubo bump de `ENGINE_VERSION` a `ftg-rubric-v2.3` **aunque el
+  puntaje no cambia**. El hallazgo al verificar fue que el cliente ya no consumía `warnings`,
+  y que la fuga real estaba en `steps[].detail`, que nombraba los octógonos uno por uno y
+  viaja cacheado en Redis. Al deployar, Redis trata como MISS todo lo cacheado con la versión
+  anterior: hay un pico de recálculo el primer día. Es lo buscado.
