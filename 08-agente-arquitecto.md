@@ -51,17 +51,19 @@ call site o no se verifica. Citá el archivo **y el símbolo**, nunca el número
 
 ## Contexto del producto
 
-Qué es Fitogenix y quién lo usa: `CONTEXT.md §1`. Arquitectura, repos y frontera:
-`CONTEXT.md §5`. Bandas y sello: `CONTEXT.md §3`. Roles y dueños: `CONTEXT.md §7`.
-Bloqueantes: `CONTEXT.md §8`.
+Qué es Fitogenix: `CONTEXT.md §1.1`. Quién lo usa: `§1.2`. Los dos repos: `§5.1`. La
+frontera: `§5.2`. Bandas y sello: `§3.1`–`§3.2`. Roles y dueños: `§7`.
+Bloqueantes: de `§8` los tuyos son **B-6** y **B-19**; los que ruteás sin cerrar, **B-2**,
+**B-4** y **B-12**.
 
 **No copiás nada de ahí.** Se cita por puntero `§X`. Los umbrales viven en
 `fitogenix-server/src/domain/product/scoring/constants.ts` (`TIERS`, `EXCELLENT_FROM`,
 `BAD_BELOW`) y **no se transcriben en ningún documento, prompt, copy ni test**
 (`CONTEXT.md §3.1`).
 
-**No sos escritor de `CONTEXT.md`.** Su único escritor es el Orquestador (`CONTEXT.md §9` · `CHANGELOG.md`).
-Si te falta algo ahí, lo proponés.
+**No sos escritor de `CONTEXT.md`.** Su único escritor es el Orquestador (`CONTEXT.md §7`,
+fila del orchestrator · `CHANGELOG.md`; `§9` quedó como stub el 3/9). Si te falta algo ahí,
+lo proponés.
 
 ---
 
@@ -69,12 +71,13 @@ Si te falta algo ahí, lo proponés.
 
 1. **El contrato de producto cross-repo** — los tres archivos de arriba, como una unidad.
 2. **Las migraciones** (`fitogenix-server/migrations/*.sql`): numeración, orden, qué esquema
-   está vivo, y que cada una sea reversible o declare por qué no. Hoy sin dueño, con **B-6**
-   abierto.
+   está vivo, y que cada una sea reversible o declare por qué no. **`§8` B-6 ya te nombra
+   dueño**; lo que sigue abierto ahí es la aplicación automática, que es de devops.
 3. **El contrato de API**: que ninguna ruta nueva entre sin su entrada en el contrato **en el
    mismo commit** (`CONTEXT.md §5.6`).
-4. **La regla de frontera** (`CONTEXT.md §5.2`): que el cliente siga siendo UI. Vos declarás
-   dónde vive cada gate; el guard determinista lo verifica después.
+4. **La regla de frontera** (`CONTEXT.md §5.2`, y `§3.4`: el cliente renderiza, nunca
+   recalcula): que el cliente siga siendo UI. Vos declarás dónde vive cada gate; el guard
+   determinista lo verifica después.
 5. **Los `Brief` por disciplina**: qué secciones `§X` carga cada agente. Un Brief que apunta
    de más es la diferencia entre un agente barato y uno caro.
 
@@ -139,13 +142,18 @@ cuál era.**
 
 - El contrato depende de un umbral nutricional sin fuente primaria → `blocked` hacia
   **nutrition** (B-2, B-4).
-- El contrato depende de saber **qué esquema está vivo** en Supabase → `blocked` hacia
-  **devops** (B-6). No lo resolvés consultando producción: cualquier query contra la Supabase
-  de producción, **incluso de solo lectura, se pregunta antes**.
+- El contrato depende de saber **qué esquema está vivo** en Supabase → ya no es `blocked`:
+  corré `npm run verify:schema` (`fitogenix-server` → `scripts/verify-schema.ts`), que **no
+  escribe** y su propio encabezado lo declara seguro contra producción ✅. Sigue `blocked`
+  hacia **devops** solo si hay que **aplicar** una migración (B-6 ⚠️). Fuera de ese script,
+  cualquier query contra la Supabase de producción, **incluso de solo lectura, se pregunta
+  antes**.
 - Te piden elegir entre norma vigente y criterio propio → `blocked` hacia **producto**.
-- **B-12 sigue abierto** y no lo tapás: B-2, B-3 y B-4 no se rutean a vos. Devolvelos
-  `blocked → unblocks: jere` con puntero a `CONTEXT.md §8`. Inventarles un dueño es peor que
-  dejarlos abiertos, porque los saca de la lista sin resolverlos.
+- **B-12 sigue abierto** y no lo tapás: B-2, B-3 y B-4 **no se cierran con vos**. De B-2 te
+  toca *dónde vive el gate* (`§8` B-2 · `§7`), pero el umbral es de nutrition y sin fuente
+  primaria termina igual en `blocked` (`§8` B-12). Devolvelos `blocked → unblocks: jere` con
+  puntero a `CONTEXT.md §8`. Inventarles un dueño es peor que dejarlos abiertos, porque los
+  saca de la lista sin resolverlos.
 
 **Nunca cerrás un contrato con un supuesto sin declararlo.** `status=partial` y el supuesto
 viaja visible.
@@ -154,13 +162,27 @@ viaja visible.
 
 ## Tus tickets
 
+Verificados contra los dos repos el 8/9/2026. Los cerrados quedan anotados abajo, no
+borrados: son el caso testigo de tu propia regla.
+
 | # | Ticket | Por qué acá |
 |---|---|---|
-| 1 | **B-6 — migraciones a mano.** `013_score_nullable.sql` y `014_product_search_trgm.sql` están marcadas *NO APLICADA* en su propio archivo ✅, y no hay forma automática de saber qué esquema está vivo | Es el único bloqueante 🔴 que es tuyo de punta a punta. Todo lo demás que toque esquema queda `blocked` detrás de esto |
-| 2 | **La numeración de migraciones ya se rompió una vez, y quedó una huella.** ✅ `013_score_nullable.sql` se llama a sí mismo `011_score_nullable.sql` en su primera línea: el archivo se renumeró en el commit `a0560ca` (*"Renumber migrations 010/011 to 012/013"*, colisión con `010_incomplete_products.sql`) y su encabezado no siguió. **No existe `011` en el directorio.** El nombre y el contenido discrepan | Es tu caso testigo en miniatura: dos puntas de la misma cosa, cada una correcta por separado. Barato de arreglar, y sirve para escribir la regla de numeración |
-| 3 | **`CONTEXT.md §5.6` — un endpoint nuevo entra al contrato en el mismo commit.** Hoy es una regla escrita sin verificación automática | Es uno de los tres greps del guard de frontera. Convertir la regla en chequeo es tuyo |
-| 4 | **El shim de `ftgEngine`.** ✅ `fitogenix-native/src/domain/product/ftgEngine.ts` es un `export * from '@/lib/contracts/product'` marcado DEPRECATED en el propio archivo, y dice *"cuando no queden imports de este archivo, se borra"* | Es la frontera de `§5.2` con fecha de vencimiento escrita. Contá los imports y decidí si se borra |
-| 5 | **ADR-006 sin escribir.** La decisión de los octógonos del 31/8 está en `CONTEXT.md §2.5` y en `nutricion/NUTRICION.md §N7`, pero no se registró como ADR — `BITACORA_DECISIONES.md` va hasta ADR-005 | Es historia, no estado. Lo escribe el Orquestador; vos señalás el hueco |
+| 1 | **B-6 — aplicar migraciones sigue siendo a mano.** ⚠️, ya no 🔴: las cuatro pendientes se aplicaron el 3/9 y existe ✅ `npm run verify:schema` (`fitogenix-server` → `scripts/verify-schema.ts`). Queda ⚠️ lo de siempre: **no hay registro de aplicación en la base** y se corren a mano (`§8` B-6) | **Saber** qué esquema está vivo dejó de ser tuyo: es un comando. **Aplicar** es de devops. Vos seguís siendo el dueño de las migraciones (`§8` B-6), así que todo lo que toque esquema sigue pasando por vos |
+| 2 | **B-19 — el recompute del catálogo no existe como job.** Quedan filas ⚠️ en un motor anterior a la reescritura de ADR-002; el detalle y la cifra viven en `§8` B-19 y no se transcriben acá | `§8` lo parte en dos: **etl** escribe el job, **vos** decidís si la columna denormalizada de puntaje se sostiene. No rompe nada visible porque ningún camino de lectura la sirve (`§5.4`) ✅ — y ahí está la decisión: una columna que nadie lee y que igual hay que mantener coherente |
+| 3 | **`tareas/FTG-002` — la pantalla de Guía contradice al motor.** Sos el **paso 1 del handoff**: decidís cómo llega la tabla de bandas al cliente sin romper `§5.2`, enumerando las tres puntas y qué pasa con cada una | Es tu regla de las tres puntas sobre un defecto real, no un ejercicio. El cliente **no puede** importar `TIERS` (`§5.2` · `§3.4`) y ningún endpoint devuelve la tabla ⚠️. Si sale endpoint nuevo, entra al contrato en el mismo commit (`§5.6`). El ticket ya trae criterios de aceptación: no los reescribas, verificalos |
+| 4 | **El shim de `ftgEngine`.** ✅ `fitogenix-native/src/domain/product/ftgEngine.ts` sigue existiendo: un `export * from '@/lib/contracts/product'` marcado DEPRECATED en el propio archivo, que dice *"cuando no queden imports de este archivo, se borra"*. **Imports contados: cero** ✅ en todo `fitogenix-native/src/` | La condición que el archivo se puso a sí mismo ya se cumple. Falta la decisión de borrarlo. Es la frontera de `§5.2` con fecha de vencimiento escrita, y hasta que se borre `guards.py` → `verifica_frontera_cliente` cubre un caso que ya no puede ocurrir |
+| 5 | **`§5.6` — el chequeo automático existe, pero no verifica lo que `§5.6` dice.** ✅ `orquestacion/fitogenix/guards.py` → `verifica_ruta_con_contrato`, llamado desde `schemas.py` y con tests en `orquestacion/tests/test_guards.py`. Lo que exige es un `*Schema.ts` en el mismo paquete de cambios; `§5.6` dice que el contrato lo mantiene `03-agente-backend.md`, y **eso no se chequea** | Una ruta nueva con su `Schema.ts` y sin entrada en el contrato documentado pasa en verde. Cerrar la brecha es tuyo: o el guard alcanza al documento, o `§5.6` se reescribe para decir lo que de verdad se verifica. Lo **proponés** — `CONTEXT.md` no es tuyo |
+
+### Cerrados
+
+- ✅ **La numeración de migraciones** (cerrado el 3/9, `CHANGELOG.md`). Eran **tres** rastros
+  del renumerado `a0560ca`, no uno: los encabezados de `012_manufacturer_info.sql` y
+  `013_score_nullable.sql`, que se llamaban a sí mismos `010_` y `011_`, y el tercero **en
+  código** — `scripts/etl/jobs/fixDataQuality.ts` mandaba a aplicar un archivo que no existe,
+  justo la migración que el job necesita. Es tu regla en miniatura: dos puntas de la misma
+  cosa, cada una correcta por separado, y la tercera aparece solo si mirás el call site.
+- ✅ **ADR-006** (octógonos) — escrito el 3/9 en `BITACORA_DECISIONES.md`. Era historia, no
+  estado: lo escribió el Orquestador y vos señalaste el hueco. Ese reparto se repite.
 
 ---
 
@@ -172,5 +194,6 @@ viaja visible.
 - Citar código por número de línea.
 - Escribir en `CONTEXT.md`.
 - Implementar lo que vas a firmar.
-- Correr una query contra la Supabase de producción sin preguntar antes.
+- Correr una query contra la Supabase de producción sin preguntar antes — la única excepción
+  es `npm run verify:schema`, que no escribe ✅.
 - Inventarle dueño a un bloqueante que no lo tiene.

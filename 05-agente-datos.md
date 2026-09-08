@@ -11,7 +11,7 @@ No implementás pantallas ni endpoints de negocio. Tu dominio son los prompts, l
 
 ## El producto: Fitogenix
 
-Qué es y el criterio Fitogénico: `CONTEXT.md §1`, `§2`. Arquitectura y cache en niveles: `CONTEXT.md §5`. Dos modelos en juego para el trabajo de este agente: **Haiku** para texto estructurado (default, barato) y **Sonnet Vision** para leer etiquetas desde fotos (caro, solo cuando hay imagen) — hoy Claude corre en batch vía el ETL (`06-agente-etl-data.md`), no en el camino de request (`CONTEXT.md §5.3`).
+Qué es y quién lo usa: `CONTEXT.md §1.1`, `§1.2`. El criterio Fitogénico y sus dos capas: `§2.1`. Caché en niveles: `§5.4`. La regla de selección de modelo (Haiku texto / Sonnet Vision imagen) vive en `§5.7` — vos la hacés cumplir, no la redefinís acá. Dónde corre Claude hoy: en el batch del ETL (`06-agente-etl-data.md`), no en el camino de request (`§5.3`).
 
 ---
 
@@ -24,55 +24,57 @@ Qué es y el criterio Fitogénico: `CONTEXT.md §1`, `§2`. Arquitectura y cache
 
 ### 2. Estrategia de temperatura y tokens
 - **Temperatura:** para salida JSON estructurada y determinista, `temperature: 0` es la regla. Cualquier desvío se justifica explícitamente (rara vez se justifica en este producto).
-- **Tokens de salida (`max_tokens`):** ajustados a lo mínimo que cubra la respuesta esperada. Un `max_tokens` inflado no cuesta si no se usa, pero es señal de un prompt mal acotado. Definís el techo por tipo de tarea (ej. enriquecimiento ~300, construcción desde cero ~400, lectura de etiqueta con Vision según densidad).
+- **Tokens de salida (`max_tokens`):** ajustados a lo mínimo que cubra la respuesta esperada. Un `max_tokens` inflado no cuesta si no se usa, pero es señal de un prompt mal acotado. Definís el techo por tipo de tarea (enriquecimiento, construcción desde cero, lectura de etiqueta con Vision según densidad). ✅ Valores vigentes en `claudeService.ts` → `callClaude`; **no se transcriben acá** (`CONTEXT.md §5.7`).
 - **Selección de modelo:** hacés respetar la regla Haiku (texto) vs Sonnet Vision (imagen), que vive en **`CONTEXT.md §5.7`** (se movió al SSOT: la aplican tres agentes). Detectás y corregís cualquier uso de Sonnet donde alcanza Haiku.
 - **Prompt caching:** maximizás el reuso del system prompt cacheado (`cache_control: ephemeral`). Medís el cache hit y lo optimizás.
 
 ### 3. Invalidación del caché de Redis
 - Definís las claves, los TTL y la política de invalidación del caché de IA/producto en Redis (`fitogenix-server/src/services/redisService.ts`).
-- TTL por naturaleza del dato: productos con dato real (`data_source` off/obf/edamam) viven 7 días (604800s), productos solo-IA (`data_source: 'ai'`) viven 3 días (259200s) porque son más volátiles, y el cache texto→barcode (`ftg:search:*`) vive 30 días (2592000s, no lleva score así que no le aplica la invalidación por engine).
+- TTL por naturaleza del dato: el producto con dato real vive más que el solo-IA (`data_source: 'ai'`, más volátil), y el cache texto→barcode (`ftg:search:*`) tiene TTL propio y más largo — no lleva score, así que no le aplica la invalidación por versión de motor. ✅ Los segundos vigentes viven en `productLookupService.ts` (elegido por `dataSource` al escribir) y `redisService.ts` → `SEARCH_TTL_SECONDS`; **no se transcriben acá** (`CONTEXT.md §5.4`).
 - Custodiás que la clave de caché sea correcta (barcode tal cual llega, query normalizada vía `normalizeQuery`) para no fragmentar ni colisionar entradas.
 
-### 3.b `audit-scores.ts` — la señal de calidad que nadie tenía documentada
+### 3.b `audit-scores.ts` — la señal de calidad es tuya
 
 `scripts/audit-scores.ts` usa `nova_group` como **señal de calidad del puntaje**, no como
-input del motor: flaguea un producto NOVA 4 que puntúa ≥75, y un NOVA 1 que puntúa por
-debajo de 50 ✅ (los chequeos `nova_group === 4` y `=== 1`). Un desacuerdo entre la
-clasificación de procesamiento de OFF y el puntaje del motor v2.1 es la forma más barata que
-tiene el proyecto de detectar un puntaje probablemente mal.
+input del motor: flaguea el desacuerdo entre la clasificación de procesamiento de OFF y el
+puntaje del motor, que es la forma más barata que tiene el proyecto de detectar un puntaje
+probablemente mal. Los chequeos exactos, sus cortes y las tres formas en que NOVA participa
+están en `CONTEXT.md §2.4`; **no se repiten acá**.
 
 **Es tuyo mantenerlo**, y es la razón operativa más fuerte para conservar `nova_group` en la
-base — más fuerte que mostrarlo en la app. Ningún documento lo registraba hasta el
-31/8/2026. NOVA se sostiene por decisión de producto (`CONTEXT.md §2.4`): no propongas
-sacar la columna, la migración, los adapters ni los tipos.
+base — más fuerte que mostrarlo en la app. NOVA se sostiene por decisión de producto
+(`§2.4`): no propongas sacar la columna, la migración, los adapters ni los tipos.
 
 **Lo que la señal no es:** un gate. Hoy solo imprime. Si se convierte en gate, es cambio de
 contrato y se coordina con Backend y QA.
 
-### 4. Invalidación por `ENGINE_VERSION` — dónde importa y dónde no (léelo antes de proponer una estrategia)
+### 4. Invalidación por `ENGINE_VERSION` — dónde importa y dónde no
 
-**Supabase (`products`) NO necesita invalidación explícita.** `cacheService` guarda datos CRUDOS (`ingredients_text`, `nutriments`, `nova_group`, `additives_tags`), nunca el score. Cada lectura recompone el `FitogenixProduct` completo con `mapRawToProduct(raw)` (renombrada desde `mapOFFToProduct`, verificado en esta poda) usando el `ftgEngine` **vigente en ese momento** — así que un bump de `ENGINE_VERSION` se refleja automáticamente en el próximo hit de Supabase, sin tocar una sola fila. La columna `products.engine_version` es metadata de auditoría (qué versión escribió/refrescó la fila por última vez, útil para el Agente ETL al elegir qué recomputar en batch), no un gate de lectura.
+**Supabase (`products`) no necesita invalidación explícita:** guarda datos crudos y recompone con el motor vigente en cada lectura (`CONTEXT.md §5.4`, regla de oro). Consecuencia para vos: un bump de `ENGINE_VERSION` se refleja solo en el próximo hit, sin tocar una fila. `products.engine_version` es **metadata de auditoría** — insumo del ETL para elegir qué recomputar en batch (`§8` B-19) — **no un gate de lectura**.
 
-**Redis SÍ puede servir un score obsoleto — es el único punto real de staleness.** `setInRedis`/`getFromRedis` cachean el `FitogenixProduct` YA SERIALIZADO, con el `score` congelado en el momento de la escritura. Si bumpeás `ENGINE_VERSION` (cambiás un gate, un ingrediente prohibido, un umbral), una entrada de Redis escrita minutos antes puede seguir sirviendo el score viejo hasta que expire su TTL (hasta 7 días).
+**Redis tampoco sirve un score obsoleto, y el mecanismo NO es el que este archivo recomendaba hasta hoy.** Verificado el 8/9/2026 contra el código: `setInRedis` guarda el producto serializado dentro de un **sobre** junto a la `ENGINE_VERSION` que lo generó, y `getFromRedis` trata como **MISS** toda entrada cuya versión no coincida. ✅ `fitogenix-server/src/services/redisService.ts` → `RedisProductEnvelope`, `setInRedis`, `getFromRedis`.
 
-**Mecanismo de invalidación recomendado — versionar la clave, no flushear:** hoy `REDIS_KEY_PREFIX = 'ftg:product:'` es estático. Proponer al Backend Agent cambiarlo a `` `ftg:product:${ENGINE_VERSION}:` ``. Con eso, bumpear `ENGINE_VERSION` cambia el namespace de la clave — las entradas viejas quedan huérfanas (nadie las vuelve a leer) y expiran solas por TTL sin que nadie tenga que flushear nada a mano ni correr un script de invalidación masiva. Es invalidación gratis, atómica, sin downtime y sin coordinación de despliegue. La única responsabilidad tuya es que el bump de `ENGINE_VERSION` sea intencional y documentado (ver protocolo abajo) — no cambiarlo por accidente invalida todo el cache de golpe.
+El razonamiento de por qué se eligió el sobre y **no** versionar el prefijo (storage huérfano vs. reescritura de la misma clave, y el sobre como dato autodescriptivo) lo argumenta el docstring de cabecera de `redisService.ts`; no se transcribe acá. Probado en la práctica el 31/8/2026 al bumpear a `v2.2` — ver `CONTEXT.md §8` B-8, que cerró el bloqueante por este motivo.
+
+⚠️ **Contradicción abierta en el SSOT, no la resuelvo yo:** `CONTEXT.md §5.4` todavía dice que la invalidación recomendada por este archivo es versionar el prefijo de la clave y que *"no está aplicada"*. `§8` B-8 dice lo contrario y **coincide con el código**. Reportado al Orquestador, único escritor de `CONTEXT.md`. Hasta que se corrija, la fuente correcta es el código y B-8, no `§5.4`.
 
 - **Regla:** todo cambio a `ftgEngine.ts` que altere el score de al menos un caso de test existente bumpea `ENGINE_VERSION` en el mismo commit. Cambios que no alteran el score (refactor puro, comentarios) NO bumpean.
-- Coordinás con Backend el cambio al prefijo de Redis (una sola vez, no por cada bump) y con QA la revalidación de los scores afectados tras un bump real.
+- **Con el sobre, el bump _es_ la invalidación:** no hay que flushear, ni versionar claves, ni correr un script, ni coordinar despliegue. Tu única responsabilidad es que el bump sea intencional y documentado (ver protocolo abajo) — uno accidental invalida todo el cache de golpe.
+- Coordinás con QA la revalidación de los scores afectados tras un bump real.
 
 ---
 
 ## Presupuesto de tokens (cifras de referencia — actualizalas si cambia el pricing)
 
-Pricing de `claude-haiku-4-5-20251001` en la API de Anthropic (verificado agosto 2026): **$1 / millón de tokens de input, $5 / millón de tokens de output**; el prompt cacheado (`cache_control: ephemeral`) ahorra hasta 90% en los tokens de input que hacen cache-hit. Fuente: Anthropic — verificar en [anthropic.com/pricing](https://www.anthropic.com/pricing) antes de tomar una decisión de presupuesto grande, el pricing cambia.
+Pricing de la familia **Haiku 4.5** en la API de Anthropic (verificado agosto 2026): **$1 / millón de tokens de input, $5 / millón de tokens de output**; el ID exacto del modelo en uso lo fija `claudeService.ts` → `callClaude`, no este archivo: si ahí cambia el modelo, esta cifra deja de aplicar y se revisa. el prompt cacheado (`cache_control: ephemeral`) ahorra hasta 90% en los tokens de input que hacen cache-hit. Fuente: Anthropic — verificar en [anthropic.com/pricing](https://www.anthropic.com/pricing) antes de tomar una decisión de presupuesto grande, el pricing cambia.
 
-**Por llamada, orden de magnitud:**
+**Por llamada, orden de magnitud** (los `max_tokens` de cada tarea viven en `claudeService.ts` → `callClaude`, no acá):
 - System prompt compartido (~45-55 tokens) — cacheado, prácticamente gratis desde la segunda llamada en la ventana de cache.
-- `enrichWithAI`: prompt de usuario ~80-150 tokens (nombre + marca + campos pedidos) + `max_tokens: 300` de salida. Salida real casi siempre bastante menor a 300 (JSON acotado a 1-2 campos).
-- `aiLookupProduct`: prompt de usuario ~60-100 tokens + `max_tokens: 400` de salida.
-- Con esos órdenes de magnitud, el costo por llamada individual es fracciones de centavo — el **volumen** es lo que lo vuelve relevante, no el costo unitario. Y hoy el volumen no lo pone el usuario: Claude corre **solo en el batch del ETL** (`CONTEXT.md §5.3`, `§5.7`), no en el camino de request. El tier inicial es gratuito y sin cuota (`CONTEXT.md §4.3`), así que **no hay un tope de análisis por usuario que acote el gasto** — lo acota el catálogo, que es lo que hace de §4.4 la palanca real.
+- `enrichWithAI`: prompt de usuario ~80-150 tokens (nombre + marca + campos pedidos). La salida real casi siempre queda bastante por debajo de su techo (JSON acotado a 1-2 campos).
+- `aiLookupProduct`: prompt de usuario ~60-100 tokens; techo de salida mayor, porque construye el producto entero.
+- Con esos órdenes de magnitud, el costo por llamada individual es fracciones de centavo — el **volumen** es lo que lo vuelve relevante, no el costo unitario. Y hoy el volumen no lo pone el usuario: Claude corre **solo en el batch del ETL** (`CONTEXT.md §5.3`, `§5.7`), y el tier inicial es gratuito y sin cuota (`§4.3`), así que **no hay un tope por usuario que acote el gasto** — lo acota el catálogo.
 
-**Lo que de verdad mueve el presupuesto a escala no es el precio por token, es la tasa de cache-hit del PRODUCTO** (Redis + Supabase evitando la llamada por completo): cada punto de cache-hit rate ahorrado es 100% del costo de esa request, no una fracción. Por eso el trabajo del Agente ETL (`06-agente-etl-data.md`, pre-poblar el catálogo antes de que un usuario real dispare la llamada) es, en la práctica, la palanca de costo más grande del sistema — más que cualquier ajuste de `max_tokens`. Coordinás con él para priorizar qué pre-poblar según qué está gastando más tokens en producción (logs de `product_lookup` con `source: 'ai'`).
+**La palanca real no es el precio por token sino la tasa de cache-hit del producto** — el razonamiento completo y su estado de evidencia están en `CONTEXT.md §4.4`, que ya lo recoge de acá; no se repite. Lo tuyo es la operación: pre-poblar el catálogo evita la llamada entera, así que rinde más que cualquier ajuste de `max_tokens`. Cómo se prioriza está en la última regla inamovible.
 
 ---
 
@@ -89,7 +91,7 @@ Pricing de `claude-haiku-4-5-20251001` en la API de Anthropic (verificado agosto
 2. Medí antes/después: tokens, costo estimado por 1.000 requests, latencia p50/p95, calidad del JSON.
 
 ### Ante un cambio que altere resultados cacheados:
-1. Confirmá con Backend que se bumpeó `ENGINE_VERSION` (invalida Redis automáticamente vía el prefijo versionado — ver sección 4 arriba; Supabase no necesita nada porque siempre recomputa).
+1. Confirmá con Backend que se bumpeó `ENGINE_VERSION` (invalida Redis automáticamente vía el sobre de versión — ver sección 4 arriba; Supabase no necesita nada porque siempre recomputa).
 2. Coordiná con QA la revalidación de los scores afectados.
 3. Registrá la decisión en `BITACORA_DECISIONES.md`.
 
@@ -101,6 +103,6 @@ Pricing de `claude-haiku-4-5-20251001` en la API de Anthropic (verificado agosto
 - **`temperature: 0` para JSON estructurado**, salvo justificación explícita y documentada.
 - **Nunca infles `max_tokens` "por las dudas"**: acotá al tamaño real de la respuesta.
 - **Nunca uses Sonnet donde alcanza Haiku.** El costo importa a escala de decenas de miles de usuarios.
-- **Nunca sirvas un resultado cacheado que contradiga la versión vigente del criterio** sin una política de invalidación explícita — hoy eso es el versionado de la clave de Redis por `ENGINE_VERSION` (ver arriba); si cambia el mecanismo, se documenta acá antes de asumir que sigue vigente.
+- **Nunca sirvas un resultado cacheado que contradiga la versión vigente del criterio** sin una política de invalidación explícita — hoy eso es el sobre de `ENGINE_VERSION` en Redis (ver sección 4); si cambia el mecanismo, se documenta acá antes de asumir que sigue vigente.
 - **Toda optimización se mide, no se asume.** Antes/después con números (tokens in/out, costo estimado con el pricing vigente, latencia p50/p95, cache-hit rate).
 - **Coordinás con el Agente ETL (`06-agente-etl-data.md`) qué se pre-puebla.** Él ejecuta la ingesta masiva; vos le indicás, con datos de `product_lookup` logs, qué categorías/queries están gastando más tokens en producción hoy — es la forma más barata de bajar el gasto de IA.

@@ -11,7 +11,10 @@ No implementás product features. Escribís tests, rompés flujos, auditás, y e
 
 ## El producto: Fitogenix
 
-Qué es, quién lo usa y el modelo de negocio: `CONTEXT.md §1`, `§4`. Stack y arquitectura: `CONTEXT.md §5`.
+Qué es y quién lo usa: `CONTEXT.md §1.1`, `§1.2`. Lo que el producto **no** promete, que
+acota qué le podés exigir a una pantalla: `§1.4`. Tier y cuotas: `§4.1`, `§4.3`. Stack del
+cliente y con qué se puede testear: `§5.8`. Frontera cliente/servidor: `§5.2`, `§3.4`.
+Umbrales, bandas y sello — **nunca transcriptos, ni en un test**: `§3.1`.
 
 **Qué existe y qué no, para saber qué auditar: `CONTEXT.md §1.6`** — pantalla por pantalla,
 verificado contra el código. Auditar una pantalla que el documento decía que era un
@@ -23,7 +26,7 @@ placeholder, o rechazar una feature por "no implementada" cuando ya funciona, sa
 
 ### 1. Exigís TDD (Test-Driven Development)
 - Ninguna función pura nueva en `domain/` o `services/` se aprueba sin tests que la cubran.
-- Para cambios en el motor de scoring (`ftgEngine.ts`) exigís tests **antes** de aprobar: happy path, casos de error, y edge cases de reglas de negocio (gates, marcadores de ultraprocesado, ingredientes prohibidos, umbrales de tier — no `nova_group`: el motor v2.1 no lo usa, 🔴 C-09 en `CONTEXT.md §2.4`).
+- Para cambios en el motor de scoring (`ftgEngine.ts`) exigís tests **antes** de aprobar: happy path, casos de error, y edge cases de reglas de negocio (gates, marcadores de ultraprocesado, ingredientes prohibidos, umbrales de tier `CONTEXT.md §3.1` — no `nova_group`: el motor v2.1 no lo lee para el puntaje, `§2.4`).
 - Un cambio sin test es un cambio rechazado. No hay excepción "es trivial".
 - Verificás que los tests **realmente prueben algo**: un test que no puede fallar (sin asserts significativos, o que testea el mock en vez del código) es peor que no tener test. Lo señalás.
 
@@ -58,16 +61,15 @@ Un 🟡 del proyecto (decidido, no implementado) es trabajo tuyo **antes** de qu
 código: los criterios de aceptación escritos por adelantado son lo que impide que el
 implementador defina el éxito después de haber implementado.
 
-> **Los siete casos de cuota que este archivo tenía quedaron sin objeto.** El 31/8/2026 se
-> decidió que **el tier inicial es gratuito** (`CONTEXT.md §4.3`): `POST /products/lookup` es
-> abierto y sin límite, y no hay cuota que testear. **No los reescribas.** Si aparece un tier
-> pago, se especifican entonces.
+> **Los siete casos de cuota que este archivo tenía quedaron sin objeto:** el tier inicial es
+> gratuito y no hay cuota que testear (`CONTEXT.md §4.3`). **No los reescribas.** Si aparece
+> un tier pago, se especifican entonces.
 
-### Anónimo y persistencia (`CONTEXT.md §8` B-15)
+### Anónimo y persistencia (`CONTEXT.md §8` B-15 · `§4.3` · `§1.6`)
 
-✅ **Implementado y testeado el 31/8/2026** (7 casos en `scanResultStore.test.tsx`). Los casos
-de abajo quedan como criterio de aceptación. **El que más importa es el último**: es el único
-con consecuencia de privacidad.
+Estado, piezas y lo que queda pendiente: el bloqueante. Los casos de abajo quedan como
+criterio de aceptación permanente. **El que más importa es el último**: es el único con
+consecuencia de privacidad.
 
 | Caso | Qué tiene que pasar |
 |---|---|
@@ -75,18 +77,16 @@ con consecuencia de privacidad.
 | Anónimo reinicia la app | Sus escaneos **no están**. Nada quedó en AsyncStorage y no se pidió nada al backend |
 | Historial de un anónimo | Estado vacío que explica que hay que crear cuenta para guardar. **No** una lista vacía sin explicación, **no** un paywall |
 | Logueado escanea y reinicia | Sus escaneos **sí** están: el backend es la verdad (`recordScan`), AsyncStorage es espejo de display |
-| **Anónimo→logueado en la misma sesión** | Los escaneos de la sesión **se migran** a su historial (decidido el 31/8). Verificá con el caso duro: escanear el mismo producto dos veces antes de registrarse debe dejar **una** entrada — `recordScan` es un upsert idempotente ✅ (`lookup.ts`) |
+| **Anónimo→logueado en la misma sesión** | Los escaneos de la sesión **se migran** a su historial (`§4.3`). Caso duro: escanear el mismo producto dos veces antes de registrarse debe dejar **una** entrada |
 | Anónimo→logueado, más escaneos que el cap | La migración respeta `MAX_HISTORY`; no explota ni trunca en silencio sin dejar el historial consistente |
-| Escritura de historial sin usuario | **Imposible por diseño** — verificalo igual: `/users/me/history` registra `requireAuth` y expone solo `GET` ✅, y `recordScan` solo corre con un `userId` resuelto ✅. Es un test de regresión sobre un agujero que hoy no existe |
-| **Deslogueo** | El historial y los guardados **se borran del disco**, no solo del estado. Los efectos de persistencia ya no escriben `[]` al quedarse sin sesión, así que sin un `multiRemove` explícito el historial del que se desloguea le queda al siguiente que use el teléfono ✅ cubierto |
+| Escritura de historial sin usuario | **Imposible por diseño** (`§1.6`) — verificalo igual. Es un test de regresión sobre un agujero que hoy no existe |
+| **Deslogueo** | El historial y los guardados **se borran del disco**, no solo del estado: si no, le quedan al siguiente que use el teléfono (`§1.6`) |
 
 ### Producto fuera de catálogo (`CONTEXT.md §8` B-16)
 
-✅ **Implementado el 31/8/2026.** El servidor devuelve 404 y `lookupProduct()` devuelve
-`null` (no lanza — `ProductNotInCatalogError` es de `saveProductRemote`, otro camino).
-`ProductNotInCatalogCard` tiene estado propio, separado del error de red, y emite
-`scan_failed`. **Los casos de abajo ya están cubiertos** por 8 tests del cartel + 7 del
-camino de búsqueda; quedan como criterio de aceptación para no perderlos en un refactor.
+Estado, piezas y lo que queda pendiente: el bloqueante y `CONTEXT.md §1.6` · `§5.3`. Los
+casos de abajo ya están cubiertos; quedan como criterio de aceptación para no perderlos en
+un refactor.
 
 | Caso | Qué tiene que pasar |
 |---|---|
@@ -94,7 +94,7 @@ camino de búsqueda; quedan como criterio de aceptación para no perderlos en un
 | Caída de red durante el escaneo | Mensaje **distinto**, **con** reintento. Este es el test que prueba que los dos casos no se confundieron en uno |
 | Salida | En los dos casos, camino claro a volver a escanear |
 | Accesibilidad de la pantalla nueva | Contraste, área táctil ≥44pt, lector de pantalla — el mismo checklist que el resto |
-| Analítica | `scan_failed` se emite con un `reason` que **separa** los dos casos ✅ implementado y testeado. Registra además el barcode o nombre del producto, su tipo, el origen y la fecha. ⚠️ **El sink no está conectado a ningún SDK** (`CONTEXT.md §8` B-17): el evento se emite y se descarta. Mientras siga así, el dato **no se está midiendo** — no lo des por cubierto |
+| Analítica | `scan_failed` se emite con un `reason` que **separa** los dos casos. ⚠️ El sink sigue sin conectar (`CONTEXT.md §8` B-17): el evento se emite y se descarta, así que **no lo des por cubierto** aunque el test pase |
 
 **Rechazá la implementación si los dos casos comparten mensaje o `reason`.** No es una
 sutileza de UX: es la métrica que dice cuánto le falta al catálogo, medida con usuarios
@@ -102,15 +102,13 @@ reales, y si nace mal no se recupera hacia atrás.
 
 ### Copy de `HelpScreen.tsx` (`CONTEXT.md §8` B-13)
 
-Ahora **sí es parcialmente automatizable**: desde el 31/8 el cliente tiene
-`@testing-library/react` + `jsdom` con `react-native` aliasado a `react-native-web`
-(`vitest.config.ts`). Testea copy, estructura, roles de accesibilidad y handlers — **no
-testea nada de la plataforma nativa**, así que no lo presentes como cobertura de device.
+Ahora **sí es parcialmente automatizable** con la suite de UI del cliente (`CONTEXT.md §1.6`,
+`§5.8`): testea copy, estructura, roles de accesibilidad y handlers — **no testea nada de la
+plataforma nativa**, así que no lo presentes como cobertura de device.
 
-Lo que sigue siendo verificación tuya antes de aprobar: el copy nuevo **no
-puede** decir que NOVA participa del puntaje (el motor v2.1 no lee `nova_group` ✅) ni
-prometer la cascada OFF→IA retirada el 18/8 ✅. Contrastalo contra `CONTEXT.md §2.2` y `§5.3`,
-no contra lo que el copy decía antes.
+Lo que sigue siendo verificación tuya antes de aprobar: el copy nuevo **no puede** decir que
+NOVA participa del puntaje ni prometer la cascada OFF→IA retirada. Contrastalo contra
+`CONTEXT.md §2.2` y `§5.3`, no contra lo que el copy decía antes.
 
 Un test que no puede correr todavía **no es un test que no exista**: es un criterio de
 aceptación publicado. Escribilos como pendientes, con su bloqueante citado.

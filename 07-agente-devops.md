@@ -9,17 +9,20 @@ No implementás features de producto. Tu criterio de éxito es que el sistema es
 
 ## El producto: Fitogenix
 
-Qué es y quién lo usa: `CONTEXT.md §1`. Stack (Fastify + TypeScript, Supabase, Upstash Redis, Anthropic Claude) y los dos repos: `CONTEXT.md §5.1`. Lo que sigue es específico de tu trabajo — hoy no hay `Dockerfile` ni despliegue formal, el server corre con `npm run dev`/`npm start` a mano (ver el estado real más abajo).
+Qué es: `CONTEXT.md §1.1`. Los dos repos y su stack: `CONTEXT.md §5.1`. Lo que sigue es específico de tu trabajo.
 
 ---
 
-## Estado real de la infraestructura (punto de partida, verificado en el repo)
+## Estado real de la infraestructura (punto de partida)
 
-- **No existe `Dockerfile`, `railway.toml`, `render.yaml` ni ningún config de despliegue** en `fitogenix-server/`. Es la primera tarea de este agente, no un "ya está, solo ajustar".
-- **`.gitignore` cubre `.env`** correctamente; no hay secretos commiteados (verificado — ningún archivo trackeado contiene una key real, solo valores fake `'test'` en los tests).
-- **`@fastify/rate-limit` ya está integrado** (`main.ts`, 60 req/min global, en memoria). No es un rate limit por endpoint todavía, y es **por instancia** — ver el hallazgo de escalado horizontal más abajo.
-- **`package.json` no fija versión de Node (`engines`)** — riesgo de que un entorno de deploy use una versión distinta a la de desarrollo.
-- Variables requeridas hoy (`src/config.ts`): `ANTHROPIC_API_KEY`, `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, `SERPAPI_API_KEY` (requeridas — el server no arranca sin ellas); `REMOVE_BG_API_KEY`, `UPSTASH_REDIS_REST_URL`/`TOKEN`, `EDAMAM_APP_ID`/`APP_KEY` (opcionales, degradan funcionalidad si faltan pero no rompen el arranque).
+Tus tres bloqueantes abiertos se leen en `CONTEXT.md §8`, no se copian acá: **B-9** (sin `Dockerfile`, sin config de despliegue, sin `engines.node`, rate limit en memoria), **B-10** (sin observabilidad) y **B-6** (migraciones a mano). Son la primera tarea de este agente, no un "ya está, solo ajustar".
+
+Lo que `§8` no dice y necesitás igual:
+
+- **`fitogenix-server` no tiene ninguna CI** — no existe `.github/workflows/`. Todo chequeo automático que este archivo asuma más abajo hoy **no corre en ningún lado**; montarlo es tuyo. `fitogenix-native` sí tiene (`.github/workflows/test.yml`), y `§8` B-18 muestra lo que costó ahí no declarar la versión de Node.
+- **`.gitignore` cubre `.env`** y no hay secretos commiteados: ningún archivo trackeado tiene una key real, solo valores fake `'test'` en los tests.
+- **`@fastify/rate-limit` ya está registrado** en `main.ts`, global y en memoria. Todavía **no hay límite por endpoint**.
+- **Variables de entorno:** la lista vive en `src/config.ts` (`required` / `optional`) y en `.env.example`, no acá. Para el deploy importa que cuatro son **requeridas** —sin ellas el server no arranca— y el resto solo degrada funcionalidad.
 
 ---
 
@@ -34,8 +37,8 @@ Qué es y quién lo usa: `CONTEXT.md §1`. Stack (Fastify + TypeScript, Supabase
 
 ### 2. Rate limiting de infraestructura
 
-- El rate limit global (60 req/min, `@fastify/rate-limit`) ya cubre el caso base. Tu trabajo es afinarlo por endpoint donde el costo real difiere mucho: `POST /products/lookup` puede necesitar un límite más estricto que `GET /users/me/history` porque un abuso ahí quema tokens de Claude, no solo ciclos de CPU. Proponé el límite específico al Backend Agent (quien lo implementa en la ruta) — no lo hardcodees vos en infraestructura si el negocio quiere lógica más fina (ej. límite distinto para usuario autenticado vs anónimo).
-- **Hallazgo de escalado horizontal:** `@fastify/rate-limit` sin `store` configurado guarda el contador en memoria del proceso. Si `fitogenix-server` corre con más de una instancia (autoscaling en Railway/Render), cada instancia cuenta requests por separado — el límite real efectivo termina siendo `60 × N instancias`, no 60. Ya hay Upstash Redis en el stack: si el servicio escala a más de una instancia, el store de `@fastify/rate-limit` debe migrar a un backend compartido (Redis) para que el límite sea global. Señalalo ANTES de que el equipo escale a N instancias asumiendo que el límite sigue siendo 60/min real.
+- El rate limit global de `@fastify/rate-limit` (valor en `main.ts`) ya cubre el caso base. Tu trabajo es afinarlo por endpoint donde el costo real difiere mucho: `POST /products/lookup` puede necesitar un límite más estricto que `GET /users/me/history` porque un abuso ahí quema tokens de Claude, no solo ciclos de CPU. Proponé el límite específico al Backend Agent (quien lo implementa en la ruta) — no lo hardcodees vos en infraestructura si el negocio quiere lógica más fina (ej. límite distinto para usuario autenticado vs anónimo).
+- **Hallazgo de escalado horizontal:** `@fastify/rate-limit` sin `store` configurado guarda el contador en memoria del proceso. Si `fitogenix-server` corre con más de una instancia (autoscaling en Railway/Render), cada instancia cuenta requests por separado — el límite real efectivo es **N veces el nominal** (`§8` B-9). Ya hay Upstash Redis en el stack: en ese caso el `store` debe migrar a ese backend compartido para que el límite sea global. Señalalo ANTES de que el equipo escale a N instancias asumiendo que el límite nominal sigue siendo el real.
 
 ### 3. Auditoría de secretos y variables de entorno
 
@@ -43,11 +46,11 @@ Qué es y quién lo usa: `CONTEXT.md §1`. Stack (Fastify + TypeScript, Supabase
 - Si encontrás una key filtrada en el historial: la acción es **rotarla en el proveedor** (Anthropic/Supabase/etc.), no solo borrarla del código. Un `git filter-repo`/force-push sin rotar la key es teatro de seguridad.
 - Verificá que `.gitignore` cubra `.env`, `.env.*` (excepto `.env.example`), y cualquier archivo de credenciales de despliegue (`*.pem`, `service-account*.json` si en algún momento se suma GCP/Firebase).
 - Los logs del servidor (`app.log` de Fastify) no deben incluir el body completo de requests con datos sensibles (tokens de auth, ni siquiera parcialmente) ni las API keys en mensajes de error. Revisá los `console.error`/`app.log.error` existentes: hoy loguean mensajes de error y contexto (`barcode`/`query`), no secretos — mantené esa disciplina en cualquier logging nuevo.
-- Auditoría periódica (no solo al desplegar): correr el chequeo de secretos como parte de CI, no como un paso manual que alguien se olvida de correr.
+- Auditoría periódica (no solo al desplegar): el chequeo de secretos va **en CI**, no como paso manual que alguien se olvida de correr. Ojo: el server todavía no tiene CI — crearla es parte de esta responsabilidad, no un prerrequisito ajeno.
 
 ### 4. Observabilidad de infraestructura
 
-- El servidor no tiene Sentry/Datadog conectado todavía (ver la sección de Observabilidad en `03-agente-backend.md`, que define el contrato de logging a nivel de aplicación — vos proveés la infraestructura para que ese reporte tenga a dónde ir). Coordiná con Backend qué proveedor y cableá las variables de entorno (`SENTRY_DSN` o equivalente) sin que el DSN quede hardcodeado.
+- Sin observabilidad conectada: `§8` B-10, compartido con Backend. El contrato de logging a nivel de aplicación lo define `03-agente-backend.md` (sección de Observabilidad); vos proveés la infraestructura para que ese reporte tenga a dónde ir. Coordiná con Backend qué proveedor y cableá las variables de entorno (`SENTRY_DSN` o equivalente) sin que el DSN quede hardcodeado.
 - Alertas mínimas de infraestructura: el servicio está caído (health check fallando), tasa de error 5xx elevada, latencia p95 degradada. No necesitás un stack de observabilidad completo desde el día uno — empezá con lo que la plataforma de deploy (Railway/Render) ya expone antes de sumar una herramienta nueva.
 
 ---

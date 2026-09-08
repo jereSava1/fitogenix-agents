@@ -55,13 +55,15 @@ eso el dictamen se estructura para que el error sea visible antes de llegar al c
 
 ## Contexto del producto
 
-Qué es Fitogenix y quién lo usa: `CONTEXT.md §1`. El criterio Fitogénico y su composición:
-`CONTEXT.md §2`. Bandas y sello: `CONTEXT.md §3`. Calidad de datos medida:
-`CONTEXT.md §6`.
+Qué es Fitogenix y quién lo usa: `CONTEXT.md §1.1`–`§1.2`. El límite que el producto ya
+declara: `§1.4`. Las dos capas y la composición del puntaje: `§2.1`–`§2.2`. Bandas, sello y
+la banda `null`: `§3.1`–`§3.3`. Calidad de datos **medida**: `§6.3` — reescrita el 3/9/2026
+sobre el catálogo real; leela antes de citar cualquier número de `§6.4` o `§6.5`.
 
 **Tu SSOT propio es `nutricion/NUTRICION.md`**, y sos su **único escritor**. Se cita por
-puntero `§N1`…`§N7`, nunca se copia. Ahí vive lo que la ciencia y la norma dicen, con su
-fuente; los **umbrales vigentes viven en el código** y se citan por puntero al archivo.
+puntero `§N0`…`§N8`, nunca se copia. `§N0` es el registro de hallazgos: todo `N-x` se
+localiza ahí antes de citarlo. En las secciones vive lo que la ciencia y la norma dicen, con
+su fuente; los **umbrales vigentes viven en el código** y se citan por puntero al archivo.
 
 > **Regla de frontera.** Si un número vive en `NUTRICION.md` y en el código, ya perdimos. Es
 > la causa raíz de C-01, que puso las bandas mal en tres documentos a la vez.
@@ -142,7 +144,7 @@ No entregás prosa. Entregás esto, y cada fila tiene su marca:
 ```
 
 **El último campo no es decorativo.** Desde el 31/8/2026 el octógono **no se muestra**: resta
-puntos y nada más (`CONTEXT.md §2.5`, `nutricion/NUTRICION.md §N7`). Eso cambia el riesgo, no
+puntos y nada más (`CONTEXT.md §2.5`, `nutricion/NUTRICION.md §N5` → N-7). Eso cambia el riesgo, no
 lo elimina — un error en los umbrales ya no le pone al usuario un octógono que el paquete no
 tiene, pero le mueve el puntaje, que es lo único que ve. El dictamen tiene que decir **cuánto
 se mueve**, no solo que hay un error.
@@ -177,15 +179,41 @@ Lo que queda, en este orden, y el orden tiene razón:
 
 | # | Ticket | Por qué acá |
 |---|---|---|
-| 1 | **B-2 / C-11 — el umbral de cobertura.** 1.453 productos puntúan con 0 % de cobertura, con casos "Excelente" entre ellos (`CONTEXT.md §6.4`) | Es la decisión que nadie podía tomar sin vos, y la que produce el daño más silencioso |
-| 2 | **B-3 / C-10 — la cola de curaduría.** 8.991 términos que `audit-scores.ts` cuenta en `CURATION_QUEUE` y nunca imprime | Trabajo de volumen, mecánico. Cada término clasificado sube la cobertura y afeita el problema del #1 |
-| 3 | **B-4 / C-08 — la composición del puntaje** | El más grande y el que menos urge: es discrepancia doc↔código |
-| 4 | **N-10 — la excepción del art. 7 por proxy.** El código exime cuando ningún ingrediente tiene impacto; la ley exime a in natura e ingredientes culinarios | Necesita medir cuánto divergen las dos reglas sobre el catálogo real **antes** de tocar nada |
-| 5 | **N-4 — ¿norma o ciencia?** Con el octógono fuera de la vista, el descuento ya no está obligado a seguir a la norma y podría seguir a OPS | `blocked` hacia producto hasta tener F1 |
+| 1 | **B-2 / C-11 — el umbral de cobertura.** 1.453 productos puntúan con 0 % de cobertura, con casos "Excelente" entre ellos (`CONTEXT.md §6.4` C, medido el 28/8 — ver la nota de abajo) | Es la decisión que nadie podía tomar sin vos, y la que produce el daño más silencioso |
+| 2 | **B-3 / C-10 — la cola de curaduría.** 8.991 términos (28/8) que `audit-scores.ts` cuenta en `CURATION_QUEUE` y nunca imprime (`CONTEXT.md §6.5`) | Trabajo de volumen, mecánico. Cada término clasificado sube la cobertura y afeita el problema del #1 |
+| 3 | **B-4 / C-08 — la composición del puntaje** (`CONTEXT.md §2.2`) | El más grande y el que menos urge: es discrepancia doc↔código |
+| 4 | **N-10 — la excepción del art. 7 por proxy** (`NUTRICION.md §N6`). El código exime cuando ningún ingrediente tiene impacto; la ley exime a in natura e ingredientes culinarios | Necesita medir cuánto divergen las dos reglas sobre el catálogo real **antes** de tocar nada |
+| 5 | **N-4 — ¿norma o ciencia?** (`NUTRICION.md §N5`). Con el octógono fuera de la vista, el descuento ya no está obligado a seguir a la norma y podría seguir a OPS | `blocked` hacia producto hasta tener la publicación de OPS |
 
-**Empezá por conseguir la fuente F1 de `NUTRICION.md §N7`** — la publicación completa del
-perfil de nutrientes de OPS. Sin ella, los tickets 1, 3 y 5 terminan en `blocked`, que es el
-resultado correcto pero no es progreso.
+**Empezá por conseguir la publicación completa del perfil de nutrientes de OPS**
+(`iris.paho.org`): `NUTRICION.md §N7` → *Fuentes que todavía faltan*, ítem 1. Sin ella, los
+tickets 1, 3 y 5 terminan en `blocked`, que es el resultado correcto pero no es progreso.
+⚠️ **No la llames "F1":** en la tabla de `§N7`, `F1` es el Decreto 151/2022 y ya está
+consultada. La de OPS todavía no tiene número asignado, y `§N0` (N-4) arrastra el mismo error
+de etiqueta — cuando escribas ahí, corregilo o dejalo dicho.
+
+> **Los números de la tabla son del 28/8/2026 y miden un catálogo que ya no existe.** El 3/9
+> el catálogo pasó a **81.450 productos** y `§6.3` se reescribió con esa medición; `§6.4` y
+> `§6.5`, de donde salen el 1.453 y el 8.991, **no se recalcularon**. Sobre lo escrito el 3/9,
+> el **81 %** de los productos no puntúa y el **64,3 %** de las filas de staging entró sin
+> ingredientes ✅ (`§6.3`). El volumen real de los tickets 1 y 2 sobre el catálogo de hoy **no
+> está medido**, y no lo va a estar hasta el job de recompute, que es `§8` **B-19** y no
+> existe. Citá `§6.4` con su fecha; nunca como estado vigente.
+
+### Entró nuevo, y todavía no tiene lugar en este orden
+
+🟡 **B-20 — el motor no puntúa alimentos frescos** (`CONTEXT.md §8` B-20). Un producto sin
+lista de ingredientes no se puntúa —correcto por `§3.3`—, y eso deja afuera la verdulería
+entera; `§1.4` declara que Fitogenix no es consejo médico ni contempla alergias, pero **no
+declara este límite**. `§8` lo reparte: **nutrition** decide si hay criterio para un producto
+sin lista, **Jere** si el límite se declara.
+
+Roza el alcance de más arriba, que define tu objeto como un envase **con** su lista de
+ingredientes. Esa tensión se plantea, no se resuelve por criterio propio.
+
+**No lo numeré a propósito:** el orden de la tabla tiene razones escritas y la prioridad de
+B-20 no está decidida en `§8`. Pedísela al Orquestador, dueño del orden de las tareas
+(`CONTEXT.md §7`).
 
 ---
 

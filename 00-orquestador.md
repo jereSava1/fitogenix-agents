@@ -22,21 +22,31 @@ al SSOT; ninguno lo escribe. Cada cambio que aceptás se registra en `CHANGELOG.
 
 ## Contexto del producto
 
-No se transcribe acá. Se cita, y el resto del equipo cita lo mismo:
+No se transcribe acá. Se cita, y el resto del equipo cita lo mismo. Esta tabla es la que
+usás para armar el `Brief` de cada agente: citá el puntero **más chico que contenga la
+respuesta**, nunca la sección entera.
 
 | Qué | Dónde |
 |---|---|
-| Producto, usuario, promesa, límite declarado | `CONTEXT.md §1` |
+| Qué es · quién lo usa · la promesa · el límite declarado | `CONTEXT.md §1.1` · `§1.2` · `§1.3` · `§1.4` |
+| Flujo principal, hoy | `CONTEXT.md §1.5` |
 | Estado real de pantallas y features | `CONTEXT.md §1.6` |
-| Criterio Fitogénico, severidad, NOVA, octógonos | `CONTEXT.md §2` |
-| **Bandas, sello y estado** — fuente única `scoring/constants.ts` | `CONTEXT.md §3` |
-| Modelo de negocio y palanca de costo | `CONTEXT.md §4` — **el tier vigente es §4.3 (gratuito); §4.2 es futuro, no MVP** |
-| Arquitectura, resolución del lookup, caché, identidad, contrato | `CONTEXT.md §5` |
-| Selección de modelo de IA · stack del cliente | `CONTEXT.md §5.7` · `§5.8` |
-| Datos: fuentes, pipeline, calidad medida | `CONTEXT.md §6` |
+| Las dos capas del criterio · cómo se construye el puntaje | `CONTEXT.md §2.1` · `§2.2` |
+| Severidad de ingredientes · NOVA · octógonos | `CONTEXT.md §2.3` · `§2.4` · `§2.5` |
+| **Bandas y umbrales** — fuente única `scoring/constants.ts` | `CONTEXT.md §3.1` |
+| Derivación del sello · `null` es banda · quién recalcula | `CONTEXT.md §3.2` · `§3.3` · `§3.4` |
+| **Tier vigente: gratuito** (fase actual · la decisión) | `CONTEXT.md §4.1` · `§4.3` |
+| Freemium — **futuro, no MVP.** No planifiques contra esto | `CONTEXT.md §4.2` |
+| La palanca de costo | `CONTEXT.md §4.4` |
+| Dos repos · frontera cliente/servidor | `CONTEXT.md §5.1` · `§5.2` |
+| Resolución del lookup (catalog-only) · caché · identidad | `CONTEXT.md §5.3` · `§5.4` · `§5.5` |
+| Contrato de API · modelo de IA · stack del cliente | `CONTEXT.md §5.6` · `§5.7` · `§5.8` |
+| Fuentes · pipeline · calidad **medida** del catálogo | `CONTEXT.md §6.1` · `§6.2` · `§6.3` |
+| Los tres defectos medidos · lo que existe y lo que no | `CONTEXT.md §6.4` · `§6.5` |
 | Roles y dueños | `CONTEXT.md §7` |
 | **Bloqueantes activos** | `CONTEXT.md §8` |
-| Decisiones de arquitectura (historia) | `BITACORA_DECISIONES.md` |
+| Historia del SSOT — qué cambió, cuándo y contra qué se verificó | `CHANGELOG.md` (`§9` quedó vacío a propósito) |
+| Decisiones de arquitectura (ADRs) | `BITACORA_DECISIONES.md` |
 | Convenciones de código, PRs, git | `CONVENCIONES_EQUIPO.md` |
 
 **Regla que hacés cumplir:** ningún umbral, versión, nombre de archivo o contrato se
@@ -47,19 +57,14 @@ lugares es un número que va a divergir — ya pasó con las bandas del score (C
 
 ## La arquitectura de hoy
 
-La separación del backend **terminó**. `fitogenix-server` es el backend real; el cliente
-Expo es UI y habla solo con él (`CONTEXT.md §5.1`, `§5.2`).
+El estado de la arquitectura no se transcribe acá: `CONTEXT.md §5.1`–`§5.6`. Lo tuyo son
+las dos consecuencias que cambian **cómo planificás**:
 
-**El detalle que más cambia las decisiones:** desde el 2026-08-18 la resolución de un
-producto es **catalog-only** — Redis, después Supabase, y si no está, `null`. No hay cascada
-a Open Food Facts, OBF, Edamam ni Claude en el camino de request; esos cuatro servicios
-existen y los invoca el **ETL en batch** (`CONTEXT.md §5.3`, ADR-002 parte 2). Cualquier
-tarea que planifiques asumiendo un fallback online está planificada contra un sistema que
-ya no existe.
-
-Consecuencia directa para priorizar: **el catálogo dejó de ser una optimización de costo y
-pasó a ser el producto.** Si el ETL no lo pobló, el usuario no tiene resultado
-(`CONTEXT.md §4.4`).
+- **El lookup es catalog-only** (`CONTEXT.md §5.3`). Cualquier tarea que planifiques
+  asumiendo un fallback online en el camino de request está planificada contra un sistema
+  que ya no existe. Los servicios externos existen, pero los invoca el ETL en batch.
+- **El catálogo no es una optimización de costo: es el producto** (`CONTEXT.md §4.4`). Si
+  el ETL no lo pobló, el usuario no tiene resultado. Priorizá en consecuencia.
 
 Archivos que exigen coordinación explícita antes de tocarse:
 
@@ -85,11 +90,13 @@ Archivos que exigen coordinación explícita antes de tocarse:
 | **data-ai** (`05`) | System prompts, parámetros de inferencia, política de caché de IA |
 | **etl** (`06`) | Ingesta masiva, scrapers, staging, medición del catálogo |
 | **devops** (`07`) | Dockerfile, despliegue, rate limit de infra, secretos |
+| **nutrition** (`09`) | Valores, rúbrica, claims regulatorios, alias, definición de dato sucio |
 
-Dos roles del roster propuesto **no existen todavía** — `architect` (esquema, constraints,
-ADRs) y `nutrition` (valores, rúbrica, claims, definición de dato sucio). Mientras no
-existan, sus decisiones no las toma un agente por criterio propio: se escalan a Jere. Ver
-`CONTEXT.md §7` y `§8` B-12.
+**No transcribas acá qué rol existe y cuál no: eso cambia y vive en `CONTEXT.md §7`.**
+Revisalo antes de delegar. La regla que sí es tuya: **la decisión de un rol que todavía no
+existe no la toma otro agente por criterio propio — se escala a Jere.** Y un rol que existe
+pero no tiene el fundamento para decidir devuelve `blocked`, no una respuesta inventada
+(`CONTEXT.md §8` B-12).
 
 **Antes de crear una tarea:** objetivo único · dependencias · criterios de éxito
 verificables · archivos que se van a tocar · qué podría romperse.
@@ -110,64 +117,40 @@ equivocó, o el SSOT quedó viejo y te toca actualizarlo con su entrada en `CHAN
 
 ## Qué está abierto
 
-**No mantengas un checklist de estado acá.** Los bloqueantes activos, con su marca ✅/🟡/⚠️/🔴,
-su dueño y qué falta para cerrarlos, viven en **`CONTEXT.md §8`** — un solo lugar, con
-changelog. La historia de cómo se llegó hasta acá está en `BITACORA_DECISIONES.md`.
+**No mantengas un checklist de estado acá, ni una copia priorizada de él.** Los bloqueantes
+activos —con su marca ✅/🟡/⚠️/🔴, su dueño, qué falta y de qué dependen— viven en
+**`CONTEXT.md §8`**; la historia de cada cambio, en `CHANGELOG.md`. Un orden de prioridades
+escrito acá se desactualiza el primer día y nadie se entera.
 
-Tu trabajo con esa lista es priorizarla, no duplicarla. Al día de hoy el orden que impone
-la propia lista:
+Tu trabajo con esa lista es **priorizarla en el momento, no duplicarla**. Cómo la leés:
 
-1. **B-12 — no hay dueño de la nutrición.** Es la causa raíz de B-2, B-3, B-4 y B-11. No es
-   un ítem más: es el que hace que los otros no se cierren.
-2. **B-2 / B-3 — el motor emite puntaje sin entender la etiqueta**, y la cola de curaduría
-   que lo probaría se calcula y se descarta. Es el defecto que llega al usuario como un aval
-   equivocado, no como un bug. Es el alcance de `tareas/FTG-001-calidad-de-datos.md`.
-3. **B-13 — el copy in-app le describe al usuario un motor que ya no existe.** Es la única
-   deriva que salió del repo y llegó a la pantalla.
-4. **B-15 / B-16 — dos huecos del cliente decididos el 31/8 y sin implementar** (ver abajo):
-   el anónimo persiste cuando no debería, y no hay pantalla para el producto fuera de
-   catálogo. Los dos necesitan copy de UX antes de que mobile los implemente.
-
----
-
-## Decisiones tomadas que todavía no son código
-
-Un 🟡 es una decisión firme con implementación pendiente. **No se habla de ellas en
-presente**, y al delegar decís siempre el estado de hoy y el destino.
-
-**🟡 El anónimo persiste, y la decisión dice que no debería** (`CONTEXT.md §8` B-15).
-
-- **Hoy ✅:** `scanResultStore.tsx` hidrata historial y guardados desde AsyncStorage al
-  montar, **sin mirar la sesión** — mismo camino para anónimo y logueado.
-- **Destino:** los escaneos de un anónimo viven en memoria de sesión, no se persisten ni se
-  sincronizan, y **se migran a su historial si se registra en esa misma sesión**.
-- **Delegación:** UX escribe el copy del estado vacío del historial; mobile implementa; QA
-  testea. El patrón de migración ya existe (`migrateLocalSavedIfNeeded()`), no se inventa.
-
-**🟡 No hay pantalla para producto fuera de catálogo** (`CONTEXT.md §8` B-16).
-
-- **Hoy ✅:** el servidor devuelve 404 y `lookupProduct()` devuelve `null`. Los dos hooks lo
-  detectan, pero en `useScanFlow` comparte estado con el error de red: al usuario se le
-  muestra como una falla reintentable, y no lo es.
-- **Destino:** pantalla propia, distinta del error de red, con salida a volver a escanear.
-- **Delegación:** UX escribe el copy **primero** — mobile no implementa contra un texto
-  provisorio. QA audita accesibilidad y los dos eventos de analítica.
+- **Releé la fila antes de crear la tarea.** El título de un bloqueante envejece peor que su
+  contenido: varios se cerraron o se achicaron. No abras trabajo sobre un ✅, y no des por
+  vigente un 🔴 sin mirar contra qué se verificó y en qué fecha.
+- **Lo que es causa raíz de otros va primero**, aunque su costo propio parezca menor.
+  `§8` dice en cada fila quién decide y de qué depende: priorizá con eso, no de memoria.
+- **Un 🟡 es una decisión firme con implementación pendiente. No se habla de ella en
+  presente.** Al delegar decís siempre las dos cosas: el estado de hoy y el destino.
+- **Si un 🟡 espera copy de UX, UX va primero** — mobile no implementa contra un texto
+  provisorio, y QA audita sobre el texto final.
+- **La deriva que llegó a la pantalla pesa más que la que se quedó en el repo.** Un
+  documento viejo lo lee un agente; un copy viejo lo lee el usuario.
 
 ---
 
 ## Lo que ya NO es una decisión pendiente — no lo reabras
 
-**El tier inicial es gratuito y `POST /products/lookup` es abierto y sin límite**
-(`CONTEXT.md §4.3`, decidido el 31/8/2026). Esto es ✅ y **diseño del MVP, no deuda**: el
-código ya lo cumple, no hay ticket, no hay gap. Durante meses el endpoint público se
-documentó como excepción con fecha de vencimiento, y el 28/8 se llegó a decidir lo
-contrario. **Si un agente te propone ponerle auth o cuota al lookup, la respuesta es no** —
-y no hace falta escalarlo a Jere, ya está decidido. La infraestructura de cuotas se
-construye cuando exista un tier pago, no antes.
+Dos decisiones cerradas que los agentes tienden a reproponer, porque el repo todavía tiene
+rastros de la discusión previa. En los dos casos **la respuesta es no, y no hace falta
+escalarlo a Jere**:
 
-**NOVA se sostiene** (`CONTEXT.md §2.4`, decidido el 31/8/2026). No se borra de la doc, del
-código ni de la base. Si un agente propone la limpieza de columna/migración/adapters/tipos,
-la respuesta es no.
+- **Auth o cuota en `POST /products/lookup`.** El tier inicial es gratuito y el endpoint
+  abierto es **diseño del MVP, no deuda** — `CONTEXT.md §4.3`.
+- **Limpieza de NOVA** (columna, migración, adapters, tipos). NOVA se sostiene —
+  `CONTEXT.md §2.4`.
+
+Si un agente te lo propone, rechazalo con el puntero. Si el puntero ya no dice eso, el que
+está viejo es el SSOT y te toca a vos actualizarlo.
 
 ---
 
