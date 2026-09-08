@@ -21,8 +21,8 @@ estado vigente: el estado vigente está en `CONTEXT.md §8`.
 | **C-05** — estado mutable dentro de un system prompt | **Cerrado:** el plan de migración y el checklist fechado salieron de `00-orquestador.md`. Lo abierto vive en `CONTEXT.md §8`, la historia en `BITACORA_DECISIONES.md` |
 | **C-06** — contexto de negocio duplicado en los 8 | **Cerrado:** los 8 citan `CONTEXT.md §X` en vez de transcribir |
 | §3 — hechos de dominio verificados | **Siguen válidos.** El *"416 tests en verde"* que estaba sin reproducir **se reprodujo el 31/8/2026**: `vitest run` da **410 tests en 27 archivos, todos en verde**, y `tsc --noEmit` limpio. El conteo estático del 28/8 (~345 casos `it()`) subestimaba porque no cuenta los `it` generados dentro de `describe.each`/tablas |
-| §4 — el problema de datos sucios | **Sigue válido y sin avanzar.** Nadie corrió la auditoría sobre lo que ya está en la base; la cola de curaduría se sigue calculando y descartando (`CONTEXT.md §8` B-3) |
-| §5 — falta un dueño de la nutrición | **Sigue válido.** Es `CONTEXT.md §8` B-12, y la causa raíz de otros cuatro bloqueantes |
+| §4 — el problema de datos sucios | **Sigue válido y sin avanzar.** Nadie corrió la auditoría sobre lo que ya está en la base; la cola de curaduría se sigue calculando y descartando (`CONTEXT.md §8.3`) |
+| §5 — falta un dueño de la nutrición | **Sigue válido.** Es `CONTEXT.md §8.12`, y la causa raíz de otros cuatro bloqueantes |
 | §6 — roster propuesto | **Sin ejecutar:** `architect` y `nutrition` siguen sin existir |
 | §7 — plan de acción | Pasos 1, 3, 4 y 5 **hechos**. Paso 2 **cerrado el 31/8** (tier gratuito; no había nada que implementar). Pasos 6 (harness LangGraph) y 7 (auditoría de `products`) **sin empezar** |
 

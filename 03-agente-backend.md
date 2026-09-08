@@ -164,7 +164,7 @@ fitogenix-server/
 └── package.json
 ```
 
-**Gaps reales de hoy** — `Dockerfile`, config de despliegue formal y observabilidad centralizada: `CONTEXT.md §8` B-9 y B-10. Dominio del Agente DevOps, ver `07-agente-devops.md`.
+**Gaps reales de hoy** — `Dockerfile`, config de despliegue formal y observabilidad centralizada: `CONTEXT.md `§8.9`, `§8.10`. Dominio del Agente DevOps, ver `07-agente-devops.md`.
 
 **Endpoints (contrato real, no aspiracional):**
 ```
@@ -274,7 +274,7 @@ lookupProduct(query)
 Ya cubierto por `scoring/rules.test.ts`, `scoring/calibration.test.ts`, `scoring/robustness.test.ts`, `scoring/ledger.test.ts`, `scoring/presentation.test.ts`, `scoring/regression.test.ts`, `scoring/cleaning.test.ts`, `scoring/invariants.test.ts`, `scoring/seals.test.ts`, `nutrientPlausibility.test.ts`, `cacheService.test.ts`, `productLookupService.test.ts`. Cualquier regla nueva de negocio (un gate nuevo, un ingrediente prohibido nuevo, un cambio de umbral de tier) se agrega como caso de test antes de implementarse, no después:
 - Score de un producto con solo ingredientes saludables → debe caer en la banda Excelente (corte `EXCELLENT_FROM` en `scoring/constants.ts` — no lo transcribas acá)
 - Score de un producto con ingredientes prohibidos (nitritos, BHT, etc.) → debe activar el gate de toxicidad
-- Score de un producto con marcadores de ultraprocesado en el texto de ingredientes → debe penalizar vía `PROCESSING` (🔴 C-09, ver `CONTEXT.md §2.4`/`§8` B-4: el motor v2.1 ya NO lee `nova_group` para esto — verificado contra `scoring/steps.ts`; el ejemplo anterior decía "NOVA 4", que no es un input real del motor)
+- Score de un producto con marcadores de ultraprocesado en el texto de ingredientes → debe penalizar vía `PROCESSING` (🔴 C-09, ver `CONTEXT.md §2.4`/`§8.4`: el motor v2.1 ya NO lee `nova_group` para esto — verificado contra `scoring/steps.ts`; el ejemplo anterior decía "NOVA 4", que no es un input real del motor)
 - Upsert/upgrade name→barcode: una fila `name_key` que recibe un `barcode` conserva su `id` y su `name_key` como alias (no crea fila duplicada)
 
 ### Nunca:

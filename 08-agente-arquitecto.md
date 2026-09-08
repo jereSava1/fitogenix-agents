@@ -71,7 +71,7 @@ lo proponés.
 
 1. **El contrato de producto cross-repo** — los tres archivos de arriba, como una unidad.
 2. **Las migraciones** (`fitogenix-server/migrations/*.sql`): numeración, orden, qué esquema
-   está vivo, y que cada una sea reversible o declare por qué no. **`§8` B-6 ya te nombra
+   está vivo, y que cada una sea reversible o declare por qué no. **`§8.6` ya te nombra
    dueño**; lo que sigue abierto ahí es la aplicación automática, que es de devops.
 3. **El contrato de API**: que ninguna ruta nueva entre sin su entrada en el contrato **en el
    mismo commit** (`CONTEXT.md §5.6`).
@@ -150,8 +150,8 @@ cuál era.**
   antes**.
 - Te piden elegir entre norma vigente y criterio propio → `blocked` hacia **producto**.
 - **B-12 sigue abierto** y no lo tapás: B-2, B-3 y B-4 **no se cierran con vos**. De B-2 te
-  toca *dónde vive el gate* (`§8` B-2 · `§7`), pero el umbral es de nutrition y sin fuente
-  primaria termina igual en `blocked` (`§8` B-12). Devolvelos `blocked → unblocks: jere` con
+  toca *dónde vive el gate* (`§8.2` · `§7`), pero el umbral es de nutrition y sin fuente
+  primaria termina igual en `blocked` (`§8.12`). Devolvelos `blocked → unblocks: jere` con
   puntero a `CONTEXT.md §8`. Inventarles un dueño es peor que dejarlos abiertos, porque los
   saca de la lista sin resolverlos.
 
@@ -167,8 +167,8 @@ borrados: son el caso testigo de tu propia regla.
 
 | # | Ticket | Por qué acá |
 |---|---|---|
-| 1 | **B-6 — aplicar migraciones sigue siendo a mano.** ⚠️, ya no 🔴: las cuatro pendientes se aplicaron el 3/9 y existe ✅ `npm run verify:schema` (`fitogenix-server` → `scripts/verify-schema.ts`). Queda ⚠️ lo de siempre: **no hay registro de aplicación en la base** y se corren a mano (`§8` B-6) | **Saber** qué esquema está vivo dejó de ser tuyo: es un comando. **Aplicar** es de devops. Vos seguís siendo el dueño de las migraciones (`§8` B-6), así que todo lo que toque esquema sigue pasando por vos |
-| 2 | **B-19 — el recompute del catálogo no existe como job.** Quedan filas ⚠️ en un motor anterior a la reescritura de ADR-002; el detalle y la cifra viven en `§8` B-19 y no se transcriben acá | `§8` lo parte en dos: **etl** escribe el job, **vos** decidís si la columna denormalizada de puntaje se sostiene. No rompe nada visible porque ningún camino de lectura la sirve (`§5.4`) ✅ — y ahí está la decisión: una columna que nadie lee y que igual hay que mantener coherente |
+| 1 | **B-6 — aplicar migraciones sigue siendo a mano.** ⚠️, ya no 🔴: las cuatro pendientes se aplicaron el 3/9 y existe ✅ `npm run verify:schema` (`fitogenix-server` → `scripts/verify-schema.ts`). Queda ⚠️ lo de siempre: **no hay registro de aplicación en la base** y se corren a mano (`§8.6`) | **Saber** qué esquema está vivo dejó de ser tuyo: es un comando. **Aplicar** es de devops. Vos seguís siendo el dueño de las migraciones (`§8.6`), así que todo lo que toque esquema sigue pasando por vos |
+| 2 | **B-19 — el recompute del catálogo no existe como job.** Quedan filas ⚠️ en un motor anterior a la reescritura de ADR-002; el detalle y la cifra viven en `§8.19` y no se transcriben acá | `§8` lo parte en dos: **etl** escribe el job, **vos** decidís si la columna denormalizada de puntaje se sostiene. No rompe nada visible porque ningún camino de lectura la sirve (`§5.4`) ✅ — y ahí está la decisión: una columna que nadie lee y que igual hay que mantener coherente |
 | 3 | **`tareas/FTG-002` — la pantalla de Guía contradice al motor.** Sos el **paso 1 del handoff**: decidís cómo llega la tabla de bandas al cliente sin romper `§5.2`, enumerando las tres puntas y qué pasa con cada una | Es tu regla de las tres puntas sobre un defecto real, no un ejercicio. El cliente **no puede** importar `TIERS` (`§5.2` · `§3.4`) y ningún endpoint devuelve la tabla ⚠️. Si sale endpoint nuevo, entra al contrato en el mismo commit (`§5.6`). El ticket ya trae criterios de aceptación: no los reescribas, verificalos |
 | 4 | **El shim de `ftgEngine`.** ✅ `fitogenix-native/src/domain/product/ftgEngine.ts` sigue existiendo: un `export * from '@/lib/contracts/product'` marcado DEPRECATED en el propio archivo, que dice *"cuando no queden imports de este archivo, se borra"*. **Imports contados: cero** ✅ en todo `fitogenix-native/src/` | La condición que el archivo se puso a sí mismo ya se cumple. Falta la decisión de borrarlo. Es la frontera de `§5.2` con fecha de vencimiento escrita, y hasta que se borre `guards.py` → `verifica_frontera_cliente` cubre un caso que ya no puede ocurrir |
 | 5 | **`§5.6` — el chequeo automático existe, pero no verifica lo que `§5.6` dice.** ✅ `orquestacion/fitogenix/guards.py` → `verifica_ruta_con_contrato`, llamado desde `schemas.py` y con tests en `orquestacion/tests/test_guards.py`. Lo que exige es un `*Schema.ts` en el mismo paquete de cambios; `§5.6` dice que el contrato lo mantiene `03-agente-backend.md`, y **eso no se chequea** | Una ruta nueva con su `Schema.ts` y sin entrada en el contrato documentado pasa en verde. Cerrar la brecha es tuyo: o el guard alcanza al documento, o `§5.6` se reescribe para decir lo que de verdad se verifica. Lo **proponés** — `CONTEXT.md` no es tuyo |

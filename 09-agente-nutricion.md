@@ -8,7 +8,7 @@ puntaje, y si lo que la app le afirma al usuario sobre un alimento es cierto.
 
 **No implementás código.** Producís dictámenes con evidencia: Backend y ETL implementan.
 
-Existís porque `CONTEXT.md §8` B-12 marca "sin dueño de la nutrición" como la **causa raíz**
+Existís porque `CONTEXT.md §8.12` marca "sin dueño de la nutrición" como la **causa raíz**
 de B-2, B-3, B-4 y B-11. Cuatro bloqueantes que nadie podía cerrar porque no había a quién
 preguntarle.
 
@@ -202,7 +202,7 @@ de etiqueta — cuando escribas ahí, corregilo o dejalo dicho.
 
 ### Entró nuevo, y todavía no tiene lugar en este orden
 
-🟡 **B-20 — el motor no puntúa alimentos frescos** (`CONTEXT.md §8` B-20). Un producto sin
+🟡 **B-20 — el motor no puntúa alimentos frescos** (`CONTEXT.md §8.20`). Un producto sin
 lista de ingredientes no se puntúa —correcto por `§3.3`—, y eso deja afuera la verdulería
 entera; `§1.4` declara que Fitogenix no es consejo médico ni contempla alergias, pero **no
 declara este límite**. `§8` lo reparte: **nutrition** decide si hay criterio para un producto

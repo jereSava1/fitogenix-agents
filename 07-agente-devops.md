@@ -19,7 +19,7 @@ Tus tres bloqueantes abiertos se leen en `CONTEXT.md §8`, no se copian acá: **
 
 Lo que `§8` no dice y necesitás igual:
 
-- **`fitogenix-server` no tiene ninguna CI** — no existe `.github/workflows/`. Todo chequeo automático que este archivo asuma más abajo hoy **no corre en ningún lado**; montarlo es tuyo. `fitogenix-native` sí tiene (`.github/workflows/test.yml`), y `§8` B-18 muestra lo que costó ahí no declarar la versión de Node.
+- **`fitogenix-server` no tiene ninguna CI** — no existe `.github/workflows/`. Todo chequeo automático que este archivo asuma más abajo hoy **no corre en ningún lado**; montarlo es tuyo. `fitogenix-native` sí tiene (`.github/workflows/test.yml`), y `§8.0` muestra lo que costó ahí no declarar la versión de Node.
 - **`.gitignore` cubre `.env`** y no hay secretos commiteados: ningún archivo trackeado tiene una key real, solo valores fake `'test'` en los tests.
 - **`@fastify/rate-limit` ya está registrado** en `main.ts`, global y en memoria. Todavía **no hay límite por endpoint**.
 - **Variables de entorno:** la lista vive en `src/config.ts` (`required` / `optional`) y en `.env.example`, no acá. Para el deploy importa que cuatro son **requeridas** —sin ellas el server no arranca— y el resto solo degrada funcionalidad.
@@ -38,7 +38,7 @@ Lo que `§8` no dice y necesitás igual:
 ### 2. Rate limiting de infraestructura
 
 - El rate limit global de `@fastify/rate-limit` (valor en `main.ts`) ya cubre el caso base. Tu trabajo es afinarlo por endpoint donde el costo real difiere mucho: `POST /products/lookup` puede necesitar un límite más estricto que `GET /users/me/history` porque un abuso ahí quema tokens de Claude, no solo ciclos de CPU. Proponé el límite específico al Backend Agent (quien lo implementa en la ruta) — no lo hardcodees vos en infraestructura si el negocio quiere lógica más fina (ej. límite distinto para usuario autenticado vs anónimo).
-- **Hallazgo de escalado horizontal:** `@fastify/rate-limit` sin `store` configurado guarda el contador en memoria del proceso. Si `fitogenix-server` corre con más de una instancia (autoscaling en Railway/Render), cada instancia cuenta requests por separado — el límite real efectivo es **N veces el nominal** (`§8` B-9). Ya hay Upstash Redis en el stack: en ese caso el `store` debe migrar a ese backend compartido para que el límite sea global. Señalalo ANTES de que el equipo escale a N instancias asumiendo que el límite nominal sigue siendo el real.
+- **Hallazgo de escalado horizontal:** `@fastify/rate-limit` sin `store` configurado guarda el contador en memoria del proceso. Si `fitogenix-server` corre con más de una instancia (autoscaling en Railway/Render), cada instancia cuenta requests por separado — el límite real efectivo es **N veces el nominal** (`§8.9`). Ya hay Upstash Redis en el stack: en ese caso el `store` debe migrar a ese backend compartido para que el límite sea global. Señalalo ANTES de que el equipo escale a N instancias asumiendo que el límite nominal sigue siendo el real.
 
 ### 3. Auditoría de secretos y variables de entorno
 
@@ -50,7 +50,7 @@ Lo que `§8` no dice y necesitás igual:
 
 ### 4. Observabilidad de infraestructura
 
-- Sin observabilidad conectada: `§8` B-10, compartido con Backend. El contrato de logging a nivel de aplicación lo define `03-agente-backend.md` (sección de Observabilidad); vos proveés la infraestructura para que ese reporte tenga a dónde ir. Coordiná con Backend qué proveedor y cableá las variables de entorno (`SENTRY_DSN` o equivalente) sin que el DSN quede hardcodeado.
+- Sin observabilidad conectada: `§8.10`, compartido con Backend. El contrato de logging a nivel de aplicación lo define `03-agente-backend.md` (sección de Observabilidad); vos proveés la infraestructura para que ese reporte tenga a dónde ir. Coordiná con Backend qué proveedor y cableá las variables de entorno (`SENTRY_DSN` o equivalente) sin que el DSN quede hardcodeado.
 - Alertas mínimas de infraestructura: el servicio está caído (health check fallando), tasa de error 5xx elevada, latencia p95 degradada. No necesitás un stack de observabilidad completo desde el día uno — empezá con lo que la plataforma de deploy (Railway/Render) ya expone antes de sumar una herramienta nueva.
 
 ---

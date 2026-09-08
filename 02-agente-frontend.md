@@ -154,7 +154,7 @@ tocan hoy: **B-13** (copy de `HelpScreen.tsx` — UX redacta, vos implementás),
 Leelos ahí antes de arrancar: el estado cambia sin que este archivo se entere.
 
 Los ítems **4** y **5** de la lista vieja — *fuera de catálogo* y *el anónimo no persiste* —
-se cerraron el 31/8 ✅ (`CONTEXT.md §8` B-16 y B-15). De los dos queda 🟡 solo el copy, de UX.
+se cerraron el 31/8 ✅ (`CONTEXT.md `§8.0`). De los dos queda 🟡 solo el copy, de UX.
 
 **Lo único pendiente que no está en `§8`, porque es tuyo y de nadie más:** `git rm` de los
 dos shims muertos — `ScoreBreakdownSheet.tsx` (nadie lo importa; el propio archivo dice cómo

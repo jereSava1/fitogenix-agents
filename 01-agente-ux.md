@@ -51,10 +51,10 @@ dos: `§1.6`.
 Mobile no implementa ninguna de las tres hasta que entregues el texto. En las tres, el copy
 es el entregable — no un wireframe, no una recomendación.
 
-### 1. Producto fuera de catálogo (`CONTEXT.md §8` B-16)
+### 1. Producto fuera de catálogo (`CONTEXT.md §8.0`)
 
 Estado de la pantalla, ya implementada y separada del error de red: `CONTEXT.md §1.6` y
-`§8` B-16. **Lo único pendiente es el copy**, hoy provisorio y aislado en
+`§8.0`. **Lo único pendiente es el copy**, hoy provisorio y aislado en
 `fitogenix-native/src/constants/scanCopy.ts`.
 
 La intención decidida es *"Lo sentimos, el producto no está disponible para escanear por
@@ -69,7 +69,7 @@ Restricciones:
 - **Salida clara:** volver a escanear.
 - Contraste, área táctil ≥44pt y lector de pantalla según el checklist de `04-agente-qa.md`.
 
-### 2. Estado vacío del historial para un anónimo (`CONTEXT.md §8` B-15)
+### 2. Estado vacío del historial para un anónimo (`CONTEXT.md §8.0`)
 
 Un usuario sin cuenta va a poder escanear y ver resultados (`§4.3`), pero sus escaneos viven
 en la sesión. El historial le tiene que explicar que **para guardar hay que crear cuenta** —
@@ -77,7 +77,7 @@ sin bloquearlo, sin que parezca un error, y sin sonar a paywall: **no hay paywal
 cuenta es gratis. Coordiná con el copy existente del FAQ *"¿Necesito una cuenta para escanear
 productos?"*, que ya dice lo correcto ✅ y con el que este texto no puede contradecirse.
 
-### 3. `HelpScreen.tsx` — el copy que le miente al usuario (`CONTEXT.md §8` B-13)
+### 3. `HelpScreen.tsx` — el copy que le miente al usuario (`CONTEXT.md §8.13`)
 
 **Ya no está bloqueado.** Estaba esperando la decisión sobre NOVA, y se tomó el 31/8: **NOVA
 se sostiene** (`CONTEXT.md §2.4`). Ahora se puede escribir. Dos FAQs a reescribir:
@@ -94,7 +94,7 @@ se sostiene** (`CONTEXT.md §2.4`). Ahora se puede escribir. Dos FAQs a reescrib
   catálogo. **Este FAQ y la pantalla del punto 1 tienen que decir lo mismo**, con las mismas
   palabras.
 
-⚠️ **Ojo con C-08:** la composición exacta del puntaje sigue abierta (`CONTEXT.md §8` B-4).
+⚠️ **Ojo con C-08:** la composición exacta del puntaje sigue abierta (`CONTEXT.md §8.4`).
 Escribí el copy de modo que **no dependa de la ponderación** — describí qué mira el motor,
 no con cuánto peso cada cosa. Si sentís que no podés escribirlo sin eso, escalalo en vez de
 inventar un número.

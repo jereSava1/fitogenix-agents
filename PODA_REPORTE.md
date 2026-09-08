@@ -58,7 +58,7 @@ bandas, flujo, archivo citado, umbral, endpoint), clasificada en una de cuatro:
 | Diagrama "Cache en niveles" (rama barcode con `OFF → OBF → Edamam → Claude (2-8s)`) | (c) ya no aplica — C-07 | Redibujado contra el código real: `lookupProduct`/`resolveByBarcode`/`resolveByName`, miss = `null` en ambas ramas | `productLookupService.ts` líneas ~144-241 (`resolveByBarcode`, `resolveByName`, `lookupProduct`) |
 | "`mapOFFToProduct(raw)`" (regla de oro de `products`, y en el diagrama de cache) | (c) ya no aplica — renombrada | Corregido a `mapRawToProduct` en ambos lugares | `git log`: `"docs: actualizar README del ETL (mapOFFToProduct -> mapRawToProduct)"`; función real: `productLookupService.ts:94 export function mapRawToProduct(...)` |
 | Árbol de archivos: `productLookupService.ts ← orquestador: Redis→Supabase→catálogo→OFF/OBF/Edamam→Claude` | (c) ya no aplica — C-07 | Corregido a "Redis→Supabase (catalog-only, ver §5.3)" | igual que arriba |
-| Caso de test: "Score de un producto NOVA 4 → debe penalizar el componente de procesamiento" | (c) ya no aplica — el motor v2.1 no lee `nova_group` para el modificador de procesamiento, usa marcadores de texto de ultraprocesado. Nota: el rol de NOVA como vocabulario del producto sigue **abierto** en `CONTEXT.md §8` B-4 (C-09) — eso no lo resuelve esta poda, solo el hecho técnico de qué input usa el motor hoy | Corregido a "marcadores de ultraprocesado en el texto" + nota 🔴 C-09 con puntero | `scoring/steps.ts` (usa `PROCESSING`, `markerCount`; cero referencias a `nova_group`), `scoring/constants.ts` `PROCESSING` |
+| Caso de test: "Score de un producto NOVA 4 → debe penalizar el componente de procesamiento" | (c) ya no aplica — el motor v2.1 no lee `nova_group` para el modificador de procesamiento, usa marcadores de texto de ultraprocesado. Nota: el rol de NOVA como vocabulario del producto sigue **abierto** en `CONTEXT.md §8.4` (C-09) — eso no lo resuelve esta poda, solo el hecho técnico de qué input usa el motor hoy | Corregido a "marcadores de ultraprocesado en el texto" + nota 🔴 C-09 con puntero | `scoring/steps.ts` (usa `PROCESSING`, `markerCount`; cero referencias a `nova_group`), `scoring/constants.ts` `PROCESSING` |
 | Bloque "Dependencias del servidor" (JSON completo de `package.json`) | duplicado con SSOT — `CONTEXT.md §5.1` señala explícitamente esta transcripción como la que "se poda en el paso siguiente" | Podado a puntero a `fitogenix-server/package.json` | `CONTEXT.md §5.1`; versiones confirmadas iguales al `package.json` real antes de podar |
 | Schema completo de `products` (columnas, tipos) | (b) rol — detalle de implementación exclusivo de Backend; `CONTEXT.md §5.5` cubre el principio de identidad, no el DDL completo | Sin cambios | Columnas verificadas contra las migraciones `001`-`008` (existen) |
 | Bugs históricos (Bug 1/2/3, Fase 0) | (b) rol — bitácora técnica de Backend | Sin cambios | — |
@@ -66,7 +66,7 @@ bandas, flujo, archivo citado, umbral, endpoint), clasificada en una de cuatro:
 | Redis TTL (604800/259200/2592000 s) y `REDIS_KEY_PREFIX` estático | (b) rol / consistente — `CONTEXT.md §5.4` dice explícitamente "no se transcriben acá", cita el código como fuente. No es un hueco, es diseño de `CONTEXT.md` | Sin cambios | `redisService.ts` — TTLs y prefijo coinciden exactamente |
 | Selección de modelo Haiku vs Sonnet Vision (regla completa) | (a) falta en el SSOT — la usan Backend, Datos y ETL (3 agentes), y hoy vive completa solo acá | Se queda en el agente, sin tocar `CONTEXT.md` | — |
 | Lógica de Cuotas Freemium (esquema propuesto, RPC, RLS) | (a)/consistente — `CONTEXT.md §4.2` remite explícitamente a este archivo como dueño de "cifras y esquema propuesto" | Sin cambios | `CONTEXT.md §4.2` |
-| Bug 2 / excepción de auth en `/products/lookup` | consistente con SSOT — este es el mismo hecho que sostiene el 🔴 C-02 de `CONTEXT.md §4.3`/`§8` B-1 (bloqueante abierto, decisión de Jere) | Sin cambios — la contradicción C-02 es entre este archivo y `00-orquestador.md` (fuera de alcance), no algo que este agente deba resolver | `src/routes/products/lookup.ts` — confirma que no registra `requireAuth` |
+| Bug 2 / excepción de auth en `/products/lookup` | consistente con SSOT — este es el mismo hecho que sostiene el 🔴 C-02 de `CONTEXT.md §4.3`/`§8.0` (bloqueante abierto, decisión de Jere) | Sin cambios — la contradicción C-02 es entre este archivo y `00-orquestador.md` (fuera de alcance), no algo que este agente deba resolver | `src/routes/products/lookup.ts` — confirma que no registra `requireAuth` |
 
 **Tamaño:** 26.225 B → 26.389 B (+164 B, +0,6%). El bloque removido (~1,4 KB de flujo/bandas/JSON de deps) quedó compensado y superado por las correcciones C-07/C-09/rename, que son contenido nuevo y necesario, no duplicación — este es el archivo con más hallazgos (c) de los seis.
 
@@ -91,7 +91,7 @@ bandas, flujo, archivo citado, umbral, endpoint), clasificada en una de cuatro:
 |---|---|---|---|
 | Bloque `## El producto: Fitogenix` (Claude completa/construye datos "cuando OFF no alcanza") | duplicado con SSOT **y** matiz C-07 — la frase original sugiere una intervención reactiva en vivo | Podado a puntero `CONTEXT.md §1`, `§2`, `§5` + nota explícita: Claude corre en batch vía ETL, no en el request | `CONTEXT.md §5.3` |
 | "`mapOFFToProduct(raw)`" (sección de invalidación por `ENGINE_VERSION`) | (c) ya no aplica — renombrada | Corregido a `mapRawToProduct` | igual que en 03/06 — `git log`, `productLookupService.ts:94` |
-| TTLs de Redis (7d/3d/30d) y propuesta de versionar `REDIS_KEY_PREFIX` por `ENGINE_VERSION` | (b) rol / consistente con `CONTEXT.md §8` B-8 (bloqueante abierto: "no está aplicada") | Sin cambios | `redisService.ts` — prefijo sigue estático, coincide con B-8 |
+| TTLs de Redis (7d/3d/30d) y propuesta de versionar `REDIS_KEY_PREFIX` por `ENGINE_VERSION` | (b) rol / consistente con `CONTEXT.md §8.0` (bloqueante abierto: "no está aplicada") | Sin cambios | `redisService.ts` — prefijo sigue estático, coincide con B-8 |
 | Presupuesto de tokens, pricing de Haiku ($1/$5 por millón) | (b) rol — cifras de referencia exclusivas de este agente, `CONTEXT.md` no transcribe pricing por diseño | Sin cambios | — |
 | Regla Haiku (texto) vs Sonnet Vision (imagen) | ver fila equivalente en 03-agente-backend.md — (a) compartida por 3 agentes, no en el SSOT | Sin cambios, ya referencia a `03-agente-backend.md` como dueño de la regla | — |
 
@@ -120,7 +120,7 @@ bandas, flujo, archivo citado, umbral, endpoint), clasificada en una de cuatro:
 | Referencia | Caso | Acción tomada | Verificado contra |
 |---|---|---|---|
 | Bloque `## El producto: Fitogenix` (stack + "sin Dockerfile todavía") | duplicado con SSOT | Podado a puntero `CONTEXT.md §1`, `§5.1` | — |
-| "No existe Dockerfile/railway.toml/render.yaml", "sin `engines.node`" | (b) rol, consistente con `CONTEXT.md §8` B-9 | Sin cambios | Confirmado: sin `Dockerfile`/`railway.toml`/`render.yaml`; `grep engines package.json` → sin match |
+| "No existe Dockerfile/railway.toml/render.yaml", "sin `engines.node`" | (b) rol, consistente con `CONTEXT.md §8.9` | Sin cambios | Confirmado: sin `Dockerfile`/`railway.toml`/`render.yaml`; `grep engines package.json` → sin match |
 | Rate limit `60 req/min` en memoria, riesgo de escalado horizontal (N instancias) | (b) rol | Sin cambios | `main.ts`: `rateLimit, { max: 60 }`, en memoria (sin `store` de Redis) |
 | Variables de entorno requeridas/opcionales | (b) rol | Sin cambios | `src/config.ts` — coincide exactamente (`required`: `ANTHROPIC_API_KEY`, `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, `SERPAPI_API_KEY`; `optional`: el resto) |
 | Auditoría de secretos, `.gitignore` | (b) rol | Sin cambios | — |
@@ -227,7 +227,7 @@ por agente, arriba):
    en `03-agente-backend.md` — el motor v2.1 no lee `nova_group` para el modificador de
    procesamiento (usa marcadores de texto de ultraprocesado, `PROCESSING` en
    `constants.ts`/`steps.ts`). Se corrigió el hecho técnico puntual; el rol de NOVA como
-   vocabulario del producto en general sigue abierto en `CONTEXT.md §8` B-4 — eso no lo
+   vocabulario del producto en general sigue abierto en `CONTEXT.md §8.4` — eso no lo
    resuelve esta poda.
 4. **El campo `alternatives` como "productos alternativos más saludables" (`01-agente-ux.md`)**
    — no existe ese campo. `alternatives` en el modelo real es texto de ambigüedad por

@@ -96,7 +96,7 @@ Archivos que exigen coordinación explícita antes de tocarse:
 Revisalo antes de delegar. La regla que sí es tuya: **la decisión de un rol que todavía no
 existe no la toma otro agente por criterio propio — se escala a Jere.** Y un rol que existe
 pero no tiene el fundamento para decidir devuelve `blocked`, no una respuesta inventada
-(`CONTEXT.md §8` B-12).
+(`CONTEXT.md §8.12`).
 
 **Antes de crear una tarea:** objetivo único · dependencias · criterios de éxito
 verificables · archivos que se van a tocar · qué podría romperse.

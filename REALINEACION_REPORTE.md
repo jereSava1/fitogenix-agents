@@ -103,7 +103,7 @@ escrito en §5.8 y como trabajo de UX en `01`.
 - `CONTEXT.md §4.3`: reescrito. Encabezado con la decisión, **estado de hoy ✅** (endpoint
   público, cero cuotas — `grep` de `user_quotas`/`credits_used`/`quota` en `src/` y
   `migrations/`: 0 coincidencias) y **destino 🟡** con los **7 ítems** que faltan para ✅.
-- `CONTEXT.md §8` B-1: de 🔴 abierto a 🟡 decidido.
+- `CONTEXT.md §8.0`: de 🔴 abierto a 🟡 decidido.
 - `03-agente-backend.md`: la sección de cuotas lleva encabezado de estado; la "excepción
   deliberada" de `Bug 2` pasa a tener **fecha de vencimiento** — sigue el "no toques el
   endpoint", pero por el motivo nuevo (falta el contrato), no porque sea permanente.
@@ -149,7 +149,7 @@ código —columna, migración, adapters, tipos— queda propuesta como tarea ap
 `01` · `03` · `04` · `05` · `06` ajustados (detalle arriba y en las tablas de 2.1/2.2).
 **`07-agente-devops.md`: sin cambios** — se revisó contra el código y no tenía ninguna
 afirmación desalineada; sus hallazgos (sin `Dockerfile`, sin `engines.node`, rate limit en
-memoria) siguen siendo ciertos y ya están en `CONTEXT.md §8` B-9.
+memoria) siguen siendo ciertos y ya están en `CONTEXT.md §8.9`.
 
 **Instrucciones reescritas, no solo descripciones corregidas** (era el pedido específico):
 
@@ -203,7 +203,7 @@ Se revisó entera y se le agregó un encabezado de estado. Resumen:
 | 5 | Estados | 0 🔴 sin puntero a §8/B-/C-. 0 🟡 escritos en presente (se corrigió uno en `00`: *"va CON CUOTA"* → *"VA A REQUERIR CUOTA — decidido, sin implementar"*). Los ✅ agregados citan archivo |
 
 **Una inconsistencia propia detectada y corregida durante la verificación:** `CONTEXT.md`
-§5.3 y §8 B-5 seguían diciendo que `03` y `00` documentaban la cascada. Después de
+§5.3 y §8.0 seguían diciendo que `03` y `00` documentaban la cascada. Después de
 corregirlos, esa afirmación pasó a ser falsa. C-07 quedó cerrado en ambos lugares.
 
 **Lo que NO se pudo verificar:** `npm test` / `npx vitest run` **no corre en este entorno**

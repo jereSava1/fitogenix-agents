@@ -189,7 +189,7 @@ descuento de crédito"*. Las dos cosas no podían ser ciertas a la vez.
 
 **El 28/8/2026 se decidió cerrarla al revés de como queda ahora:** que el lookup fuera con
 cuota. Esa decisión se aplicó a la documentación (`CONTEXT.md §4.3` reescrita con siete
-ítems de gap, `§8` B-1 en 🟡, siete casos de test especificados en `04-agente-qa.md`) pero
+ítems de gap, `§8.0` en 🟡, siete casos de test especificados en `04-agente-qa.md`) pero
 **nunca llegó a una línea de código**. Tres días después, al revisarla contra la etapa real
 del producto, se dio vuelta.
 
@@ -237,7 +237,7 @@ vencimiento. Un agente que lo lea como bug va a proponer arreglarlo; no hay nada
   documentado en `03-agente-backend.md`: el descuento entraría en el handler de
   `src/routes/products/lookup.ts`, antes de `lookupProduct`. Una línea, sin código.
 - **Queda pendiente en el cliente**, no en el servidor: hoy `scanResultStore.tsx` hidrata
-  desde AsyncStorage sin mirar la sesión, o sea el anónimo persiste. Ver `CONTEXT.md §8` B-15.
+  desde AsyncStorage sin mirar la sesión, o sea el anónimo persiste. Ver `CONTEXT.md §8.0`.
 
 **Supersede** la decisión del 2026-08-28 sobre C-02, que no llegó a tener ADR propio.
 
@@ -275,7 +275,7 @@ calidad de `audit-scores.ts`. **La limpieza de código propuesta queda descartad
   perdería la señal de calidad de `audit-scores.ts`, que hoy es la forma más barata de
   detectar un puntaje probablemente mal, y NOVA es vocabulario que el usuario reconoce.
 - **Reincorporarlo al puntaje.** Descartada: v2.1 lo sacó por una razón (ADR-002) y esta
-  decisión no la revisa. La composición del score sigue abierta como C-08 / `§8` B-4.
+  decisión no la revisa. La composición del score sigue abierta como C-08 / `§8.4`.
 
 ### Consecuencias
 

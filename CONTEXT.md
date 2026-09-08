@@ -704,31 +704,119 @@ ningún agente edita un artefacto del que no es dueño — se lo pide al dueño.
 
 ## §8 — Bloqueantes activos
 
-Ordenados por costo de seguir sin resolverlos.
+Ordenados por costo de seguir sin resolverlos. **Cada bloqueante abierto es su propia
+subsección** desde el 2026-09-08: un agente que necesita uno se lleva ~500 B en vez de los
+9.834 B de la tabla entera — que era el 23 % de todo el contexto que consumía el set de
+agentes. Los cerrados viven juntos en `§8.0` porque casi nunca se citan.
 
-| # | Bloqueante | Estado | Quién decide |
+**Un puntero `§8` a secas ya no trae contenido.** Apuntá a `§8.<n>`: `§8.6` para B-6.
+
+### §8.0 — Cerrados: no los reabras
+
+| # | Qué se decidió | Verificado contra | Quién decidió |
 |---|---|---|---|
 | ~~**B-1**~~ | ✅ **C-02 cerrado (31/8/2026): tier inicial gratuito** (§4.3). El lookup es abierto y sin cuota — **decisión de producto, no deuda**. El código ya la cumple, así que no queda gap de implementación en el servidor ni ticket abierto. Reemplaza la decisión del 28/8 (el ida y vuelta está en `BITACORA_DECISIONES.md`) | ✅ `src/routes/products/lookup.ts` | — |
-| **B-2** | 🔴 **C-11** — el motor **emite puntaje sin entender la etiqueta**: 1.453 productos con 0% de cobertura, casos "Excelente" entre ellos (§6.4 C) | Medido 28/8 ✅ · sin gate | nutrition define el umbral · architect dónde vive · backend implementa |
-| **B-3** | 🔴 **C-10** — cola de curaduría de **8.991 términos** que se calcula y se tira (§6.5) | ✅ `audit-scores.ts` → `CURATION_QUEUE` | nutrition (clasifica) · backend (imprime) |
-| **B-4** | 🔴 **C-08** — el criterio documentado (4 componentes ponderados) **no es el motor v2.1** (§2.2) | ✅ contra `constants.ts` | nutrition + orchestrator: qué se corrige, el doc o la expectativa |
 | ~~**B-4b**~~ | ✅ **C-09 cerrado (31/8/2026): NOVA se sostiene.** Sigue siendo vocabulario del producto — se ingiere, se persiste en `products.nova_group`, lo mergea el ETL, `audit-scores.ts` lo usa como señal de calidad y se le nombra al usuario. El motor v2.1 **no lo lee para el puntaje** ✅, y eso ahora está dicho con precisión en §2.4. **No se borra nada; la limpieza de código queda descartada.** Lo único que queda vivo es el copy que dice lo contrario → B-13 | ✅ mapeado 28/8, decidido 31/8 | — |
 | ~~**B-5**~~ | ✅ **C-07 cerrado (28/8/2026).** La cascada externa ya no se documenta como camino de request en ningún archivo del set ni en el `README.md` del servidor (§5.3) | Verificado por grep en los 8 agentes + `CONTEXT.md` + READMEs | — |
-| **B-6** | ⚠️ **Se achica: el esquema vivo ya se puede consultar, aplicar sigue siendo a mano.** El 3/9/2026 se midió por primera vez y este bloqueante **se describía mal en las dos direcciones**: daba por pendiente la 014, que estaba aplicada, y no mencionaba la 008 ni la 012, que faltaban — además de la 013. Las cuatro se aplicaron ese día ✅. Lo que queda: las migraciones **se siguen corriendo a mano** y no hay registro de aplicación en la base. La 012 no entró en el primer intento sin que el SQL Editor avisara nada. Ya existe la mitad diagnóstica ✅ `npm run verify:schema` y `scripts/sql/diagnostico-esquema.sql` | devops (aplicación automática) + architect (dueño de las migraciones) |
-| **B-7** | ⚠️ **Umbral del sello a 70** — decidido, ~40 productos afectados, ticket aparte; hoy sigue derivado de `TIERS` ✅. Cuando se aplique, se cambia **en `constants.ts` y en ningún otro lado** | orchestrator (prioriza) |
 | ~~**B-8**~~ | ✅ **No era un bloqueante: el problema está resuelto, con otro mecanismo.** Es cierto que el prefijo de clave no está versionado, pero `redisService` guarda cada entrada dentro de un **sobre** con la `ENGINE_VERSION` que la generó y **trata como MISS toda entrada cuya versión no coincida** ✅. El propio archivo explica por qué se eligió el sobre en vez de versionar la clave: la clave versionada deja huérfano el namespace viejo ocupando storage pago hasta que venza el TTL, mientras que el sobre reescribe la misma clave. **Verificado en la práctica el 31/8**, al bumpear a `v2.2` por B-11 | — |
-| **B-9** | ⚠️ **En `fitogenix-server`:** sin `Dockerfile`, sin config de despliegue, sin `engines.node` en `package.json` ✅. Rate limit en memoria: con N instancias el límite real es N veces el nominal. **En `fitogenix-native` la mitad de `engines.node` se cerró el 31/8** — ver B-18, que muestra lo que cuesta no declararla | devops |
-| **B-10** | ⚠️ Sin observabilidad conectada (Sentry/Datadog). El contrato de logging está escrito; no tiene a dónde reportar | devops + backend |
 | ~~**B-11**~~ | ✅ **Cerrado el 31/8/2026, con el Manual de Aplicación oficial** (`IF-2024-135393117`, 60 págs.). **Cuatro reglas corregidas**: al sodio le faltaban DOS condiciones alternativas (`≥300 mg/100 g` y `≥40 mg/100 ml` en bebidas sin energía), el corte de calorías de bebidas era 70 en vez de 25, y **el octógono de calorías salía por energía sola** cuando la norma exige que ya haya un sello de azúcares o grasas. Las tres primeras marcaban **de menos**; la cuarta, **de más**. `ENGINE_VERSION` → `v2.2`. Detalle en `nutricion/NUTRICION.md §N6` | ✅ `fitogenix-server` `seals.ts` · 418 tests |
-| **B-12** | 🟡 **El rol existe y ya no está vacío en materia regulatoria.** `09-agente-nutricion.md` + `nutricion/NUTRICION.md` §N1–§N8, con el Manual de Aplicación y el anexo de publicidad guardados en `nutricion/fuentes/`. Con eso cerró B-11 y encontró cuatro defectos reales. **Lo que sigue faltando es el fundamento científico del criterio propio** —la publicación completa de OPS— sin el cual B-2 (umbral de cobertura) y B-4 (composición del puntaje) todavía terminan en `blocked` | Jere: la publicación de OPS |
-| **B-13** | 🟡 **C-14 — el copy in-app le miente al usuario** (§1.6, §2.4). El FAQ *"¿Cómo se calcula el puntaje?"* de `HelpScreen.tsx` nombra a NOVA como componente del puntaje (falso desde v2.1) y el FAQ *"¿Por qué no encuentra mi producto?"* promete la cascada OFF→IA retirada el 18/8. Es deriva doc↔código que llegó a la pantalla. **Ya no está bloqueado:** B-4b se cerró el 31/8 y NOVA se sostiene, así que el copy nuevo ya se puede escribir. Es cambio de código, no de documentación | ✅ `HelpScreen.tsx` → los dos FAQs | ux redacta el copy · mobile lo implementa |
-| **B-14** | 🟡 **La Fase 2 del plan está a medias y nadie lo anotó.** Las 8 dependencias sin usar **ya se eliminaron** ✅ (no están en `package.json`, cero usos). Siguen pendientes: `expo-image` instalada con cero imports ✅, y React Query ausente ✅ | Verificado 28/8 | mobile |
 | ~~**B-15**~~ | ✅ **Cerrado el 31/8/2026: el anónimo ya no persiste.** Implementado y testeado — sin sesión no se lee ni se escribe AsyncStorage, y el deslogueo borra el disco con `multiRemove` (la parte con consecuencia de privacidad, con test de regresión). La migración anónimo→logueado re-emite los lookups con token. **Queda 🟡 solo el copy** del estado vacío, a cargo de UX | ✅ `scanResultStore.tsx` · `anonScanMigration.ts` · 7 tests | ux escribe el copy |
 | ~~**B-16**~~ | ✅ **Cerrado el 31/8/2026: cartel propio de fuera de catálogo.** `ProductNotInCatalogCard` en `ScanScreen` y `HomeScreen`, con estado separado del error de red, sin ícono de alerta y con *"Escanear otro producto"* en vez de reintentar. Emite `scan_failed` con el `reason` distinguido. **Queda 🟡 solo el copy**, a cargo de UX | ✅ `ProductNotInCatalogCard.tsx` · `useScanFlow.ts` · 8 tests | ux escribe el copy |
-| **B-17** | ⚠️ **La analítica no tiene a dónde reportar.** `src/analytics/` existe y emite `scan_failed` ✅, pero **no hay SDK conectado**: sin `setAnalyticsSink()` en el arranque, los eventos se descartan. Es el mismo hueco que B-10 en el backend, ahora también en el cliente. Mientras siga así, la métrica de cobertura de catálogo **no se está midiendo** | ✅ `src/analytics/index.ts` | Jere elige la herramienta · mobile la conecta |
 | ~~**B-18**~~ | ✅ **Cerrado el 31/8/2026: CI de `fitogenix-native` corría en una versión de Node que sus propias dependencias no soportan.** El workflow fijaba `node-version: 20` y `jsdom@30` declara `^22.22.2 || ^24.15.0 || >=26.0.0`; `undici@8`, `>=22.19.0`. Los tres tests de UI no arrancaban el worker (`markAsUncloneable is not a function`) y CI daba verde en los otros dos, con exit 1. **`npm ci` no protesta porque `engines` no se valida sin `engine-strict`** — la declaración sirve para que se vea al instalar, no para que falle. Resuelto con `.nvmrc` + `node-version-file` + `engines.node`, y se sumó `tsc --noEmit` al pipeline | ✅ `.github/workflows/test.yml` · `package.json` · `.nvmrc` | — |
-| **B-19** | 🔴 **El recompute del catálogo no existe como job, y su plan se apoyaba en tres piezas de las que ninguna estaba completa.** El comentario de `013_score_nullable.sql` dice que el recompute masivo es trabajo del ETL *"filtrando por `engine_version` (índice de la migración 008)"*. Verificado el 3/9: el índice **no estaba aplicado** (se aplicó ese día) y el job **nunca se escribió** — cero archivos filtran por `engine_version` para reescribir. Quedan ⚠️ **58.071 filas en `ftg-rubric-v2`**, un motor anterior a la reescritura de ADR-002. **No rompe nada visible**: ningún camino de lectura de `src/` sirve la columna denormalizada, todos recomponen desde los crudos (`§5.4`) ✅ | ✅ grep en los 66 archivos de `src/` + `scripts/` · `npm run verify:schema` | etl (escribe el job) · architect (decide si la columna denormalizada se sostiene) |
-| **B-20** | 🟡 **El motor no puede puntuar alimentos frescos, y `§1.4` no lo declara.** Un producto sin lista de ingredientes no se puntúa (`§3.3`), lo cual es correcto — pero eso deja fuera a la verdulería entera. Caso real del catálogo: `7798079790146 — Tomate Rocky (VERDULERIA PROPIA) → score=null` ✅. Una app que evalúa qué tan sano es un alimento no puntúa un tomate, que es el mejor caso posible de su propio catálogo. `§1.4` declara que no es consejo médico ni contempla alergias; **no declara esto**. No es un bug: es un hueco entre lo que el producto promete y lo que el motor puede | ✅ `scripts/etl/jobs/stats.ts` · `§1.4` · `§3.3` | nutrition (si hay criterio sin lista) · Jere (si se declara el límite) |
+
+### §8.2 — B-2 · C-11 — el motor puntúa sin haber entendido la etiqueta
+
+🔴 **C-11** — el motor **emite puntaje sin entender la etiqueta**: 1.453 productos con 0% de cobertura, casos "Excelente" entre ellos (§6.4 C)
+
+**Verificado contra:** Medido 28/8 ✅ · sin gate
+
+**Quién decide:** nutrition define el umbral · architect dónde vive · backend implementa
+
+### §8.3 — B-3 · C-10 — la cola de curaduría se calcula y se tira
+
+🔴 **C-10** — cola de curaduría de **8.991 términos** que se calcula y se tira (§6.5)
+
+**Verificado contra:** ✅ `audit-scores.ts` → `CURATION_QUEUE`
+
+**Quién decide:** nutrition (clasifica) · backend (imprime)
+
+### §8.4 — B-4 · C-08 — el criterio documentado no es el motor v2.1
+
+🔴 **C-08** — el criterio documentado (4 componentes ponderados) **no es el motor v2.1** (§2.2)
+
+**Verificado contra:** ✅ contra `constants.ts`
+
+**Quién decide:** nutrition + orchestrator: qué se corrige, el doc o la expectativa
+
+### §8.6 — B-6 · Las migraciones se aplican a mano, aunque el esquema ya se puede consultar
+
+⚠️ **Se achica: el esquema vivo ya se puede consultar, aplicar sigue siendo a mano.** El 3/9/2026 se midió por primera vez y este bloqueante **se describía mal en las dos direcciones**: daba por pendiente la 014, que estaba aplicada, y no mencionaba la 008 ni la 012, que faltaban — además de la 013. Las cuatro se aplicaron ese día ✅. Lo que queda: las migraciones **se siguen corriendo a mano** y no hay registro de aplicación en la base. La 012 no entró en el primer intento sin que el SQL Editor avisara nada. Ya existe la mitad diagnóstica ✅ `npm run verify:schema` y `scripts/sql/diagnostico-esquema.sql`
+
+**Quién decide:** devops (aplicación automática) + architect (dueño de las migraciones)
+
+### §8.7 — B-7 · Mover el umbral del sello, decidido y sin aplicar
+
+⚠️ **Umbral del sello a 70** — decidido, ~40 productos afectados, ticket aparte; hoy sigue derivado de `TIERS` ✅. Cuando se aplique, se cambia **en `constants.ts` y en ningún otro lado**
+
+**Quién decide:** orchestrator (prioriza)
+
+### §8.9 — B-9 · Sin Dockerfile, sin despliegue, sin engines.node, y rate limit por instancia
+
+⚠️ **En `fitogenix-server`:** sin `Dockerfile`, sin config de despliegue, sin `engines.node` en `package.json` ✅. Rate limit en memoria: con N instancias el límite real es N veces el nominal. **En `fitogenix-native` la mitad de `engines.node` se cerró el 31/8** — ver B-18, que muestra lo que cuesta no declararla
+
+**Quién decide:** devops
+
+### §8.10 — B-10 · Sin observabilidad conectada
+
+⚠️ Sin observabilidad conectada (Sentry/Datadog). El contrato de logging está escrito; no tiene a dónde reportar
+
+**Quién decide:** devops + backend
+
+### §8.12 — B-12 · Falta el fundamento científico del criterio propio
+
+🟡 **El rol existe y ya no está vacío en materia regulatoria.** `09-agente-nutricion.md` + `nutricion/NUTRICION.md` §N1–§N8, con el Manual de Aplicación y el anexo de publicidad guardados en `nutricion/fuentes/`. Con eso cerró B-11 y encontró cuatro defectos reales. **Lo que sigue faltando es el fundamento científico del criterio propio** —la publicación completa de OPS— sin el cual B-2 (umbral de cobertura) y B-4 (composición del puntaje) todavía terminan en `blocked`
+
+**Quién decide:** Jere: la publicación de OPS
+
+### §8.13 — B-13 · C-14 — el copy in-app le miente al usuario
+
+🟡 **C-14 — el copy in-app le miente al usuario** (§1.6, §2.4). El FAQ *"¿Cómo se calcula el puntaje?"* de `HelpScreen.tsx` nombra a NOVA como componente del puntaje (falso desde v2.1) y el FAQ *"¿Por qué no encuentra mi producto?"* promete la cascada OFF→IA retirada el 18/8. Es deriva doc↔código que llegó a la pantalla. **Ya no está bloqueado:** B-4b se cerró el 31/8 y NOVA se sostiene, así que el copy nuevo ya se puede escribir. Es cambio de código, no de documentación
+
+**Verificado contra:** ✅ `HelpScreen.tsx` → los dos FAQs
+
+**Quién decide:** ux redacta el copy · mobile lo implementa
+
+### §8.14 — B-14 · La poda de dependencias de la Fase 2 quedó a medias
+
+🟡 **La Fase 2 del plan está a medias y nadie lo anotó.** Las 8 dependencias sin usar **ya se eliminaron** ✅ (no están en `package.json`, cero usos). Siguen pendientes: `expo-image` instalada con cero imports ✅, y React Query ausente ✅
+
+**Verificado contra:** Verificado 28/8
+
+**Quién decide:** mobile
+
+### §8.17 — B-17 · La analítica emite eventos pero no tiene sink
+
+⚠️ **La analítica no tiene a dónde reportar.** `src/analytics/` existe y emite `scan_failed` ✅, pero **no hay SDK conectado**: sin `setAnalyticsSink()` en el arranque, los eventos se descartan. Es el mismo hueco que B-10 en el backend, ahora también en el cliente. Mientras siga así, la métrica de cobertura de catálogo **no se está midiendo**
+
+**Verificado contra:** ✅ `src/analytics/index.ts`
+
+**Quién decide:** Jere elige la herramienta · mobile la conecta
+
+### §8.19 — B-19 · El job de recompute del catálogo no existe
+
+🔴 **El recompute del catálogo no existe como job, y su plan se apoyaba en tres piezas de las que ninguna estaba completa.** El comentario de `013_score_nullable.sql` dice que el recompute masivo es trabajo del ETL *"filtrando por `engine_version` (índice de la migración 008)"*. Verificado el 3/9: el índice **no estaba aplicado** (se aplicó ese día) y el job **nunca se escribió** — cero archivos filtran por `engine_version` para reescribir. Quedan ⚠️ **58.071 filas en `ftg-rubric-v2`**, un motor anterior a la reescritura de ADR-002. **No rompe nada visible**: ningún camino de lectura de `src/` sirve la columna denormalizada, todos recomponen desde los crudos (`§5.4`) ✅
+
+**Verificado contra:** ✅ grep en los 66 archivos de `src/` + `scripts/` · `npm run verify:schema`
+
+**Quién decide:** etl (escribe el job) · architect (decide si la columna denormalizada se sostiene)
+
+### §8.20 — B-20 · El motor no puntúa alimentos frescos, y §1.4 no lo declara
+
+🟡 **El motor no puede puntuar alimentos frescos, y `§1.4` no lo declara.** Un producto sin lista de ingredientes no se puntúa (`§3.3`), lo cual es correcto — pero eso deja fuera a la verdulería entera. Caso real del catálogo: `7798079790146 — Tomate Rocky (VERDULERIA PROPIA) → score=null` ✅. Una app que evalúa qué tan sano es un alimento no puntúa un tomate, que es el mejor caso posible de su propio catálogo. `§1.4` declara que no es consejo médico ni contempla alergias; **no declara esto**. No es un bug: es un hueco entre lo que el producto promete y lo que el motor puede
+
+**Verificado contra:** ✅ `scripts/etl/jobs/stats.ts` · `§1.4` · `§3.3`
+
+**Quién decide:** nutrition (si hay criterio sin lista) · Jere (si se declara el límite)
 
 ---
 

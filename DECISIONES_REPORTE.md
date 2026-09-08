@@ -52,7 +52,7 @@ Rastro de cuota reescrito, archivo por archivo:
 | `CONTEXT.md §4.1` | "Beta abierta ⚠️" | Tier inicial gratuito ✅, con `lookup.ts` como evidencia |
 | `CONTEXT.md §4.2` | El freemium, sin marcar | Encabezado explícito: **nada de esta sección está vigente**; un agente que la lea como estado actual va a proponer trabajo que no hay que hacer |
 | `CONTEXT.md §4.3` | `🟡 C-02 … VA CON CUOTA` + 7 ítems de gap | `✅ Tier inicial gratuito`, reescrita entera. Los 7 ítems eliminados |
-| `CONTEXT.md §8` B-1 | 🟡 con gap de implementación | Cerrado ✅ |
+| `CONTEXT.md §8.0` | 🟡 con gap de implementación | Cerrado ✅ |
 | `CONTEXT.md §9` | Entrada del 28/8 "va con cuota" | **Eliminada.** La evolución vive en la bitácora, no en dos lugares |
 | `03-agente-backend.md` | "Excepción deliberada **con fecha de vencimiento 🟡**" | Diseño del MVP ✅ + "no le agregues auth". La § Lógica de Cuotas pasa a **no-MVP, no la implementes**, con el punto de extensión en una línea |
 | `04-agente-qa.md` | 7 casos de test de cuota | **Eliminados**, reemplazados por los de anónimo y fuera-de-catálogo |
@@ -74,7 +74,7 @@ implementación.
 ### Decisión 2 — NOVA se sostiene (ADR-004)
 
 `CONTEXT.md §2.4` reescrita con las tres formas en que NOVA participa, y ninguna es el
-puntaje. `§8` B-4b cerrado como *sostenido*. La limpieza de código queda descartada.
+puntaje. `§8.0` cerrado como *sostenido*. La limpieza de código queda descartada.
 
 **Lo que ningún documento registraba, y es la razón operativa más fuerte para conservar el
 campo:** `scripts/audit-scores.ts` usa `nova_group` como **señal de calidad del puntaje** —
@@ -315,7 +315,7 @@ para que la incompatibilidad se vea al instalar, no para que la instalación fal
 tenerlo presente antes de confiar en ese campo como red de seguridad.
 
 **No es solo culpa del cambio nuevo.** `react-native@0.85` ya pedía Node 20.19.4+ y el repo
-**no tenía `engines`** para decirlo: es la misma deuda que `§8` B-9 marca en el servidor,
+**no tenía `engines`** para decirlo: es la misma deuda que `§8.9` marca en el servidor,
 que acá estaba latente y la suite de UI la hizo visible.
 
 **El arreglo** (`dce8400`): la versión de Node pasa a `.nvmrc` y el workflow la lee con
@@ -328,7 +328,7 @@ porque hoy un error de tipos pasaba CI en verde.
 mismo `package-lock.json`, fuera del repo para no tocar `node_modules`: **49 tests en verde,
 `tsc` limpio**. Lo que **no** se pudo hacer es reproducir el rojo con Node 20 — el proxy de
 la sesión bloquea `nodejs.org` y no se pudo instalar esa versión. El diagnóstico se apoya en
-los `engines` declarados y en el stack trace, no en una reproducción. Nuevo `§8` B-18.
+los `engines` declarados y en el stack trace, no en una reproducción. Nuevo `§8.0`.
 
 ---
 
@@ -414,7 +414,7 @@ espera de revisión.
 Aparecía citado como *"no visto por la auditoría"* y sin identificar.
 
 **C-14 = B-13: el copy in-app de `HelpScreen.tsx` que le miente al usuario.** Está
-documentado en `CONTEXT.md §1.6` y `§8` B-13, y citado por `01-agente-ux.md` y
+documentado en `CONTEXT.md §1.6` y `§8.13`, y citado por `01-agente-ux.md` y
 `02-agente-frontend.md`. La frase que lo hacía parecer un cabo suelto sale de
 `REALINEACION_REPORTE.md`: *"No vio dos cosas: C-07 y C-14"* — **la auditoría** del 28/8 no
 los vio; la sesión de realineación del mismo día sí. **No hay nada pendiente de identificar.**

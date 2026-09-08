@@ -65,7 +65,7 @@ implementador defina el éxito después de haber implementado.
 > gratuito y no hay cuota que testear (`CONTEXT.md §4.3`). **No los reescribas.** Si aparece
 > un tier pago, se especifican entonces.
 
-### Anónimo y persistencia (`CONTEXT.md §8` B-15 · `§4.3` · `§1.6`)
+### Anónimo y persistencia (`CONTEXT.md §8.0` · `§4.3` · `§1.6`)
 
 Estado, piezas y lo que queda pendiente: el bloqueante. Los casos de abajo quedan como
 criterio de aceptación permanente. **El que más importa es el último**: es el único con
@@ -82,7 +82,7 @@ consecuencia de privacidad.
 | Escritura de historial sin usuario | **Imposible por diseño** (`§1.6`) — verificalo igual. Es un test de regresión sobre un agujero que hoy no existe |
 | **Deslogueo** | El historial y los guardados **se borran del disco**, no solo del estado: si no, le quedan al siguiente que use el teléfono (`§1.6`) |
 
-### Producto fuera de catálogo (`CONTEXT.md §8` B-16)
+### Producto fuera de catálogo (`CONTEXT.md §8.0`)
 
 Estado, piezas y lo que queda pendiente: el bloqueante y `CONTEXT.md §1.6` · `§5.3`. Los
 casos de abajo ya están cubiertos; quedan como criterio de aceptación para no perderlos en
@@ -94,13 +94,13 @@ un refactor.
 | Caída de red durante el escaneo | Mensaje **distinto**, **con** reintento. Este es el test que prueba que los dos casos no se confundieron en uno |
 | Salida | En los dos casos, camino claro a volver a escanear |
 | Accesibilidad de la pantalla nueva | Contraste, área táctil ≥44pt, lector de pantalla — el mismo checklist que el resto |
-| Analítica | `scan_failed` se emite con un `reason` que **separa** los dos casos. ⚠️ El sink sigue sin conectar (`CONTEXT.md §8` B-17): el evento se emite y se descarta, así que **no lo des por cubierto** aunque el test pase |
+| Analítica | `scan_failed` se emite con un `reason` que **separa** los dos casos. ⚠️ El sink sigue sin conectar (`CONTEXT.md §8.17`): el evento se emite y se descarta, así que **no lo des por cubierto** aunque el test pase |
 
 **Rechazá la implementación si los dos casos comparten mensaje o `reason`.** No es una
 sutileza de UX: es la métrica que dice cuánto le falta al catálogo, medida con usuarios
 reales, y si nace mal no se recupera hacia atrás.
 
-### Copy de `HelpScreen.tsx` (`CONTEXT.md §8` B-13)
+### Copy de `HelpScreen.tsx` (`CONTEXT.md §8.13`)
 
 Ahora **sí es parcialmente automatizable** con la suite de UI del cliente (`CONTEXT.md §1.6`,
 `§5.8`): testea copy, estructura, roles de accesibilidad y handlers — **no testea nada de la
