@@ -488,10 +488,22 @@ el producto con el motor vigente; las columnas de puntaje son denormalizados par
 nunca la fuente de verdad. ✅ `src/services/cacheService.ts` + `productRowMapper.ts`.
 Consecuencia: un bump de versión del motor **no requiere migrar datos**.
 
-⚠️ **Redis sí puede servir un puntaje viejo** — cachea el producto ya serializado. La
-invalidación recomendada por `05-agente-datos.md` es versionar el prefijo de la clave con
-la versión del motor. ✅ **No está aplicada:** el prefijo en `redisService.ts` sigue siendo
-estático. Ver §8.
+✅ **Redis NO puede servir un puntaje viejo.** `setInRedis` guarda cada entrada dentro de un
+**sobre** con la `ENGINE_VERSION` que la generó, y `getFromRedis` → `unwrapCachedProduct`
+devuelve `null` para toda entrada cuya versión no coincida: es un MISS, y se registra como
+evento propio (`redis_stale_engine_version`), no como error — el día del deploy pasa con
+todo el catálogo, así que sirve para ver la curva de repoblado, no para alertar.
+✅ `src/services/redisService.ts` → `setInRedis` · `unwrapCachedProduct` · `getFromRedis`.
+
+Es cierto que `REDIS_KEY_PREFIX` sigue siendo estático, pero eso **no es el riesgo**: el
+propio archivo explica por qué se eligió el sobre en vez de la clave versionada — una clave
+versionada deja huérfano el namespace viejo ocupando storage pago hasta que venza el TTL,
+mientras que el sobre reescribe la misma clave. Ver `§8.0`, B-8.
+
+> **Corregido el 2026-09-08.** Esta sección afirmaba lo contrario —que Redis sí podía servir
+> un puntaje viejo y que la invalidación *"no está aplicada"*— y contradecía a B-8, cerrado
+> el 31/8 con verificación. Era cierto sobre el prefijo y falso sobre la conclusión. Lo
+> encontraron dos agentes por separado, cada uno verificando contra el código.
 
 ### §5.5 Identidad de producto
 

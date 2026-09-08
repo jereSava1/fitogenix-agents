@@ -51,6 +51,8 @@
 
 | 2026-09-08 | **`§8` pasa a tener subsecciones, y era el 23 % de todo el contexto.** Medido: `§8` pesaba 9.834 B, lo citaban 9 de 10 agentes y aportaba **88.506 B de los 375.987** que consumía el set. Cada bloqueante abierto es ahora `§8.<n>`; los 8 cerrados viven juntos en `§8.0`, verbatim. Un puntero `§8` a secas trae **467 B** en vez de 9.834. Se convirtieron **46 citas** en 14 documentos. Contexto por invocación de los 10 agentes: **375.987 → 320.069 B (−61 % contra los 800.323 sin cargador)**. Hallazgo al convertir: **7 de las 21 filas tenían 3 columnas en una tabla de 4** — B-6 a B-12 venían mostrando el dueño bajo la cabecera *Estado*. Con campos nombrados (`**Quién decide:**`) el error desaparece. Las 21 filas se preservaron íntegras, verificado por contención de texto | ✅ 0 punteros colgados · 0 umbrales transcritos · 68 tests en verde |
 
+| 2026-09-08 | **`§5.4` se contradecía con `§8.0` B-8, y `§5.4` era la equivocada.** Afirmaba que *"Redis sí puede servir un puntaje viejo"* y que la invalidación *"no está aplicada"*. Verificado en el call site: `setInRedis` guarda cada entrada en un **sobre** con la `ENGINE_VERSION`, y `getFromRedis` → `unwrapCachedProduct` devuelve `null` si no coincide — es MISS, y se loguea como `redis_stale_engine_version`. Era cierto sobre el prefijo estático y **falso sobre el riesgo**. B-8, cerrado el 31/8, ya lo decía bien. La deriva vivió una semana con las dos versiones en el mismo documento. Lo encontraron **dos agentes por separado**, cada uno verificando contra el código, en el mismo día | ✅ `src/services/redisService.ts` → `setInRedis` · `unwrapCachedProduct` · `getFromRedis` |
+
 
 ### Pendiente inmediato (fuera de este documento)
 
