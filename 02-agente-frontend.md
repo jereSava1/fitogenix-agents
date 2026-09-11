@@ -45,7 +45,7 @@ src/
 │   ├── (auth)/               ← welcome, sign-up, sign-up-details,
 │   │                            forgot-password, reset-password
 │   ├── (tabs)/               ← index · historial · scan · guia · perfil
-│   ├── scan-result.tsx · help.tsx · personal-data.tsx · privacy.tsx
+│   ├── scan-result.tsx · help.tsx · personal-data.tsx · privacy.tsx · feedback.tsx
 ├── screens/                 ← TODA la UI real
 ├── components/              ← presentacionales puros (no hacen fetch)
 ├── constants/theme.ts       ← COLORS · RADIUS · SPACING · SHADOW · FONTS · TAB_BAR_HEIGHT
@@ -56,8 +56,9 @@ src/
 │   ├── googleAuth.ts · authErrors.ts · sessionGate.ts · signUpStore.tsx
 ├── presentation/
 │   ├── scanResultStore.tsx   ← Context: historial, guardados, sesión, producto actual
+│   ├── tabDirectionStore.ts  ← dirección del swipe entre pestañas (rediseño 8/9)
 │   └── hooks/                ← useScanFlow · useProductSearch · useProductResult ·
-│                                useUserInitial
+│                                useUserInitial · useSwipeTab · useTabSlideAnimation
 └── domain/product/          ← SHIMS DEPRECATED, solo re-exportan tipos. No agregues nada
     ├── ftgEngine.ts          ← 455 B. `export * from '@/lib/contracts/product'`
     └── lookupProduct.ts      ← solo tipos; se mantiene por ~9 imports existentes
@@ -65,7 +66,18 @@ src/
 
 **Lo que ya NO existe** (si un documento, un comentario o vos mismo lo mencionan, están
 describiendo el pasado): `src/infrastructure/`, `src/app/api/` y sus rutas `+api.ts`, el
-motor de scoring en el cliente, `productService.ts`, `scoring.ts`.
+motor de scoring en el cliente, `productService.ts`, `scoring.ts`, `ScoreBreakdownSheet.tsx`.
+
+✅ **Rediseño mergeado el 2026-09-08** (PR #2, 3.114 líneas). Estado de pantallas en
+`CONTEXT.md §1.6`; acá va lo que cambia cómo escribís: pantalla nueva **Feedback**, tab bar
+con indicador deslizante y **swipe entre pestañas**, y microinteracciones (anillo animado,
+háptica, resorte al guardar). Inicio y Resultado se reescribieron casi enteros.
+
+⚠️ **Y una advertencia que vale más que la lista:** el rediseño **pasó por
+`GuideScreen.tsx` y no vio el defecto de `tareas/FTG-002`** — la Guía declara su propio
+`TIERS` (`CONTEXT.md §3.1`) y promete el sello FITOGÉNICO en la banda 50–74, donde el motor
+no da ninguno (`CONTEXT.md §3.2`). Es tuyo. Un rediseño no lo va a encontrar: lo encuentra
+el guard (`orquestacion/fitogenix/guards.py`), y por eso conviene que corra en CI.
 
 ### La única puerta al backend: `src/api/client.ts`
 
@@ -156,9 +168,10 @@ Leelos ahí antes de arrancar: el estado cambia sin que este archivo se entere.
 Los ítems **4** y **5** de la lista vieja — *fuera de catálogo* y *el anónimo no persiste* —
 se cerraron el 31/8 ✅ (`CONTEXT.md `§8.0`). De los dos queda 🟡 solo el copy, de UX.
 
-**Lo único pendiente que no está en `§8`, porque es tuyo y de nadie más:** `git rm` de los
-dos shims muertos — `ScoreBreakdownSheet.tsx` (nadie lo importa; el propio archivo dice cómo
-borrarlo) y, cuando no queden imports, `domain/product/ftgEngine.ts` ✅.
+**Lo único pendiente que no está en `§8`, porque es tuyo y de nadie más:** ✅
+`ScoreBreakdownSheet.tsx` **ya se borró** en el rediseño del 8/9 — cero referencias en
+`src/`. Queda `domain/product/ftgEngine.ts`, que hoy tiene **cero imports** en todo el
+cliente ✅ y su propio encabezado dice que se borra cuando no queden: ya se puede.
 
 **Cómo quedaron implementados el 4 y el 5** (para que un refactor no los deshaga):
 `lookupProduct()` devuelve `null` → `state: "not-found"` y `ProductNotInCatalogCard`, sin
@@ -209,7 +222,7 @@ Los eventos de producto son cómo el negocio mide activación, retención y conv
 |---|---|---|
 | `scan_started` | Se abre la cámara | `source` |
 | `scan_completed` | Se mostró un resultado | `data_source`, `score`, `latency_ms` |
-| `scan_failed` | No hubo resultado | `reason` — distinguí **producto fuera del catálogo** de error de red: son problemas distintos (`CONTEXT.md §5.3`). ⚠️ **Este evento todavía no existe en el código** — cero coincidencias de `scan_failed` en `fitogenix-native/src/` ✅. Se implementa junto con la pantalla de fuera de catálogo (pendiente 4) |
+| `scan_failed` | No hubo resultado | `reason` — distinguí **producto fuera del catálogo** de error de red: son problemas distintos (`CONTEXT.md §5.3`). ✅ **Existe desde el 31/8/2026** en `src/analytics/`, con este mismo contrato. ⚠️ Lo que falta es el **sink**: sin `setAnalyticsSink()` en el arranque los eventos se descartan (`CONTEXT.md §8.17`) |
 | `product_search` | Búsqueda por texto | `has_result` |
 | `paywall_viewed` | Se muestra el paywall | `trigger`, `credits_used` |
 | `upgrade_started` / `upgrade_completed` | Conversión | `plan` |

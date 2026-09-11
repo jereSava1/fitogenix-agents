@@ -92,8 +92,9 @@ el camino de request** — ver §5.3 y el 🔴 C-07 en §8.
 ### §1.6 Estado real de la app — pantallas y features
 
 Lo necesitan UX (qué rediseñar), Frontend (qué existe) y QA (qué auditar). **Envejece
-rápido:** verificado contra `fitogenix-native` `b7715b8`, y se re-verifica antes de citarlo
-como vigente.
+rápido:** verificado contra `fitogenix-native` `c63c3cc` (2026-09-11), y se re-verifica antes
+de citarlo como vigente. La verificación anterior era `b7715b8`; entre las dos entró un
+rediseño de 3.114 líneas que la dejó vieja en cinco días.
 
 | Pantalla | Estado | Ruta |
 |---|---|---|
@@ -103,6 +104,7 @@ como vigente.
 | Resultado | Funcional ✅ — la más trabajada | `src/screens/ScanResultScreen.tsx` |
 | Guía (contenido estático) | Funcional ✅ | `src/screens/GuideScreen.tsx` |
 | Perfil | Funcional ✅ | `src/screens/ProfileScreen.tsx` |
+| Feedback | Funcional ✅ — **nueva, 8/9/2026** | `src/screens/FeedbackScreen.tsx` · ruta `feedback` |
 | Datos personales · Privacidad · Ayuda | Funcionales ✅ | `personal-data.tsx` · `privacy.tsx` · `help.tsx` |
 | Welcome · Sign-up (email + Google) | Funcional ✅ | `src/screens/WelcomeScreen.tsx`, `SignUpEmailScreen.tsx`, `SignUpDetailsScreen.tsx` |
 | Recuperar / resetear contraseña | Funcional ✅ | `ForgotPasswordScreen.tsx` (`supabase.auth.resetPasswordForEmail`), `ResetPasswordScreen.tsx` |
@@ -110,6 +112,25 @@ como vigente.
 **La pestaña "Comunidad" ya no existe.** ✅ Las cinco pestañas son Inicio · Historial ·
 Escanear · Guía · Perfil (`src/app/(tabs)/_layout.tsx`). El lugar que ocupaba el
 placeholder lo tomó Historial.
+
+✅ **Rediseño de UI, mergeado el 2026-09-08** (PR #2, `dce8400..c28f27c`, 3.114 líneas). Lo
+que cambió y que UX, Frontend y QA necesitan saber:
+
+- **Pantalla nueva: Feedback** ✅ `src/screens/FeedbackScreen.tsx` · ruta `src/app/feedback.tsx`.
+- **`ScoreBreakdownSheet.tsx` se borró** ✅ — cero referencias en `src/`. Cierra la mitad del
+  ítem que `02-agente-frontend.md` tenía pendiente; la otra mitad (`ftgEngine.ts`) sigue.
+- **Navegación:** indicador deslizante en el tab bar y **swipe entre pestañas**
+  ✅ `useSwipeTab.ts` · `useTabSlideAnimation.ts` · `tabDirectionStore.ts`.
+- **Microinteracciones:** anillo de puntaje animado, háptica, y animación de resorte al
+  guardar ✅ `ScoreDial.tsx` · `ScanHistoryRow.tsx`.
+- **Rediseñadas a fondo:** Inicio, Resultado, Historial, Perfil y Datos personales. Inicio y
+  Resultado son las que más cambiaron (573 y 680 líneas de diff).
+
+⚠️ **Lo que el rediseño NO tocó, y es lo que importa:** `GuideScreen.tsx` se modificó
+(+11/−3) y **el defecto de `tareas/FTG-002` sigue intacto** — la Guía declara su propio
+`TIERS` con los cuatro cortes de banda (§3.1) y le promete al usuario el sello **FITOGÉNICO
+en la banda 50–74**, donde `getSello` devuelve `null` (§3.2). Alguien pasó por el archivo y
+no lo vio. Es el argumento más fuerte para que el guard de frontera corra en CI.
 
 **Features todavía no implementadas** ✅ verificadas una por una:
 
