@@ -1,0 +1,52 @@
+name: Contratos y guards
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: orquestacion
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"   # el piso declarado en orquestacion/pyproject.toml
+          cache: pip
+
+      - run: pip install -r requirements.txt
+
+      # Los schemas SON el control de calidad del pipeline: desde que se decidió
+      # que no se pide OK antes de implementar, el contrato lo sostiene Pydantic.
+      # Si esta suite está en rojo, el pipeline no tiene gate.
+      - run: pytest tests/ -q
+
+      # Los punteros §X del set de documentos tienen que resolver contra
+      # CONTEXT.md. Un puntero colgado es un Brief que carga la sección
+      # equivocada, o ninguna.
+      - name: Punteros §X sin colgar
+        working-directory: .
+        run: |
+          python - <<'PY'
+          import re, pathlib, sys
+          raiz = pathlib.Path('.')
+          ctx = (raiz/'CONTEXT.md').read_text(encoding='utf-8')
+          sec = set(re.findall(r'^#{2,3}\s*(§[\d.]+)', ctx, re.M))
+          nut = set(re.findall(r'^#{2,3}\s*(§N\d+)',
+                    (raiz/'nutricion/NUTRICION.md').read_text(encoding='utf-8'), re.M))
+          malos = {}
+          for d in list(raiz.glob('*.md')) + list(raiz.glob('nutricion/*.md')) + list(raiz.glob('tareas/*.md')):
+              t = d.read_text(encoding='utf-8')
+              faltan  = {f"§{m}" for m in re.findall(r'§(\d+(?:\.\d+)?)\b', t) if f"§{m}" not in sec}
+              faltan |= {f"§{m}" for m in re.findall(r'§(N\d+)\b', t)        if f"§{m}" not in nut}
+              if faltan: malos[d.name] = sorted(faltan)
+          if malos:
+              for k, v in malos.items(): print(f"::error file={k}::punteros colgados: {v}")
+              sys.exit(1)
+          print("punteros: 0 colgados")
+          PY

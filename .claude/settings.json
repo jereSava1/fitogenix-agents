@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "deny": [
+      "Read(**/.env)", "Read(**/.env.*)", "Read(**/*.pem)", "Read(**/id_rsa*)",
+      "Write(**/.env)", "Edit(**/.env)",
+      "Bash(git push --force:*)", "Bash(git push -f:*)", "Bash(git push origin +*)",
+      "Write(**/PODA_REPORTE.md)", "Edit(**/PODA_REPORTE.md)",
+      "Write(**/REALINEACION_REPORTE.md)", "Edit(**/REALINEACION_REPORTE.md)"
+    ],
+    "ask": [
+      "Write(**/CONTEXT.md)", "Edit(**/CONTEXT.md)",
+      "Write(**/CHANGELOG.md)", "Edit(**/CHANGELOG.md)",
+      "Write(**/BITACORA_DECISIONES.md)", "Edit(**/BITACORA_DECISIONES.md)",
+      "Write(**/nutricion/NUTRICION.md)", "Edit(**/nutricion/NUTRICION.md)",
+      "Bash(git push:*)", "Bash(gh pr merge:*)"
+    ],
+    "allow": [
+      "Bash(pytest:*)", "Bash(python -m pytest:*)",
+      "Bash(git status:*)", "Bash(git diff:*)", "Bash(git log:*)", "Bash(git branch:*)",
+      "Bash(rg:*)", "Bash(grep:*)"
+    ]
+  }
+}
