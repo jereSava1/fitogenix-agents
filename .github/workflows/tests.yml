@@ -29,6 +29,13 @@ jobs:
       # Los punteros §X del set de documentos tienen que resolver contra
       # CONTEXT.md. Un puntero colgado es un Brief que carga la sección
       # equivocada, o ninguna.
+      # Un comando para todo lo verificable sin un humano: punteros del set,
+      # punteros citados desde el código, guards de frontera y cobertura.
+      # En CI los repos hermanos no están clonados, así que verifica los
+      # documentos y saltea el código — lo dice en la salida, no lo finge.
+      - name: Verificación unificada
+        run: python verificar.py
+
       - name: Punteros §X sin colgar
         working-directory: .
         run: |
