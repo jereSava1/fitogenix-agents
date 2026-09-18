@@ -138,7 +138,12 @@ _P_CODIGO = re.compile(
 _NUMERO_DE_LINEA = re.compile(r"\.\w+:\d+")
 _TICKET = re.compile(r"^(FTG-\d{1,4}|B-\d{1,3}|C-\d{1,3}|N-\d{1,3}|sin-ticket)$")
 # Given/When/Then, en español: la documentación del proyecto va en español.
-_DCE = re.compile(r"\bdado\b.*\bcuando\b.*\bentonces\b", re.IGNORECASE | re.DOTALL)
+# El español concuerda en género y número, y hasta el 2026-09-18 este validador no: pedía
+# `dado` literal, así que "Dada una banda cualquiera / Cuando / Entonces" —castellano
+# correcto— se rechazaba como "sin criterio de aceptación". Lo encontró el primer contrato
+# real (golden FTG-002): caían 3 de 9 campos, los 3 por la concordancia y ninguno por el
+# criterio. Un validador que castiga la gramática correcta le enseña al modelo a escribir mal.
+_DCE = re.compile(r"\bdad[oa]s?\b.*\bcuando\b.*\bentonces\b", re.IGNORECASE | re.DOTALL)
 
 #: Largo por encima del cual un "puntero" es, casi con certeza, texto copiado.
 LARGO_MAXIMO_DE_PUNTERO = 120
@@ -568,6 +573,10 @@ class Incertidumbre(Base):
         "campo-sin-criterio",
         "verificado-sin-ruta",
         "frontera-violada",
+        # Agregado el 2026-09-18: no estaba en los cinco de la sección 2. Existe porque
+        # el objetivo número uno del pipeline es que un agente no cargue el SSOT entero,
+        # y sin un tope nada impedía que un Brief lo reconstruyera citando §1, §2 y §5.
+        "presupuesto-excedido",
     ]
     detalle: str
     puntero: Optional[str] = None
