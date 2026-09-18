@@ -34,18 +34,38 @@ def _ruta(env: str, default: str, *, ancla: Path) -> Path:
     return p.resolve()
 
 
+def _busca_repo(env: str, nombre: str) -> Path:
+    """Dónde está un repo hermano. Se busca; no se adivina una sola ruta.
+
+    Hasta el 2026-09-18 el default era `~/<nombre>` fijo. En esta máquina los repos
+    cuelgan de `~/mnt/`, así que `verificar.py` no los encontraba y **salteaba en
+    silencio 3 de sus 4 verificaciones** — imprimía un ⚠️ y salía 0. Un verificador que
+    se saltea a sí mismo es peor que no tenerlo: da el verde igual.
+
+    Orden: la variable de entorno gana siempre; después, el primer candidato que exista.
+    """
+    crudo = os.getenv(env)
+    if crudo:
+        return Path(crudo).expanduser().resolve()
+    for base in (AGENTES_ROOT.parent, AGENTES_ROOT.parent.parent, Path.home()):
+        cand = base / nombre
+        if cand.exists():
+            return cand.resolve()
+    return (Path.home() / nombre).resolve()
+
+
 @dataclass(frozen=True)
 class Settings:
     agentes_root: Path = field(
         default_factory=lambda: _ruta("FITOGENIX_AGENTES_ROOT", str(AGENTES_ROOT), ancla=ORQ_ROOT)
     )
     #: Los dos repos de código son independientes y no se asume que compartan raíz
-    #: (`CONTEXT.md §5.1`). Hoy viven en `~`, el repo de agentes en `~/Desktop`.
+    #: (`CONTEXT.md §5.1`), así que la ubicación se busca en vez de fijarse.
     server_path: Path = field(
-        default_factory=lambda: _ruta("FITOGENIX_SERVER_PATH", "~/fitogenix-server", ancla=Path.home())
+        default_factory=lambda: _busca_repo("FITOGENIX_SERVER_PATH", "fitogenix-server")
     )
     native_path: Path = field(
-        default_factory=lambda: _ruta("FITOGENIX_NATIVE_PATH", "~/fitogenix-native", ancla=Path.home())
+        default_factory=lambda: _busca_repo("FITOGENIX_NATIVE_PATH", "fitogenix-native")
     )
     #: sqlite por default: el diseño HitL asume reanudar **desde otra terminal**
     #: (`PROPUESTA_grafo_fase2.md` sección 2). `memory` es solo para tests.

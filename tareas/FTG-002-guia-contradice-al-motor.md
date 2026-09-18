@@ -106,6 +106,27 @@ Cuando el usuario abre la pantalla de Guía
 Entonces la banda "Sin datos suficientes" está explicada, con su color y su mensaje
 ```
 
+> **2026-09-18 — el criterio A-2 no se puede cumplir arreglando solo `GuideScreen`.**
+> El arquitecto, produciendo el contrato de este ticket, encontró dos copias más en el
+> cliente, y las dos además **recalculan** (violan `CONTEXT.md §3.4`, no solo `§3.1`):
+>
+> - ✅ `fitogenix-native/src/screens/HomeScreen.tsx` → `scoreLabel` / `scoreColor`
+>   reimplementan los cortes con literales y devuelven `"Sin score"` donde el motor da la
+>   banda de sin datos. **Alcanzable:** `HistoryCard` las usa como fallback de
+>   `product.scoreLabel ‖ product.scoreColor`.
+> - ✅ `fitogenix-native/src/screens/ScanResultScreen.tsx` → `isBad` parte el puntaje por
+>   un corte propio para elegir qué grupo de ingredientes destaca.
+>
+> Lo dejó como **supuesto ⚠️** que el barrido pudiera no verlas, porque no tenía permitido
+> leer `orquestacion/`. **Verificado: el supuesto era cierto.** `_ETIQUETA_DE_BANDA` no
+> llevaba `IGNORECASE`, así que `HomeScreen.tsx` daba **0 hallazgos** y A-2 habría dado
+> verde con el defecto vivo. El guard ya está corregido y hoy lo reporta.
+> `ScanResultScreen.tsx` **sigue sin ser detectable** por el barrido (una comparación
+> sola, sin etiqueta de banda al lado): se encuentra leyendo, no barriendo.
+>
+> 🔴 **Decisión abierta (D-2, del orchestrator):** o esos dos archivos entran al alcance
+> de FTG-002, o A-2 se reescribe acotándolo a `GuideScreen.tsx`. Como está, es imposible.
+
 ---
 
 ## Riesgo si no se hace

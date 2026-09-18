@@ -26,6 +26,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 
+from fitogenix.config import SETTINGS  # noqa: E402
 from fitogenix.guards import corre_los_guards  # noqa: E402
 from fitogenix.punteros import (  # noqa: E402
     cobertura,
@@ -43,15 +44,32 @@ def punteros_de_documentos() -> list[str]:
     nut = indice_de_nutricion(DOCS / "nutricion" / "NUTRICION.md")
     import re
 
+    # `§X` significa dos cosas en este proyecto: una sección de `CONTEXT.md` y una sección
+    # de la rúbrica del motor (`scoring/steps.ts` → "FITOGENIX — §2: los pasos del
+    # cálculo"). En el código eso obliga a exigir puntero calificado (`punteros.py`); acá,
+    # en el set de documentos, el `§` pelado SÍ es de `CONTEXT.md` — salvo cuando el texto
+    # está hablando **de la otra numeración**, y entonces la nombra justo antes.
+    # Se encontró el 2026-09-18: el propio `CHANGELOG.md`, explicando la ambigüedad, citaba
+    # `§4.7` y `§4.5` de la rúbrica y el verificador los reportaba como punteros rotos. Un
+    # verificador que falla sobre el documento que documenta el problema entrena a ignorarlo.
+    ajeno = re.compile(r"(?:\.(?:ts|tsx|sql|js)`?|r[uú]brica|motor)\s*(?:→\s*)?[`'\"]?\s*$",
+                       re.IGNORECASE)
+    VENTANA = 40
+
     fallas = []
     for d in sorted(
         list(DOCS.glob("*.md")) + list(DOCS.glob("nutricion/*.md"))
         + list(DOCS.glob("tareas/*.md")) + list(DOCS.glob(".claude/agents/*.md"))
     ):
         t = d.read_text(encoding="utf-8")
-        for m in set(re.findall(r"§(\d+(?:\.\d+)?)\b", t)):
-            if m not in sec:
-                fallas.append(f"{d.name}: §{m} no existe en CONTEXT.md")
+        vistos: set[str] = set()
+        for m in re.finditer(r"§(\d+(?:\.\d+)?)\b", t):
+            if m.group(1) in sec or m.group(1) in vistos:
+                continue
+            if ajeno.search(t[max(0, m.start() - VENTANA):m.start()]):
+                continue  # es un § de la rúbrica del motor, no de CONTEXT.md
+            vistos.add(m.group(1))
+            fallas.append(f"{d.name}: §{m.group(1)} no existe en CONTEXT.md")
         for m in set(re.findall(r"§(N\d+)\b", t)):
             if m not in nut:
                 fallas.append(f"{d.name}: §{m} no existe en NUTRICION.md")
@@ -60,8 +78,11 @@ def punteros_de_documentos() -> list[str]:
 
 def main() -> int:
     args = sys.argv[1:]
+    # Los defaults salen de `config.SETTINGS`, que **busca** los repos en vez de fijar
+    # `~/<nombre>`. Hasta el 2026-09-18 estaban fijos y no existían en esta máquina: este
+    # comando salteaba en silencio 3 de sus 4 verificaciones y salía 0 igual.
     repos = [Path(p).expanduser() for p in args[args.index("--repos") + 1:]] if "--repos" in args else [
-        Path.home() / "fitogenix-server", Path.home() / "fitogenix-native"
+        SETTINGS.server_path, SETTINGS.native_path
     ]
     fallas: list[str] = []
 

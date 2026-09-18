@@ -73,8 +73,22 @@ _DECLARACION = re.compile(
 # (`2026-08-18`), y hacerlo fallar por eso es el falso positivo que apaga un guard: se
 # encontró exactamente así, escaneando `lib/contracts/product.ts` el 2026-09-01.
 _RANGO = re.compile(r"(?<![\d.])([1-9]?\d|100)\s*[–—-]\s*([1-9]?\d|100)(?![\d.])")
-_ETIQUETA_DE_BANDA = re.compile(r"\b(EXCELENTE|BUENO|MODERADO|MALO|FITOG[EÉ]NICO)\b")
-_CORTE_SUELTO = re.compile(r"(?<![\w.])(100|[1-9]?\d)(?![\w.%])")
+# Sin `IGNORECASE` hasta el 2026-09-18, y el motor escribe las etiquetas en mayúsculas
+# pero el cliente las escribe en capitalizado: `scoreLabel` en `HomeScreen.tsx` devuelve
+# "Excelente"/"Bueno"/"Moderado"/"Malo" con los cortes 75/50/25 al lado, y el barrido daba
+# **cero hallazgos** sobre ese archivo. El criterio de aceptación A-2 de FTG-002 es
+# literalmente "el barrido completo da 0 hallazgos": habría dado verde con el defecto vivo.
+# Lo señaló el arquitecto sin poder verificarlo (no tenía permitido leer `orquestacion/`):
+# lo dejó como supuesto ⚠️, y el supuesto era cierto.
+_ETIQUETA_DE_BANDA = re.compile(r"\b(EXCELENTE|BUENO|MODERADO|MALO|FITOG[EÉ]NICO)\b", re.IGNORECASE)
+#: Un corte suelto es un número, y un número solo no significa nada: `NOVA 4`, `omega-6`
+#: y `§5` conviven con la palabra "Moderado" en prosa española y no transcriben nada. Se
+#: midió el 2026-09-18: buscar "número cerca de etiqueta" a secas daba **4 falsos
+#: positivos sobre 113 archivos** del server, todos en descripciones de ingredientes y
+#: comentarios. Un guard con 4 falsos positivos es un guard apagado.
+#: Por eso el número tiene que estar en una de las dos formas en que un corte SE USA:
+_CORTE_COMPARADO = re.compile(r"(?:>=|<=|>|<|===|==|!==|!=)\s*(100|[1-9]?\d)(?![\w.%])")
+_CORTE_ARGUMENTO = re.compile(r"\(\s*(100|[1-9]?\d)\s*[,)]")
 #: Un rango y una etiqueta de banda son una tabla de cortes solo si están JUNTOS: en el
 #: mismo objeto literal, la misma línea, el mismo `it(...)`. A distancia de archivo no
 #: significan nada — `product.ts` nombra 'EXCELENTE' en un union de tipos y lleva una
@@ -160,7 +174,20 @@ def verifica_umbrales_no_transcriptos(ruta: str, contenido: str) -> list[str]:
         if _ETIQUETA_DE_BANDA.search(limpio[desde : m.end() + VENTANA_DE_PROXIMIDAD]):
             rangos.add(f"{a}–{b}")
     if not rangos:
-        for m in _CORTE_SUELTO.finditer(limpio):
+        # Comparar contra un número y devolver una etiqueta de banda es exactamente la
+        # tabla de cortes, escrita como cadena de `if`. Se exigen DOS: un solo `>= N`
+        # cerca de una etiqueta es demasiado ambiguo (`bd.nova === 4` al lado de
+        # `'Excelente'` no transcribe ningún umbral).
+        comparados = set()
+        for m in _CORTE_COMPARADO.finditer(limpio):
+            desde = max(0, m.start() - VENTANA_DE_CORTE_SUELTO)
+            if _ETIQUETA_DE_BANDA.search(limpio[desde : m.end() + VENTANA_DE_CORTE_SUELTO]):
+                comparados.add(m.group(1))
+        if len(comparados) >= 2:
+            rangos |= comparados
+        # Pasar el corte como argumento y afirmar la etiqueta —`label(75)` → `'EXCELENTE'`—
+        # es la otra forma, y con una alcanza: ahí el número no puede ser otra cosa.
+        for m in _CORTE_ARGUMENTO.finditer(limpio):
             desde = max(0, m.start() - VENTANA_DE_CORTE_SUELTO)
             if _ETIQUETA_DE_BANDA.search(limpio[desde : m.end() + VENTANA_DE_CORTE_SUELTO]):
                 rangos.add(m.group(1))

@@ -216,3 +216,60 @@ def test_un_test_fuera_de_la_suite_del_motor_no_puede_fijar_los_cortes():
     codigo = "it('75 es EXCELENTE', () => expect(label(75)).toBe('EXCELENTE'));\n"
     fallas = verifica_umbrales_no_transcriptos("fitogenix-native/src/screens/Home.test.tsx", codigo)
     assert any("cortes de banda" in f for f in fallas)
+
+
+# --- Lo que el golden FTG-002 destapó el 2026-09-18 -------------------------------
+# El arquitecto declaró como supuesto ⚠️ que el barrido podía no ver `HomeScreen.tsx`.
+# Tenía razón: `_ETIQUETA_DE_BANDA` no llevaba IGNORECASE, el motor escribe las etiquetas
+# en mayúsculas y el cliente en capitalizado. El criterio A-2 del ticket ("el barrido
+# completo da 0 hallazgos") habría dado verde con el defecto vivo.
+
+_HOMESCREEN = """
+function scoreLabel(score: number | null): string {
+  if (score == null) return "Sin score";
+  if (score >= 75) return "Excelente";
+  if (score >= 50) return "Bueno";
+  if (score >= 25) return "Moderado";
+  return "Malo";
+}
+"""
+
+
+def test_la_etiqueta_capitalizada_tambien_es_una_etiqueta_de_banda():
+    fallas = verifica_umbrales_no_transcriptos("fitogenix-native/src/screens/HomeScreen.tsx", _HOMESCREEN)
+    assert any("cortes de banda" in f for f in fallas), (
+        "el cliente escribe 'Excelente', el motor 'EXCELENTE': sin IGNORECASE el barrido "
+        "da 0 hallazgos sobre una tabla de cortes completa."
+    )
+
+
+def test_una_sola_comparacion_cerca_de_una_etiqueta_no_alcanza():
+    """Los 4 falsos positivos medidos sobre `fitogenix-server` el 2026-09-18. Ninguno
+    transcribe un umbral: son prosa en español, una categoría NOVA y una cita `§5`."""
+    casos = [
+        ("fitogenix-server/src/domain/product/ingredientData.ts",
+         '{ aliases: ["sorbitol"], b: "yellow", desc: "Poliol. Produce malestar. Moderado." },\n'),
+        ("fitogenix-server/scripts/audit-scores.ts",
+         "if (bd.nova === 4 && bd.tier === 'Excelente') out.push(base);\n"),
+        ("fitogenix-server/scripts/audit-scores.ts",
+         "why: `Excelente con solo ${Math.round(bd.coverage * 100)}% reconocidos.`\n"),
+    ]
+    for ruta, codigo in casos:
+        assert verifica_umbrales_no_transcriptos(ruta, codigo) == [], ruta
+
+
+def test_el_corte_como_argumento_alcanza_solo_porque_ahi_no_puede_ser_otra_cosa():
+    codigo = "it('75 es EXCELENTE', () => expect(label(75)).toBe('EXCELENTE'));\n"
+    fallas = verifica_umbrales_no_transcriptos("fitogenix-native/src/screens/Home.test.tsx", codigo)
+    assert any("cortes de banda" in f for f in fallas)
+
+
+def test_lo_que_este_guard_sigue_sin_ver():
+    """**Deuda declarada, no disimulada.** `ScanResultScreen.tsx` parte el puntaje por un
+    corte propio para elegir qué grupo de ingredientes destaca. Es una comparación sola y
+    lo que tiene al lado no es una etiqueta de banda, así que el barrido no la ve. Lo
+    encontró el arquitecto leyendo, no el guard. Si algún día se detecta, este test cambia.
+    """
+    codigo = 'const isBad = result.score != null && result.score < 50;\n' \
+             'const featuredLabel = isBad ? "INGREDIENTES CUESTIONABLES" : "INGREDIENTES BENEFICIOSOS";\n'
+    assert verifica_umbrales_no_transcriptos("fitogenix-native/src/screens/ScanResultScreen.tsx", codigo) == []
