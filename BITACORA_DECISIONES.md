@@ -473,7 +473,14 @@ numérica. La banda de arriba ya funcionaba así.
 ### Consecuencias
 
 - **Ningún puntaje cambia.** Cambian la etiqueta, el color, el mensaje y el sello de los
-  productos que quedaron del otro lado del borde.
+  productos que quedaron del otro lado del borde. **Medido el 19/9/2026 contra la base:
+  4.200 productos** ✅, el 6,8 % de los que tienen puntaje. La banda baja pasa de 3.382 a
+  7.582 filas — se multiplica por 2,2— y es el cambio más visible que trae la decisión.
+- **Ningún camino de lectura sirve la columna desactualizada.** Verificado en el call site:
+  `cacheService.ts` es el único que escribe `score_label`/`sello`, y ninguna ruta de
+  `src/routes/` los lee — todas recomponen desde los crudos (`CONTEXT.md §5.4`, `§8.19`) ✅.
+  Sumado a que el bump de `ENGINE_VERSION` invalida Redis por sobre, **el usuario no ve
+  sello viejo en ningún momento**: el recompute es higiene de la columna, no urgencia.
 - **`ENGINE_VERSION` sube a `v2.4`.** El puntaje no cambia y aun así hay que bumpear, por el
   mismo motivo que en v2.3: la etiqueta y el sello viajan cacheados en Redis y
   denormalizados en `products`. Sin bump, el usuario ve el sello viejo hasta que venza el
