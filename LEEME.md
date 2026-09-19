@@ -12,7 +12,7 @@ Cada archivo `.md` es el prompt inicial de un agente de Claude Code. Para activa
 
 | Archivo | Agente | Cuándo usarlo |
 |---------|--------|---------------|
-| **`CONTEXT.md`** | **SSOT de negocio** | **Primero, siempre.** Los 8 agentes lo citan por puntero (`CONTEXT.md §X`). Escritura exclusiva del Orquestador |
+| **`CONTEXT.md`** | **SSOT de negocio** | **Primero, siempre.** Los agentes lo citan por puntero (`CONTEXT.md §X`). Se escribe **detallando el cambio y pidiendo permiso** al dueño del repo (§7) |
 | `00-orquestador.md` | Orquestador | Siempre que empieces una sesión de trabajo. Coordinador central. |
 | `01-agente-ux.md` | UX/UI Expert | Cuando necesitás diseñar o mejorar un flujo de usuario antes de implementarlo. |
 | `02-agente-frontend.md` | Mobile (React Native) | Cuando implementás cambios en la app Expo: pantallas, componentes, hooks, navegación. |

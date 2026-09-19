@@ -733,6 +733,14 @@ reservado y sin escribir.
 **Regla de dominios exclusivos:** dos agentes nunca tocan el mismo archivo en paralelo, y
 ningún agente edita un artefacto del que no es dueño — se lo pide al dueño.
 
+**Excepción, decidida el 2026-09-19: este archivo.** `CONTEXT.md` dejó de ser de escritura
+exclusiva del Orquestador. Cualquier agente puede proponer un cambio acá **siempre que
+antes se lo detalle al responsable del repo y le pida permiso explícito** — qué sección,
+qué dice hoy, qué diría, y por qué. La exclusividad existía para que el SSOT no derivara
+solo; el detalle previo cumple lo mismo sin obligar a que todo pase por un rol. El permiso
+está mecanizado: `.claude/settings.json` tiene `Write`/`Edit` de `CONTEXT.md` en `ask`.
+Lo que **no** cambia: no se renumeran las secciones, y los umbrales no se transcriben acá.
+
 ---
 
 ## §8 — Bloqueantes activos

@@ -10,7 +10,7 @@ Este repositorio reúne el set de agentes de trabajo para Fitogenix, pensado par
 
 ## Estructura
 
-- `CONTEXT.md` — **fuente única de verdad de negocio.** Los agentes la citan por puntero (`CONTEXT.md §X`) en vez de duplicar el contexto; escritura exclusiva del Orquestador
+- `CONTEXT.md` — **fuente única de verdad de negocio.** Los agentes la citan por puntero (`CONTEXT.md §X`) en vez de duplicar el contexto; se escribe detallando el cambio y pidiendo permiso al dueño del repo (`CONTEXT.md §7`)
 - `00-orquestador.md` — coordinación general del trabajo
 - `01-agente-ux.md` — experiencia de usuario y accesibilidad
 - `02-agente-frontend.md` — implementación en React Native + Expo (post-Fase 1: el cliente es solo UI)
