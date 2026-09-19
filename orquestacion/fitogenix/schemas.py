@@ -131,9 +131,15 @@ _P_CONTEXT = re.compile(r"^CONTEXT\.md\s+§\d+(\.\d+)?$", re.IGNORECASE)
 _P_NUTRICION = re.compile(r"^(?:nutricion/)?NUTRICION\.md\s+§N\d+$", re.IGNORECASE)
 _P_BITACORA = re.compile(r"^BITACORA_DECISIONES\.md\s+ADR-\d{3}$", re.IGNORECASE)
 _P_DOCUMENTO = re.compile(r"^[\w.\-/]+\.md\s+secci[oó]n\s+\d+(\.\d+)?$", re.IGNORECASE)
-# Código: repo/ruta.ext, opcionalmente ` → simbolo`. Sin número de línea.
+# Código: repo/ruta.ext, opcionalmente ` → simbolo` (o varios, separados por coma), o un
+# directorio terminado en `/`. Sin número de línea.
+# Los dos agregados son del 2026-09-18, medidos contra el golden FTG-002: el arquitecto
+# citó `constants.ts → TIERS, NO_DATA_TIER, EXCELLENT_FROM, BAD_BELOW` —cuatro símbolos
+# del mismo archivo, que es exactamente cómo se cita una tabla— y `fitogenix-server/
+# migrations/` como directorio. Los dos se rechazaban, y la única salida era truncar la
+# cita. Un validador que obliga a citar de menos no protege nada.
 _P_CODIGO = re.compile(
-    r"^fitogenix-(server|native)/[\w\-./]+\.\w+(\s*→\s*[\w.]+)?$"
+    r"^fitogenix-(server|native)/[\w\-./]+(?:\.\w+(\s*→\s*[\w.]+(?:\s*,\s*[\w.]+)*)?|/)$"
 )
 _NUMERO_DE_LINEA = re.compile(r"\.\w+:\d+")
 _TICKET = re.compile(r"^(FTG-\d{1,4}|B-\d{1,3}|C-\d{1,3}|N-\d{1,3}|sin-ticket)$")
@@ -162,14 +168,22 @@ def valida_puntero(p: str) -> str:
     `scoring/constants.ts:24` — archivo equivocado, número correcto, error invisible
     durante tres días. Un número de línea hace que una cita rota siga pareciendo sana.
     """
-    if len(p) > LARGO_MAXIMO_DE_PUNTERO:
-        raise PunteroInvalido(f"puntero demasiado largo, parece texto copiado: {p[:60]!r}...")
     if _NUMERO_DE_LINEA.search(p):
         raise PunteroInvalido(
             f"cita por número de línea: {p!r}. CONTEXT.md §9 (convención del 31/8/2026): "
             f"archivo + símbolo o cita textual, nunca número de línea."
         )
     if not any(rx.match(p) for rx in (_P_CONTEXT, _P_NUTRICION, _P_BITACORA, _P_DOCUMENTO, _P_CODIGO)):
+        # El largo se chequea acá abajo y no arriba (2026-09-18): es una heurística contra
+        # prosa copiada, y las formas de arriba están ancladas con `^...$`, así que lo que
+        # las matchea ya es un puntero por estructura, por largo que sea. Citar cuatro
+        # símbolos del mismo archivo —`constants.ts → TIERS, NO_DATA_TIER, EXCELLENT_FROM,
+        # BAD_BELOW`, 125 caracteres— se rechazaba por largo siendo la cita más precisa
+        # posible. El largo solo decide sobre lo que ya no matcheó nada.
+        if len(p) > LARGO_MAXIMO_DE_PUNTERO:
+            raise PunteroInvalido(
+                f"puntero demasiado largo, parece texto copiado: {p[:60]!r}..."
+            )
         raise PunteroInvalido(
             f"puntero inválido: {p!r}. Se espera 'CONTEXT.md §X', 'NUTRICION.md §Nx', "
             f"'BITACORA_DECISIONES.md ADR-00X', '<doc>.md sección N' o "
@@ -443,16 +457,44 @@ PUNTOS_DEL_CONTRATO: tuple[str, ...] = (
 
 
 class ReglaDeValidacion(Base):
-    """Cada regla del contrato cita su puntero. Sin puntero no es una regla: es una opinión."""
+    """Cada regla del contrato cita sus punteros. Sin puntero no es una regla: es una opinión.
+
+    **Son varios, no uno** (2026-09-18). El campo era un `str` y el primer contrato real
+    dio dos punteros por regla —la sección de `CONTEXT.md` que manda y el archivo donde se
+    verificó— porque son dos cosas distintas: una es la autoridad, la otra la evidencia.
+    Forzar a elegir uno hacía que `det.verificado_sin_ruta` levantara 5 hallazgos sobre el
+    golden FTG-002, y **4 eran del schema, no del arquitecto**: la regla sí tenía su ruta,
+    pero no había dónde ponerla. Un validador que inventa hallazgos se desactiva solo.
+
+    Se sigue aceptando `puntero=` en singular: es la forma corta de una lista de uno.
+    """
 
     enunciado: str = Field(min_length=10)
-    puntero: str
+    punteros: list[str] = Field(min_length=1)
     marca: Marca = Marca.SIN_CONTRASTAR
 
-    @field_validator("puntero")
+    @model_validator(mode="before")
     @classmethod
-    def _p(cls, v: str) -> str:
-        return valida_puntero(v)
+    def _singular(cls, data: object) -> object:
+        if isinstance(data, dict) and "puntero" in data and "punteros" not in data:
+            data = {**data, "punteros": [data["puntero"]]}
+            data.pop("puntero")
+        return data
+
+    @field_validator("punteros")
+    @classmethod
+    def _p(cls, v: list[str]) -> list[str]:
+        return [valida_puntero(x) for x in v]
+
+    @property
+    def puntero(self) -> str:
+        """El primero. La autoridad va primero por convención; la evidencia después."""
+        return self.punteros[0]
+
+    @property
+    def rutas_de_codigo(self) -> list[str]:
+        """Los punteros que son un archivo que se puede abrir. Vacío = nada verificable."""
+        return [x for x in self.punteros if _P_CODIGO.match(x.split("→")[0].strip())]
 
 
 class CampoDelContrato(Base):
@@ -473,7 +515,17 @@ class CampoDelContrato(Base):
 
 
 class PuntaDelContrato(Base):
-    """Qué pasa con una de las tres puntas. `cambia=False` también es una afirmación."""
+    """Qué pasa con una punta del contrato. `cambia=False` también es una afirmación.
+
+    **Las puntas ya no son solo tres** (2026-09-18). `PUNTOS_DEL_CONTRATO` pasó a ser la
+    base —el contrato de *producto*— y no el universo. El primer contrato real declaró
+    que agrandaba el conjunto a cinco, con un endpoint nuevo y su espejo, y no había
+    forma de registrarlo: el objeto quedaba afirmando la verdad vieja, que es justo el
+    silencio que la regla de las tres puntas existe para impedir.
+
+    Lo que se conserva es el principio, no la lista: un tipo que cruza el cable se
+    declara **en los dos repos**. Eso lo verifica `ContratoAprobado`.
+    """
 
     archivo: str
     cambia: bool
@@ -481,10 +533,22 @@ class PuntaDelContrato(Base):
 
     @field_validator("archivo")
     @classmethod
-    def _es_punta(cls, v: str) -> str:
-        if v not in PUNTOS_DEL_CONTRATO:
-            raise ValueError(f"{v!r} no es una punta del contrato. Son: {PUNTOS_DEL_CONTRATO}")
+    def _es_ruta_de_repo(cls, v: str) -> str:
+        if not _P_CODIGO.match(v):
+            raise ValueError(
+                f"{v!r} no es una ruta de repo. Una punta del contrato es un archivo de "
+                f"`fitogenix-server/` o `fitogenix-native/`."
+            )
         return v
+
+    @property
+    def es_del_producto(self) -> bool:
+        """Si es una de las tres puntas del contrato de producto."""
+        return self.archivo in PUNTOS_DEL_CONTRATO
+
+    @property
+    def repo(self) -> str:
+        return self.archivo.split("/", 1)[0]
 
 
 class CambioDeEsquema(Base):
@@ -538,14 +602,29 @@ class ContratoAprobado(Base):
         # La regla que define al arquitecto: las tres puntas se mueven juntas o no se mueve
         # ninguna. Un contrato que nombra una y calla las otras dos es el que rompe en el
         # dispositivo de un usuario semanas después, sin stack trace.
-        if self.puntas_tocadas:
-            nombradas = {p.archivo for p in self.puntas_tocadas}
+        nombradas = {p.archivo for p in self.puntas_tocadas}
+        if nombradas & set(PUNTOS_DEL_CONTRATO):
             faltan = set(PUNTOS_DEL_CONTRATO) - nombradas
             if faltan:
                 raise ValueError(
                     f"el contrato toca el contrato de producto y no nombra {sorted(faltan)}. "
                     f"Las tres puntas se enumeran siempre, aunque en dos la respuesta sea "
                     f"'no cambia': 'no cambia' es verificable, el silencio no."
+                )
+        # Una punta fuera de la base es un contrato NUEVO. La regla de las tres puntas no
+        # se escribió por esos tres archivos: se escribió porque un tipo que cruza el cable
+        # sin su espejo rompe en el dispositivo de un usuario semanas después y sin stack
+        # trace. Así que un contrato nuevo también se declara en los dos repos.
+        nuevas = [p for p in self.puntas_tocadas if not p.es_del_producto]
+        if nuevas:
+            repos = {p.repo for p in nuevas}
+            if len(repos) < 2:
+                solo = repos.pop()
+                falta = "fitogenix-native" if solo == "fitogenix-server" else "fitogenix-server"
+                raise ValueError(
+                    f"el contrato declara puntas nuevas solo en {solo} y ninguna en {falta}. "
+                    f"Un tipo que cruza el cable se declara en los dos repos, o el espejo "
+                    f"queda sin dueño — que es cómo C-04 y C-08 se quedaron abiertos."
                 )
         # Un cambio de esquema es una decisión de arquitectura: se registra como ADR.
         if any(c.tipo != "ninguno" for c in self.cambios_de_esquema) and not self.requiere_adr:

@@ -13,10 +13,12 @@ nunca vio el validador.
    o sea el pipeline se habría interrumpido, que es lo que el diseño promete;
 3. `escala_a_opus` da True, porque el contrato toca el motor;
 4. las tres puntas están enumeradas, incluidas las dos que **no cambian**;
-5. y el hallazgo incómodo: `det.verificado_sin_ruta` levanta 5, de los cuales 4 son
-   artefacto de que `ReglaDeValidacion.puntero` sea un solo `str`. El test lo fija en 5
-   a propósito: si mañana `puntero` pasa a ser una lista, este número tiene que bajar, y
-   el test que se ponga en rojo es el recordatorio de por qué se cambió.
+5. y que `det.verificado_sin_ruta` levanta **1** hallazgo y no 5. Los otros 4 eran del
+   schema: `ReglaDeValidacion.puntero` era un `str` y el arquitecto había dado dos por
+   regla. Se corrigió con esta evidencia el 2026-09-18 y el campo pasó a `punteros`.
+
+Este archivo cambió dos veces por lo que el contrato real destapó, y las dos veces ganó
+el contrato. Es el punto: el golden no está acá para que los schemas pasen.
 """
 import pytest
 
@@ -44,10 +46,18 @@ def test_escala_a_opus_porque_toca_el_motor():
     assert CONTRATO_FTG_002.escala_a_opus is True
 
 
-def test_las_tres_puntas_enumeradas_incluidas_las_que_no_cambian():
-    nombradas = {p.archivo for p in CONTRATO_FTG_002.puntas_tocadas}
-    assert nombradas == set(PUNTOS_DEL_CONTRATO)
-    assert sum(1 for p in CONTRATO_FTG_002.puntas_tocadas if not p.cambia) == 2
+def test_las_tres_puntas_del_producto_enumeradas_incluidas_las_que_no_cambian():
+    delproducto = [p for p in CONTRATO_FTG_002.puntas_tocadas if p.es_del_producto]
+    assert {p.archivo for p in delproducto} == set(PUNTOS_DEL_CONTRATO)
+    assert sum(1 for p in delproducto if not p.cambia) == 2
+
+
+def test_el_contrato_nuevo_se_declara_en_los_dos_repos():
+    """El arquitecto dijo que este contrato agranda el conjunto de 3 a 5 archivos.
+    Hasta el 2026-09-18 no se podía registrar y el objeto afirmaba la verdad vieja."""
+    nuevas = [p for p in CONTRATO_FTG_002.puntas_tocadas if not p.es_del_producto]
+    assert len(nuevas) == 3
+    assert {p.repo for p in nuevas} == {"fitogenix-server", "fitogenix-native"}
 
 
 def test_cero_migraciones_declaradas():
@@ -77,12 +87,14 @@ def test_los_chequeos_puros_sobre_una_salida_real():
     assert det.campo_sin_criterio(CONTRATO_FTG_002) == []
 
 
-def test_verificado_sin_ruta_mide_la_deuda_del_puntero_singular():
-    """5 hallazgos. 1 es del arquitecto (marcó ✅ una regla que solo apunta a §5.2/§3.4);
-    los otros 4 son porque el arquitecto dio dos punteros y el schema admite uno."""
+def test_verificado_sin_ruta_deja_de_inventar_hallazgos():
+    """Con `punteros` en plural queda **1**, y es el único real: el arquitecto marcó ✅
+    "el cliente no ordena ni deduce filas" apuntando solo a `§5.2` y `§3.4`. Son secciones,
+    no hay archivo que abrir, así que es ⚠️ y no ✅. Los otros 4 eran del schema: la regla
+    sí tenía su ruta y no había dónde ponerla."""
     hallazgos = det.verificado_sin_ruta(CONTRATO_FTG_002)
-    assert len(hallazgos) == 5
-    assert all(h.chequeo == "verificado-sin-ruta" for h in hallazgos)
+    assert len(hallazgos) == 1
+    assert "no ordena" in hallazgos[0].detalle or "CONTEXT.md §5.2" in str(hallazgos[0].puntero)
 
 
 @pytest.mark.parametrize("archivo", [
@@ -90,16 +102,30 @@ def test_verificado_sin_ruta_mide_la_deuda_del_puntero_singular():
     "fitogenix-server/src/routes/scoring/bandsSchema.ts",
     "fitogenix-native/src/lib/contracts/scoreBands.ts",
 ])
-def test_las_puntas_nuevas_no_se_pueden_declarar(archivo):
-    """**Deuda conocida, fijada a propósito.** El arquitecto declaró que este contrato
-    agranda el conjunto de puntas de 3 a 5. `PUNTOS_DEL_CONTRATO` es una constante del
-    módulo, así que no hay forma de registrarlo: el contrato queda afirmando la verdad
-    vieja. Cuando se resuelva, este test cambia de sentido — y entonces hay que mirar
-    `guards.verifica_ruta_con_contrato`, que lee la misma constante.
-    """
+def test_una_punta_nueva_se_puede_declarar(archivo):
     from fitogenix.schemas import PuntaDelContrato
-    with pytest.raises(ValueError, match="no es una punta del contrato"):
-        PuntaDelContrato(archivo=archivo, cambia=True, detalle="archivo nuevo del contrato")
+    punta = PuntaDelContrato(archivo=archivo, cambia=True, detalle="archivo nuevo del contrato")
+    assert punta.es_del_producto is False
+
+
+def test_una_punta_que_no_es_ruta_de_repo_sigue_sin_entrar():
+    from fitogenix.schemas import PuntaDelContrato
+    with pytest.raises(ValueError, match="no es una ruta de repo"):
+        PuntaDelContrato(archivo="CONTEXT.md §3.1", cambia=True, detalle="no es un archivo")
+
+
+def test_un_contrato_nuevo_declarado_en_un_solo_repo_no_valida():
+    """Lo que se conserva de la regla de las tres puntas no es la lista: es que un tipo
+    que cruza el cable se declare en los dos lados."""
+    from fitogenix.schemas import PuntaDelContrato
+    solo_server = [
+        PuntaDelContrato(archivo="fitogenix-server/src/routes/scoring/bands.ts",
+                         cambia=True, detalle="ruta nueva sin su espejo"),
+    ]
+    datos = {**CONTRATO_FTG_002.model_dump(),
+             "puntas_tocadas": [p.model_dump() for p in solo_server]}
+    with pytest.raises(ValueError, match="se declara en los dos repos"):
+        ContratoAprobado.model_validate(datos)
 
 
 def test_las_decisiones_abiertas_llevan_dueno_solo_como_prosa():

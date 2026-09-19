@@ -25,7 +25,7 @@ from pathlib import Path
 from .config import SETTINGS
 from .context_loader import SeccionNoEncontrada, load_section, secciones_disponibles
 from .guards import corre_los_guards
-from .schemas import ContratoAprobado, Incertidumbre, Marca, PUNTOS_DEL_CONTRATO
+from .schemas import ContratoAprobado, Incertidumbre, Marca
 
 #: Tope de contexto que un solo Brief tiene derecho a arrastrar. El objetivo número uno
 #: del pipeline es que un agente de disciplina no cargue el SSOT entero; sin un tope,
@@ -38,7 +38,7 @@ _P_CONTEXT = re.compile(r"^CONTEXT\.md\s+§(\d+(?:\.\d+)?)$", re.IGNORECASE)
 
 def _punteros_del_contrato(c: ContratoAprobado) -> list[tuple[str, str]]:
     """(de dónde salió, puntero). Recorre reglas, briefs y sus contextos."""
-    out = [("regla", r.puntero) for r in c.reglas_de_validacion]
+    out = [("regla", x) for r in c.reglas_de_validacion for x in r.punteros]
     for b in c.briefs:
         out += [(f"brief:{b.destinatario.value}", p.ref) for p in b.contexto_relevante]
     return out
@@ -141,11 +141,11 @@ def verificado_sin_ruta(c: ContratoAprobado) -> list[Incertidumbre]:
     return [
         Incertidumbre(
             chequeo="verificado-sin-ruta",
-            detalle=f"regla marcada ✅ apuntando a {r.puntero!r}, que no es una ruta de "
-                    f"código. Sin archivo que abrir, es ⚠️ y no ✅",
+            detalle=f"regla marcada ✅ y ninguno de sus punteros {r.punteros!r} es una ruta "
+                    f"de código. Sin archivo que abrir, es ⚠️ y no ✅",
             puntero=r.puntero)
         for r in c.reglas_de_validacion
-        if r.marca == Marca.VERIFICADO and not _P_CODIGO.match(r.puntero.split("→")[0].strip())
+        if r.marca == Marca.VERIFICADO and not r.rutas_de_codigo
     ]
 
 

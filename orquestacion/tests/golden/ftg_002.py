@@ -9,6 +9,9 @@ habría sido escribir *para* el validador, y el test no habría probado nada.
 Lo que este archivo fija es el contrato **tal como se pudo expresar**. Lo que NO entró
 está anotado abajo con `# NO ENTRA:` y es la lista de trabajo de los schemas, no del
 arquitecto.
+
+Arrancó con seis. El 2026-09-18 se cerraron las dos que más dolían —`punteros` pasó a
+plural y las puntas del contrato dejaron de ser una lista fija de tres— y quedan cuatro.
 """
 from fitogenix.schemas import (
     Brief, CampoDelContrato, ContratoAprobado, Disciplina, Entregable, Marca,
@@ -19,26 +22,28 @@ P = PunteroDeContexto
 CONST = "fitogenix-server/src/domain/product/scoring/constants.ts"
 PRES = "fitogenix-server/src/domain/product/scoring/presentation.ts"
 
-# NO ENTRA (1/6): el arquitecto declaró el contrato con DOS punteros por regla
-# (`CONTEXT.md §X` + la ruta de código). `ReglaDeValidacion.puntero` es un `str`, así que
-# hubo que elegir uno. Consecuencia medida: `det.verificado_sin_ruta` levanta 5 hallazgos
-# sobre este contrato y 4 son artefacto de esa elección, no del arquitecto.
+# Los punteros van en plural desde el 2026-09-18, y esta es la razón: el arquitecto dio
+# DOS por regla —la sección de `CONTEXT.md` que manda y el archivo donde lo verificó—
+# porque son dos cosas distintas. Con el campo en singular había que tirar uno, y
+# `det.verificado_sin_ruta` levantaba 5 hallazgos de los que 4 eran del schema.
 REGLAS = [
-    ReglaDeValidacion(enunciado="ningún umbral, color ni mensaje de banda se escribe a mano en la ruta, el schema ni el cliente: todo sale de TIERS / NO_DATA_TIER", puntero=f"{CONST} → TIERS", marca=Marca.VERIFICADO),
-    ReglaDeValidacion(enunciado="label, color, tagline y fito se derivan con las mismas funciones que derivan la presentación de un producto", puntero=f"{PRES} → getScoreLabel", marca=Marca.VERIFICADO),
-    ReglaDeValidacion(enunciado="el mapeo estado→fito deja de estar duplicado: se extrae al motor y el servicio de lookup pasa a llamarlo", puntero="fitogenix-server/src/services/productLookupService.ts → scorePresentation", marca=Marca.VERIFICADO),
-    ReglaDeValidacion(enunciado="max se deriva del tope de la escala y del min de la banda siguiente; no se escribe 100 en la ruta", puntero="fitogenix-server/src/domain/product/scoring/ledger.ts → MAX_SCORE", marca=Marca.VERIFICADO),
-    ReglaDeValidacion(enunciado="el schema de respuesta queda atado a los tipos en compilación, con el mismo mecanismo satisfies del contrato existente", puntero="fitogenix-server/src/routes/products/lookupSchema.ts → productProperties", marca=Marca.VERIFICADO),
-    ReglaDeValidacion(enunciado="endpoint nuevo entra al contrato de API en el mismo commit: el *Schema.ts hermano y la entrada del documento", puntero="CONTEXT.md §5.6", marca=Marca.SIN_CONTRASTAR),
-    ReglaDeValidacion(enunciado="invariante del sello por banda: el sello de min y el de max coinciden para toda banda con puntaje, o el build rompe", puntero="CONTEXT.md §8.7", marca=Marca.DECIDIDO_NO_IMPLEMENTADO),
-    ReglaDeValidacion(enunciado="ningún test del contrato afirma un umbral literal: se afirma derivación, nunca el número", puntero="CONTEXT.md §3.1", marca=Marca.VERIFICADO),
-    ReglaDeValidacion(enunciado="el cliente no ordena, no completa ni deduce filas: renderiza el array en el orden que llega", puntero="CONTEXT.md §3.4", marca=Marca.VERIFICADO),
-    ReglaDeValidacion(enunciado="el cliente cachea la tabla por engineVersion y trata como MISS toda entrada de otra versión", puntero="CONTEXT.md §5.4", marca=Marca.VERIFICADO),
-    ReglaDeValidacion(enunciado="el contrato no toca la columna denormalizada de puntaje ni ningún camino de lectura que la sirva", puntero="CONTEXT.md §8.19", marca=Marca.VERIFICADO),
-    ReglaDeValidacion(enunciado="cero migraciones: no hay cambio de esquema y la numeración de migrations/ no se toca", puntero="CONTEXT.md §8.6", marca=Marca.VERIFICADO),
+    ReglaDeValidacion(enunciado="ningún umbral, color ni mensaje de banda se escribe a mano en la ruta, el schema ni el cliente: todo sale de TIERS / NO_DATA_TIER", punteros=["CONTEXT.md §3.1", f"{CONST} → TIERS, NO_DATA_TIER, EXCELLENT_FROM, BAD_BELOW"], marca=Marca.VERIFICADO),
+    ReglaDeValidacion(enunciado="label, color, tagline y fito se derivan con las mismas funciones que derivan la presentación de un producto", punteros=[f"{PRES} → getScoreLabel, getScoreTagline, getSello, resolveProductStatus"], marca=Marca.VERIFICADO),
+    ReglaDeValidacion(enunciado="el mapeo estado→fito deja de estar duplicado: se extrae al motor y el servicio de lookup pasa a llamarlo", punteros=["fitogenix-server/src/services/productLookupService.ts → scorePresentation"], marca=Marca.VERIFICADO),
+    ReglaDeValidacion(enunciado="max se deriva del tope de la escala y del min de la banda siguiente; no se escribe 100 en la ruta", punteros=["fitogenix-server/src/domain/product/scoring/ledger.ts → MIN_SCORE, MAX_SCORE"], marca=Marca.VERIFICADO),
+    ReglaDeValidacion(enunciado="el schema de respuesta queda atado a los tipos en compilación, con el mismo mecanismo satisfies del contrato existente", punteros=["fitogenix-server/src/routes/products/lookupSchema.ts → productProperties"], marca=Marca.VERIFICADO),
+    ReglaDeValidacion(enunciado="endpoint nuevo entra al contrato de API en el mismo commit: el *Schema.ts hermano y la entrada del documento", punteros=["CONTEXT.md §5.6"], marca=Marca.SIN_CONTRASTAR),
+    ReglaDeValidacion(enunciado="invariante del sello por banda: el sello de min y el de max coinciden para toda banda con puntaje, o el build rompe", punteros=["fitogenix-server/src/domain/product/scoring/invariants.test.ts", "CONTEXT.md §8.7"], marca=Marca.DECIDIDO_NO_IMPLEMENTADO),
+    ReglaDeValidacion(enunciado="ningún test del contrato afirma un umbral literal: se afirma derivación, nunca el número", punteros=["CONTEXT.md §3.1", "fitogenix-server/src/domain/product/scoring/presentation.test.ts"], marca=Marca.VERIFICADO),
+    # La única regla del contrato real que `det.verificado_sin_ruta` levanta con razón:
+    # el arquitecto la marcó ✅ y sus dos punteros son secciones. No hay archivo que abrir.
+    ReglaDeValidacion(enunciado="el cliente no ordena, no completa ni deduce filas: renderiza el array en el orden que llega", punteros=["CONTEXT.md §5.2", "CONTEXT.md §3.4"], marca=Marca.VERIFICADO),
+    ReglaDeValidacion(enunciado="el cliente cachea la tabla por engineVersion y trata como MISS toda entrada de otra versión", punteros=["CONTEXT.md §5.4", "fitogenix-server/src/services/redisService.ts → setInRedis, unwrapCachedProduct"], marca=Marca.VERIFICADO),
+    ReglaDeValidacion(enunciado="el contrato no toca la columna denormalizada de puntaje ni ningún camino de lectura que la sirva", punteros=["fitogenix-server/src/services/cacheService.ts", "CONTEXT.md §5.4", "CONTEXT.md §8.19"], marca=Marca.VERIFICADO),
+    ReglaDeValidacion(enunciado="cero migraciones: no hay cambio de esquema y la numeración de migrations/ no se toca", punteros=["fitogenix-server/migrations/", "CONTEXT.md §8.6"], marca=Marca.VERIFICADO),
 ]
 
-# NO ENTRA (2/6): el arquitecto dio DOS criterios Dado/Cuando/Entonces para `min`/`max` y
+# NO ENTRA (1/4): el arquitecto dio DOS criterios Dado/Cuando/Entonces para `min`/`max` y
 # para `tagline` (el caso normal y el de la banda sin datos). `CampoDelContrato` admite
 # uno, así que van concatenados y el segundo deja de ser verificable por separado.
 CAMPOS = [
@@ -53,11 +58,9 @@ CAMPOS = [
     CampoDelContrato(nombre="bands[].fito", tipo="'fito' | 'nofito' | 'none'", criterio_de_aceptacion="Dado cualquier puntaje dentro de una banda Cuando se compara el fito de la banda con el fito que el contrato de producto devuelve para ese puntaje Entonces coinciden para TODO puntaje de la banda, no solo para su extremo"),
 ]
 
-# NO ENTRA (3/6): el arquitecto declaró que este contrato agranda el conjunto de puntas de
-# 3 a 5 (`routes/scoring/bands.ts`, `routes/scoring/bandsSchema.ts` en el server y
-# `lib/contracts/scoreBands.ts` en el cliente). `PuntaDelContrato.archivo` valida contra
-# la constante `PUNTOS_DEL_CONTRATO`, que es fija, así que las tres puntas nuevas NO se
-# pueden registrar. El contrato queda diciendo la verdad vieja.
+# Las tres puntas del contrato de producto, más las tres del contrato NUEVO. El
+# arquitecto declaró que este contrato agranda el conjunto de 3 a 5 archivos; hasta el
+# 2026-09-18 eso no se podía registrar y el objeto quedaba afirmando la verdad vieja.
 PUNTAS = [
     PuntaDelContrato(archivo="fitogenix-server/src/types/fitogenix.ts", cambia=True,
                      detalle="agrega ScoreBand y ScoreBandsResponse; FitogenixProduct no se toca"),
@@ -65,6 +68,12 @@ PUNTAS = [
                      detalle="lookupResponseSchema y productProperties quedan idénticos; el satisfies sigue compilando"),
     PuntaDelContrato(archivo="fitogenix-native/src/lib/contracts/product.ts", cambia=False,
                      detalle="el espejo nuevo entra como archivo hermano en la misma carpeta declarada espejo"),
+    PuntaDelContrato(archivo="fitogenix-server/src/routes/scoring/bands.ts", cambia=True,
+                     detalle="ruta nueva scoreBandsRoute, sin auth, registrada en main.ts"),
+    PuntaDelContrato(archivo="fitogenix-server/src/routes/scoring/bandsSchema.ts", cambia=True,
+                     detalle="bandsResponseSchema atado a ScoreBand con satisfies"),
+    PuntaDelContrato(archivo="fitogenix-native/src/lib/contracts/scoreBands.ts", cambia=True,
+                     detalle="el espejo del cliente para la tabla de bandas"),
 ]
 
 BRIEFS = [
@@ -90,10 +99,10 @@ BRIEFS = [
           fuera_de_alcance=["auditar el copy de los STEPS", "implementar cualquier fix"]),
 ]
 
-# NO ENTRA (4/6): el arquitecto devolvió `status: partial`. `ContratoAprobado` no tiene
+# NO ENTRA (2/4): el arquitecto devolvió `status: partial`. `ContratoAprobado` no tiene
 # campo de estado — `EstadoReporte` existe, pero para `Reporte`.
-# NO ENTRA (5/6): cada supuesto venía marcado ⚠️. `supuestos` es `list[str]`: la marca se pierde.
-# NO ENTRA (6/6): cada decisión abierta venía con **dueño** (orchestrator / ux).
+# NO ENTRA (3/4): cada supuesto venía marcado ⚠️. `supuestos` es `list[str]`: la marca se pierde.
+# NO ENTRA (4/4): cada decisión abierta venía con **dueño** (orchestrator / ux).
 # `decisiones_abiertas` es `list[str]`, así que el dueño viaja como prosa y ruteársela a
 # alguien exige parsearla. Es el mismo defecto que B-6: una decisión sin dueño explícito.
 CONTRATO_FTG_002 = ContratoAprobado(

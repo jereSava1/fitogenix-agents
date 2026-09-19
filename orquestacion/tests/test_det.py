@@ -121,13 +121,27 @@ def test_una_regla_verificada_sin_ruta_de_archivo_dispara():
     c = _contrato(reglas_de_validacion=[ReglaDeValidacion(
         enunciado="esto está verificado", puntero="CONTEXT.md §3.4", marca=Marca.VERIFICADO)])
     d = det.verificado_sin_ruta(c)
-    assert len(d) == 1 and "no es una ruta de código" in d[0].detalle
+    assert len(d) == 1 and "ninguno de sus punteros" in d[0].detalle
 
 
 def test_una_regla_verificada_con_ruta_no_dispara():
     c = _contrato(reglas_de_validacion=[ReglaDeValidacion(
         enunciado="los umbrales viven acá", puntero=CODIGO, marca=Marca.VERIFICADO)])
     assert det.verificado_sin_ruta(c) == []
+
+
+def test_alcanza_con_que_uno_de_los_punteros_sea_abrible():
+    """La autoridad y la evidencia son dos punteros distintos. Exigir que el primero fuera
+    la ruta era el motivo de 4 de los 5 hallazgos sobre el golden FTG-002."""
+    c = _contrato(reglas_de_validacion=[ReglaDeValidacion(
+        enunciado="el cliente no recalcula el puntaje",
+        punteros=["CONTEXT.md §3.4", CODIGO], marca=Marca.VERIFICADO)])
+    assert det.verificado_sin_ruta(c) == []
+
+
+def test_el_singular_sigue_valiendo_como_lista_de_uno():
+    r = ReglaDeValidacion(enunciado="los umbrales viven acá", puntero=CODIGO)
+    assert r.punteros == [CODIGO] and r.puntero == CODIGO
 
 
 # --- 6 · frontera ----------------------------------------------------------------
