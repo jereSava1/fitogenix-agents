@@ -1,16 +1,47 @@
 # `orquestacion/` — el pipeline agéntico de Fitogenix
 
-Estado al **2026-09-01**: **Fase 3 (contratos) cerrada.** No hay grafo todavía, y es a
-propósito: `PROPUESTA_grafo_fase2.md` secciones 9 y 11 dicen que nada de `graph.py` se
-escribe hasta que los schemas y sus tests estén en verde.
+Estado al **2026-09-19**: **el pipeline corre de punta a punta en dry-run**, sin llamar a
+ningún modelo y sin API key. El orden lo fijó `PROPUESTA_grafo_fase2.md` secciones 9 y 11
+—nada de `graph.py` hasta que los schemas y sus tests estuvieran en verde— y se respetó.
+
+Lo que **todavía no pasó**: la primera corrida real. Antes va la auditoría de
+`PROMPT_auditoria_entorno_agentico.md`, y después el debut lo autoriza Jere: es el primer
+momento en que esto gasta tokens.
 
 ```
 orquestacion/
 ├── fitogenix/
-│   ├── schemas.py   contratos de transición — Pydantic es el control de calidad
-│   └── guards.py    los guards de frontera — reemplazan a la DENY_LIST de PampaGrow
-└── tests/           68 tests · `pytest tests/ -q`
+│   ├── schemas.py         los contratos — Pydantic es el mecanismo anti-alucinación
+│   ├── guards.py          las fronteras del SSOT, verificadas sin modelo
+│   ├── punteros.py        que las citas al SSOT resuelvan de verdad
+│   ├── det.py             los 7 chequeos deterministas de incertidumbre
+│   ├── config.py          rutas, ruteo de modelo, dry-run
+│   ├── context_loader.py  carga por sección: de dónde sale el ahorro
+│   ├── llm.py             la llamada al modelo — lo único que gasta plata
+│   ├── stubs.py           la salida mínima válida de cada nodo (dry-run)
+│   ├── sessions.py        checkpointer SQLite + el handoff en .md
+│   └── graph.py           9 nodos, 2 interrupt(), 3 techos, UNA salida
+├── run.py                 el CLI
+├── verificar.py           guards + punteros + cobertura, un solo comando
+└── tests/                 181 tests, ninguno necesita API key
 ```
+
+## Correrlo
+
+```bash
+# el grafo entero, sin llamar a ningún modelo y sin credencial
+python run.py --ticket FTG-002 --dry-run --entrada-archivo ../tareas/FTG-002-*.md
+
+# qué quedó esperando respuesta
+python run.py --list
+
+# retomar — desde otra terminal, otro día
+python run.py --resume FTG-002 --accion contratar --respuesta "P1=el alcance es X"
+```
+
+Códigos de salida: **0** cerrada · **2** esperando respuesta humana · **1** escalada o
+abortada. El 2 es su propio código a propósito: una corrida interrumpida no es un
+fracaso, pero tampoco es un éxito, y en CI se tratan distinto.
 
 ## Cómo se corre
 
