@@ -677,6 +677,30 @@ ni se redondean: se citan como están, con la fecha.**
 | Productos con 0% de cobertura | 1.453 |
 | Cobertura promedio de los sin puntaje | 44,3% |
 
+#### Distribución del puntaje — medida el 19/9/2026
+
+Primera vez que se mide. Salió de dimensionar ADR-007, no era la pregunta, y es el número
+más incómodo del proyecto.
+
+| Banda | Productos | % de los puntuados | Fuente |
+|---|---|---|---|
+| Alta | 2.118 | 3,5 % | ✅ `count` por banda sobre `products` |
+| Media alta | 5.427 | 8,8 % | ✅ ídem |
+| **Media baja** | **46.232** | **75,3 %** | ✅ ídem |
+| Baja | 7.582 | 12,4 % | ✅ ídem |
+| Sin puntaje | 20.091 | — | ✅ ídem |
+
+**Tres de cada cuatro productos puntuados caen en una sola banda, y es la más angosta de
+las cuatro.** Antes de ADR-007 era peor —la misma banda concentraba el 82 %—, así que mover
+el borde mejoró la discriminación apenas.
+
+Para el usuario esto significa que **el puntaje casi no distingue**: escanea cinco
+productos y cuatro le dicen lo mismo. Los cortes no son la causa; la causa es dónde el
+motor deposita los puntajes. Es `§8.21`.
+
+Los cortes de las bandas **no se transcriben acá** (`§3.1`): las filas se nombran por
+posición relativa.
+
 ### §6.4 Los tres defectos, medidos
 
 - **A — Ingredientes reales sin alias.** El motor no los ve y **calcula mal** el puntaje.
@@ -861,6 +885,29 @@ agentes. Los cerrados viven juntos en `§8.0` porque casi nunca se citan.
 **Verificado contra:** ✅ `scripts/etl/jobs/stats.ts` · `§1.4` · `§3.3`
 
 **Quién decide:** nutrition (si hay criterio sin lista) · Jere (si se declara el límite)
+
+### §8.21 — B-21 · El motor no discrimina: el 75 % del catálogo cae en una sola banda
+
+🔴 **Medido el 19/9/2026 (`§6.3`): 46.232 de 61.359 productos puntuados caen en la misma
+banda** ✅, y es la más angosta de las cuatro. La app le dice lo mismo a tres de cada cuatro
+productos que el usuario escanea, así que el puntaje **no está cumpliendo su función**:
+ordenar. No es un problema de dónde están los cortes —moverlos mejoró del 82 % al 75 %—
+sino de cómo el motor reparte los puntajes.
+
+Toca directamente a `§8.2` (B-2 · el motor puntúa sin haber entendido la etiqueta) y a
+`§8.12` (B-12 · falta el fundamento científico del criterio propio): es la primera vez que
+esos dos bloqueantes tienen un número que los mida.
+
+**Hace falta investigación antes que cambios**, y está abierta como `tareas/FTG-003`:
+contrastar los puntajes contra fuentes de datos confiables y contra otras apps del rubro
+sobre los mismos productos, antes de tocar un coeficiente. Cambiar números sin una
+referencia externa es calibrar contra la intuición.
+
+**Verificado contra:** ✅ `count` por banda sobre `products` · `§6.3` · ADR-007
+
+**Quién decide:** Jere (producto) · nutrition (criterio) · data-ai (método de medición)
+
+---
 
 ---
 
