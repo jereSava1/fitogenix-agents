@@ -339,6 +339,13 @@ mismos cortes**. Fuente única:
 **Los umbrales no se transcriben en ningún documento, prompt, copy ni test.** Se citan por
 puntero a ese archivo.
 
+**El sello es una propiedad de la banda, no un eje aparte** (ADR-007, 19/9/2026). La banda
+más alta lleva el sello positivo y la más baja el negativo, **por definición y no por
+coincidencia numérica**: `BAD_BELOW` y `EXCELLENT_FROM` derivan de `TIERS` ✅. Mover el
+sello es mover un borde de banda. Si alguna vez se le da corte propio, una banda queda
+partida al medio y la tabla de la pantalla de Guía —que lleva un sello por fila— miente
+para esa banda: es el defecto de `FTG-002` al revés.
+
 **Por qué esta regla existe, en palabras del propio código:** *"Antes había tres criterios
 distintos para la misma decisión —75/50/25 acá, 70/50 en `resolveProductStatus`, 75/25 en
 el sello— y un producto de 72 salía 'Bueno' con sello 'Fitogénico'"*. ✅ comentario de
@@ -726,9 +733,10 @@ en `nutricion/NUTRICION.md`. Nace **vacío de conocimiento y con contrato duro**
 afirmación cita fuente primaria o sale 🔴, y su schema no admite un ✅ sin cita. Eso lo hace
 seguro de crear antes de tener la base de datos cargada — ver §8 B-12.
 
-🟡 **`architect` sigue sin existir.** Decidido el 31/8 que se crea (dueño del contrato de
-producto cross-repo y de las migraciones); el archivo `08-agente-arquitecto.md` está
-reservado y sin escribir.
+✅ **`architect` existe desde el 8/9/2026.** Dueño del contrato de producto cross-repo y de
+las migraciones. `08-agente-arquitecto.md` está escrito y registrado como subagente en
+`.claude/agents/architect.md`, sin permisos de escritura de código: produce contratos y
+briefs, no PRs.
 
 **Regla de dominios exclusivos:** dos agentes nunca tocan el mismo archivo en paralelo, y
 ningún agente edita un artefacto del que no es dueño — se lo pide al dueño.
@@ -759,6 +767,7 @@ agentes. Los cerrados viven juntos en `§8.0` porque casi nunca se citan.
 | ~~**B-1**~~ | ✅ **C-02 cerrado (31/8/2026): tier inicial gratuito** (§4.3). El lookup es abierto y sin cuota — **decisión de producto, no deuda**. El código ya la cumple, así que no queda gap de implementación en el servidor ni ticket abierto. Reemplaza la decisión del 28/8 (el ida y vuelta está en `BITACORA_DECISIONES.md`) | ✅ `src/routes/products/lookup.ts` | — |
 | ~~**B-4b**~~ | ✅ **C-09 cerrado (31/8/2026): NOVA se sostiene.** Sigue siendo vocabulario del producto — se ingiere, se persiste en `products.nova_group`, lo mergea el ETL, `audit-scores.ts` lo usa como señal de calidad y se le nombra al usuario. El motor v2.1 **no lo lee para el puntaje** ✅, y eso ahora está dicho con precisión en §2.4. **No se borra nada; la limpieza de código queda descartada.** Lo único que queda vivo es el copy que dice lo contrario → B-13 | ✅ mapeado 28/8, decidido 31/8 | — |
 | ~~**B-5**~~ | ✅ **C-07 cerrado (28/8/2026).** La cascada externa ya no se documenta como camino de request en ningún archivo del set ni en el `README.md` del servidor (§5.3) | Verificado por grep en los 8 agentes + `CONTEXT.md` + READMEs | — |
+| ~~**B-7**~~ | ✅ **Cerrado el 19/9/2026 por ADR-007, y la decisión anterior quedó revertida.** B-7 decía bajar el **umbral alto** del sello; producto decidió lo contrario: el umbral alto se queda donde está y el que se mueve es el **borde de la banda baja**, de modo que la banda baja y el sello negativo pasen a ser la misma cosa. Los cortes siguen derivando de `TIERS` ✅ y no se transcriben acá (`§3.1`). Arrastra bump de `ENGINE_VERSION` y un recompute — ver `§8.19` | `constants.ts` → `TIERS`, `BAD_BELOW`, `EXCELLENT_FROM` · `scoring/presentation.test.ts` (reescrito sin literales) | Jere (producto) |
 | ~~**B-8**~~ | ✅ **No era un bloqueante: el problema está resuelto, con otro mecanismo.** Es cierto que el prefijo de clave no está versionado, pero `redisService` guarda cada entrada dentro de un **sobre** con la `ENGINE_VERSION` que la generó y **trata como MISS toda entrada cuya versión no coincida** ✅. El propio archivo explica por qué se eligió el sobre en vez de versionar la clave: la clave versionada deja huérfano el namespace viejo ocupando storage pago hasta que venza el TTL, mientras que el sobre reescribe la misma clave. **Verificado en la práctica el 31/8**, al bumpear a `v2.2` por B-11 | — |
 | ~~**B-11**~~ | ✅ **Cerrado el 31/8/2026, con el Manual de Aplicación oficial** (`IF-2024-135393117`, 60 págs.). **Cuatro reglas corregidas**: al sodio le faltaban DOS condiciones alternativas (`≥300 mg/100 g` y `≥40 mg/100 ml` en bebidas sin energía), el corte de calorías de bebidas era 70 en vez de 25, y **el octógono de calorías salía por energía sola** cuando la norma exige que ya haya un sello de azúcares o grasas. Las tres primeras marcaban **de menos**; la cuarta, **de más**. `ENGINE_VERSION` → `v2.2`. Detalle en `nutricion/NUTRICION.md §N6` | ✅ `fitogenix-server` `seals.ts` · 418 tests |
 | ~~**B-15**~~ | ✅ **Cerrado el 31/8/2026: el anónimo ya no persiste.** Implementado y testeado — sin sesión no se lee ni se escribe AsyncStorage, y el deslogueo borra el disco con `multiRemove` (la parte con consecuencia de privacidad, con test de regresión). La migración anónimo→logueado re-emite los lookups con token. **Queda 🟡 solo el copy** del estado vacío, a cargo de UX | ✅ `scanResultStore.tsx` · `anonScanMigration.ts` · 7 tests | ux escribe el copy |
@@ -794,12 +803,6 @@ agentes. Los cerrados viven juntos en `§8.0` porque casi nunca se citan.
 ⚠️ **Se achica: el esquema vivo ya se puede consultar, aplicar sigue siendo a mano.** El 3/9/2026 se midió por primera vez y este bloqueante **se describía mal en las dos direcciones**: daba por pendiente la 014, que estaba aplicada, y no mencionaba la 008 ni la 012, que faltaban — además de la 013. Las cuatro se aplicaron ese día ✅. Lo que queda: las migraciones **se siguen corriendo a mano** y no hay registro de aplicación en la base. La 012 no entró en el primer intento sin que el SQL Editor avisara nada. Ya existe la mitad diagnóstica ✅ `npm run verify:schema` y `scripts/sql/diagnostico-esquema.sql`
 
 **Quién decide:** devops (aplicación automática) + architect (dueño de las migraciones)
-
-### §8.7 — B-7 · Mover el umbral del sello, decidido y sin aplicar
-
-⚠️ **Umbral del sello a 70** — decidido, ~40 productos afectados, ticket aparte; hoy sigue derivado de `TIERS` ✅. Cuando se aplique, se cambia **en `constants.ts` y en ningún otro lado**
-
-**Quién decide:** orchestrator (prioriza)
 
 ### §8.9 — B-9 · Sin Dockerfile, sin despliegue, sin engines.node, y rate limit por instancia
 
@@ -845,7 +848,7 @@ agentes. Los cerrados viven juntos en `§8.0` porque casi nunca se citan.
 
 ### §8.19 — B-19 · El job de recompute del catálogo no existe
 
-🔴 **El recompute del catálogo no existe como job, y su plan se apoyaba en tres piezas de las que ninguna estaba completa.** El comentario de `013_score_nullable.sql` dice que el recompute masivo es trabajo del ETL *"filtrando por `engine_version` (índice de la migración 008)"*. Verificado el 3/9: el índice **no estaba aplicado** (se aplicó ese día) y el job **nunca se escribió** — cero archivos filtran por `engine_version` para reescribir. Quedan ⚠️ **58.071 filas en `ftg-rubric-v2`**, un motor anterior a la reescritura de ADR-002. **No rompe nada visible**: ningún camino de lectura de `src/` sirve la columna denormalizada, todos recomponen desde los crudos (`§5.4`) ✅
+🔴 **El recompute del catálogo no existe como job, y su plan se apoyaba en tres piezas de las que ninguna estaba completa.** El comentario de `013_score_nullable.sql` dice que el recompute masivo es trabajo del ETL *"filtrando por `engine_version` (índice de la migración 008)"*. Verificado el 3/9: el índice **no estaba aplicado** (se aplicó ese día) y el job **nunca se escribió** — cero archivos filtran por `engine_version` para reescribir. Quedan ⚠️ **58.071 filas en `ftg-rubric-v2`**, un motor anterior a la reescritura de ADR-002. **No rompe nada visible**: ningún camino de lectura de `src/` sirve la columna denormalizada, todos recomponen desde los crudos (`§5.4`) ✅. **19/9/2026: ahora hay un segundo motivo para el mismo job.** ADR-007 movió un borde de banda y subió `ENGINE_VERSION`, así que las filas afectadas tienen la etiqueta y el sello denormalizados desactualizados además del puntaje viejo
 
 **Verificado contra:** ✅ grep en los 66 archivos de `src/` + `scripts/` · `npm run verify:schema`
 

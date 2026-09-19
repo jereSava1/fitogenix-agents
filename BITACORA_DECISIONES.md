@@ -423,3 +423,77 @@ El estado vigente vive en `CONTEXT.md §2.5`; el fundamento nutricional, en
   y que la fuga real estaba en `steps[].detail`, que nombraba los octógonos uno por uno y
   viaja cacheado en Redis. Al deployar, Redis trata como MISS todo lo cacheado con la versión
   anterior: hay un pico de recálculo el primer día. Es lo buscado.
+
+---
+
+## ADR-007: El sello es una propiedad de la banda, y la banda baja se ensancha
+
+- **Fecha:** 2026-09-19
+- **Estado:** Aceptado
+- **Decididores:** Jere (producto)
+- **Cierra:** B-7 — pasó a `CONTEXT.md §8.0` como cerrado, y revierte la decisión anterior
+
+### Contexto
+
+Jere fijó la regla del sello en dos frases: **un producto por encima del corte alto siempre
+lleva el sello positivo, y por debajo del corte bajo siempre lleva el negativo.** El corte
+alto que pidió es el que el motor ya usaba, así que esa mitad no cambia nada. El corte bajo
+que pidió **no coincidía con ningún borde de banda**: caía adentro de "Moderado".
+
+Eso obligaba a elegir entre tres cosas, y no es una elección de implementación:
+
+1. **Partir la banda** en dos, agregando una banda más a la escala visible.
+2. **Darle al sello un corte propio**, independiente de `TIERS`.
+3. **Mover el borde de la banda** hasta el corte pedido.
+
+La opción 2 es la que parece más flexible y es la peor. Si el sello tuviera corte propio,
+una banda quedaría partida al medio —la mitad de sus puntajes con sello, la otra mitad sin—
+y la tabla que la pantalla de Guía le muestra al usuario, que lleva **un** sello por fila,
+mentiría para esa banda. Es exactamente el defecto de **FTG-002**, que nació al revés: la
+Guía prometía el sello positivo en una franja donde el motor no lo da.
+
+Ese defecto no es un bug de una pantalla: es lo que pasa cuando el mismo eje tiene dos
+numeraciones. El motor ya vivió eso —hubo tres criterios distintos para la misma pregunta,
+y un producto de 72 salía "Bueno" con sello "Fitogénico"— y la respuesta de entonces fue
+hacer que `getSello`, `resolveProductStatus` y las bandas derivaran todos de `TIERS`.
+Volver a separarlos sería deshacer esa corrección.
+
+### Decisión
+
+**El sello se define como una propiedad de la banda, no como un eje aparte.** `BAD_BELOW`
+sigue derivando de `TIERS`, y lo que se mueve es el borde entre las dos bandas de abajo:
+la banda baja se ensancha hasta el corte que pidió producto.
+
+Consecuencia deliberada: **la banda baja y el sello negativo pasan a ser la misma cosa.**
+Un producto de esa banda lleva el sello negativo por definición, no por coincidencia
+numérica. La banda de arriba ya funcionaba así.
+
+`getSello` y `resolveProductStatus` **no se tocan**: siguen derivando.
+
+### Consecuencias
+
+- **Ningún puntaje cambia.** Cambian la etiqueta, el color, el mensaje y el sello de los
+  productos que quedaron del otro lado del borde.
+- **`ENGINE_VERSION` sube a `v2.4`.** El puntaje no cambia y aun así hay que bumpear, por el
+  mismo motivo que en v2.3: la etiqueta y el sello viajan cacheados en Redis y
+  denormalizados en `products`. Sin bump, el usuario ve el sello viejo hasta que venza el
+  TTL y la columna sigue mintiendo hasta el próximo recompute.
+- **Hace falta un recompute** de las filas afectadas — y el job no existe: es **B-19**.
+- **El contrato de FTG-002 no cambia.** La tabla de bandas puede seguir llevando un sello
+  por fila, que es lo que el arquitecto había diseñado y lo que su decisión abierta D-1
+  ponía en duda.
+- **La banda intermedia de abajo queda angosta.** Es el costo aceptado de la opción 3, y es
+  reversible: mover el borde otra vez es mover un número en `TIERS`.
+- 🔴 **`migrations/013_score_nullable.sql` queda desactualizada y es la peor clase de
+  desactualización:** transcribe los cortes del sello en un `COMMENT ON COLUMN` **ya
+  aplicado en la base**, así que hoy la metadata de Postgres afirma un corte que el motor
+  ya no usa. Corregirlo pide una migración nueva. Es del **architect**.
+
+### Alternativas descartadas
+
+| Alternativa | Por qué no |
+|---|---|
+| Banda nueva partiendo la de abajo (opción 1) | Agrega una banda a la escala que ve el usuario. UX tendría que nombrarla y explicarla, y la Guía pasa de cuatro bandas a cinco, sin que nadie lo haya pedido |
+| Corte propio para el sello (opción 2) | Parte una banda al medio. La fila de la Guía miente, y el usuario tendría que entender dos escalas para el mismo número |
+| Dejarlo como estaba | La regla que pidió producto no se cumple: había productos por debajo del corte pedido sin sello negativo |
+
