@@ -273,3 +273,19 @@ def test_lo_que_este_guard_sigue_sin_ver():
     codigo = 'const isBad = result.score != null && result.score < 50;\n' \
              'const featuredLabel = isBad ? "INGREDIENTES CUESTIONABLES" : "INGREDIENTES BENEFICIOSOS";\n'
     assert verifica_umbrales_no_transcriptos("fitogenix-native/src/screens/ScanResultScreen.tsx", codigo) == []
+
+
+def test_un_comentario_de_sql_no_es_codigo():
+    """`--` abre comentario de línea en SQL. Encontrado el 19/9/2026 escribiendo la
+    migración que saca los umbrales del COMMENT de `products.sello`: su bloque de
+    rollback, todo comentado, daba hallazgo."""
+    codigo = "-- COMMENT ON COLUMN products.sello IS 'FITOGÉNICO (>=75), NO FITOGÉNICO (<25)';\n"
+    assert verifica_umbrales_no_transcriptos("fitogenix-server/migrations/099_x.sql", codigo) == []
+
+
+def test_un_umbral_dentro_de_un_comment_on_si_es_hallazgo():
+    """No es un comentario de SQL: es una cadena que termina en la metadata de Postgres,
+    donde ningún barrido la alcanza una vez aplicada."""
+    codigo = "COMMENT ON COLUMN products.sello IS 'FITOGÉNICO (>=75), NO FITOGÉNICO (<25)';\n"
+    fallas = verifica_umbrales_no_transcriptos("fitogenix-server/migrations/099_x.sql", codigo)
+    assert any("cortes de banda" in f for f in fallas)

@@ -122,7 +122,16 @@ class FronteraViolada(ValueError):
     """El cambio cruza una frontera que el SSOT declara absoluta. No es estilo."""
 
 
-def _sin_comentarios(texto: str) -> str:
+#: `--` abre comentario de línea en SQL, y hasta el 19/9/2026 el barrido no lo sabía: en
+#: un `.sql` trataba como código lo que era prosa. Se encontró escribiendo la migración
+#: que saca los umbrales del COMMENT de `products.sello` — su bloque de rollback, todo
+#: comentado, daba hallazgo. Lo que SÍ tiene que seguir dando hallazgo es un umbral dentro
+#: de un `COMMENT ON ... IS '...'`, que no es un comentario de SQL sino una cadena que
+#: termina guardada en la metadata de Postgres, donde ningún barrido la alcanza.
+_COMENTARIO_SQL = re.compile(r"^\s*--")
+
+
+def _sin_comentarios(texto: str, *, sql: bool = False) -> str:
     """Saca las líneas que son solo comentario antes de escanear.
 
     Un escaneo crudo no distingue `import { TIERS }` de `// los TIERS viven en
@@ -131,7 +140,10 @@ def _sin_comentarios(texto: str) -> str:
     Los comentarios al final de una línea con código se dejan: esa línea también
     lleva código, y tirar media línea para adivinar intención es peor.
     """
-    return "\n".join(l for l in texto.splitlines() if not _LINEA_DE_COMENTARIO.match(l))
+    def es_comentario(l: str) -> bool:
+        return bool(_LINEA_DE_COMENTARIO.match(l)) or (sql and bool(_COMENTARIO_SQL.match(l)))
+
+    return "\n".join(l for l in texto.splitlines() if not es_comentario(l))
 
 
 def _es_cliente(ruta: str) -> bool:
@@ -150,7 +162,7 @@ def verifica_umbrales_no_transcriptos(ruta: str, contenido: str) -> list[str]:
     """
     if ruta.endswith(FUENTE_DE_UMBRALES):
         return []
-    limpio = _sin_comentarios(contenido)
+    limpio = _sin_comentarios(contenido, sql=ruta.endswith(".sql"))
     fallas: list[str] = []
 
     for m in _DECLARACION.finditer(limpio):
