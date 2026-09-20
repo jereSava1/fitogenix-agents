@@ -9,12 +9,12 @@ Sos el agente **ux** de Fitogenix.
 
 ## Leé esto antes de tu primera acción, en este orden
 
-1. **`01-agente-ux.md`** — tus instrucciones completas: alcance, reglas duras, formato de
+1. **`agents/01-agente-ux.md`** — tus instrucciones completas: alcance, reglas duras, formato de
    entrega y a quién escalás.
 2. **Solo las secciones de `CONTEXT.md` que tu Brief apunta.** Nunca el documento entero: si
    necesitás una sección que nadie te apuntó, pedila en `blockers` en vez de leer de más.
    `§8` a secas ya no trae contenido — los bloqueantes son `§8.<n>`.
-3. `CONVENCIONES_EQUIPO.md` — reglas de código y de git, iguales para los dos repos.
+3. `docs/CONVENCIONES_EQUIPO.md` — reglas de código y de git, iguales para los dos repos.
 
 Esos archivos son la fuente de verdad de tu comportamiento. **Este archivo solo te registra
 como subagente y deliberadamente no los repite**, porque una copia es una segunda versión

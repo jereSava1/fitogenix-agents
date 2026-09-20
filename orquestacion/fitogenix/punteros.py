@@ -95,11 +95,16 @@ def verifica_texto(
     return fallas
 
 
-def verifica_repo(raiz_repo: Path, docs: Path) -> list[str]:
-    """Recorre el código de un repo y devuelve los punteros rotos."""
-    secciones = indice_de_secciones(docs / "CONTEXT.md")
-    nutricion = indice_de_nutricion(docs / "nutricion" / "NUTRICION.md")
-    adrs = indice_de_adrs(docs / "BITACORA_DECISIONES.md")
+def verifica_repo(raiz_repo: Path, raiz_agentes: Path) -> list[str]:
+    """Recorre el código de un repo y devuelve los punteros rotos.
+
+    `raiz_agentes` es la raíz del repo de agentes, no la carpeta `docs/`: desde el
+    reordenamiento del 2026-09-19 el SSOT vive en `docs/` pero `nutricion/` quedó
+    colgando de la raíz, así que cada documento se compone con su prefijo propio.
+    """
+    secciones = indice_de_secciones(raiz_agentes / "docs" / "CONTEXT.md")
+    nutricion = indice_de_nutricion(raiz_agentes / "nutricion" / "NUTRICION.md")
+    adrs = indice_de_adrs(raiz_agentes / "docs" / "BITACORA_DECISIONES.md")
 
     fallas: list[str] = []
     for carpeta in ("src", "scripts", "migrations"):

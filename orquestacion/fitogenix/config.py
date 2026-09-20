@@ -107,9 +107,22 @@ class Settings:
         return self.state_dir / "summaries"
 
     # --- el SSOT, en este mismo repo ---
+    #: El 2026-09-19 la raíz se ordenó en dos carpetas: los diez `.md` de agente
+    #: pasaron a `agents/` y el resto de la documentación a `docs/`. Las rutas se
+    #: componen desde acá, no se escriben sueltas: cuando la raíz se movió, este
+    #: archivo y `verificar.py` fueron los dos únicos lugares que hubo que tocar.
+    #: `CHANGELOG.md` y `nutricion/` NO se movieron.
+    @property
+    def docs_root(self) -> Path:
+        return self.agentes_root / "docs"
+
+    @property
+    def prompts_root(self) -> Path:
+        return self.agentes_root / "agents"
+
     @property
     def context_md(self) -> Path:
-        return self.agentes_root / "CONTEXT.md"
+        return self.docs_root / "CONTEXT.md"
 
     @property
     def changelog_md(self) -> Path:
@@ -117,7 +130,7 @@ class Settings:
 
     @property
     def bitacora_md(self) -> Path:
-        return self.agentes_root / "BITACORA_DECISIONES.md"
+        return self.docs_root / "BITACORA_DECISIONES.md"
 
     @property
     def nutricion_md(self) -> Path:
@@ -125,16 +138,16 @@ class Settings:
 
     @property
     def convenciones_md(self) -> Path:
-        return self.agentes_root / "CONVENCIONES_EQUIPO.md"
+        return self.docs_root / "CONVENCIONES_EQUIPO.md"
 
     def prompt_de(self, agente: str) -> Path:
-        """El `.md` completo de un agente. `nutrition` → `09-agente-nutricion.md`."""
+        """El `.md` completo de un agente. `nutrition` → `agents/09-agente-nutricion.md`."""
         if agente not in PROMPTS:
             raise AgenteDesconocido(
                 f"No hay prompt para el agente {agente!r}. "
                 f"Conocidos: {', '.join(sorted(PROMPTS))}."
             )
-        return self.agentes_root / PROMPTS[agente]
+        return self.prompts_root / PROMPTS[agente]
 
 
 PROMPTS: dict[str, str] = {
