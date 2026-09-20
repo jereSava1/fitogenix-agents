@@ -35,11 +35,21 @@ python run.py --ticket FTG-002 --dry-run --entrada-archivo ../tareas/FTG-002-*.m
 # qué quedó esperando respuesta
 python run.py --list
 
-# retomar — desde otra terminal, otro día
+# retomar — desde otra terminal, otro día. `--accion` es OBLIGATORIA: nada se aprueba por default
 python run.py --resume FTG-002 --accion contratar --respuesta "P1=el alcance es X"
+
+# antes de la primera corrida real: ¿existen los IDs de modelo de RUTEO? (no gasta tokens)
+python run.py --humo
 ```
 
-Códigos de salida: **0** cerrada · **2** esperando respuesta humana · **1** escalada o
+`--hasta contrato` es el default: la corrida corta después del HitL 2 y termina
+`contrato-listo`. `--hasta completo` solo corre en dry-run hasta que `n3`/`n4` generen
+código real (`DICTAMEN_auditoria_pre_debut.md`, P1-1). Cada entrega de un modelo trae un
+`Cierre` —qué cambió, cómo se validó, qué revisión manual hace falta y cuál es el próximo
+paso— y el resumen de la corrida lo muestra nodo por nodo. Las llamadas crudas quedan en
+`.fitogenix/llamadas/<ticket>/`.
+
+Códigos de salida: **0** cerrada o `contrato-listo` · **2** esperando respuesta humana · **1** escalada o
 abortada. El 2 es su propio código a propósito: una corrida interrumpida no es un
 fracaso, pero tampoco es un éxito, y en CI se tratan distinto.
 

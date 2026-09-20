@@ -117,7 +117,11 @@ VEREDICTOS_QUE_AVANZAN = (Veredicto.APROBADO, Veredicto.APROBADO_CON_CONDICIONES
 
 #: Techos de loop (`PROPUESTA_grafo_fase2.md` sección 3). *"Un pipeline de agentes sin
 #: techo de iteración no es autónomo: es una factura."*
-TECHOS: dict[str, int] = {"aclaracion": 3, "contrato": 1, "revision": 2}
+#: El de contrato pasó de 1 a 2 el 2026-09-19 (decisión de Jere al ejecutar el P0-4 del
+#: dictamen pre-debut): la segunda ronda existe SOLO para rehacer el contrato con las
+#: respuestas del HitL 2. Con techo 1 esas respuestas se guardaban y no llegaban a ningún
+#: prompt. Una ronda con respuesta humana no es "el pipeline discutiendo consigo mismo".
+TECHOS: dict[str, int] = {"aclaracion": 3, "contrato": 2, "revision": 2}
 
 FRASE_DE_INCERTIDUMBRE = (
     "No tengo información verificable suficiente para esto. Lo marco en vez de suponerlo."
@@ -129,8 +133,23 @@ FRASE_DE_INCERTIDUMBRE = (
 
 _P_CONTEXT = re.compile(r"^CONTEXT\.md\s+§\d+(\.\d+)?$", re.IGNORECASE)
 _P_NUTRICION = re.compile(r"^(?:nutricion/)?NUTRICION\.md\s+§N\d+$", re.IGNORECASE)
-_P_BITACORA = re.compile(r"^BITACORA_DECISIONES\.md\s+ADR-\d{3}$", re.IGNORECASE)
-_P_DOCUMENTO = re.compile(r"^[\w.\-/]+\.md\s+secci[oó]n\s+\d+(\.\d+)?$", re.IGNORECASE)
+# `BITACORA_DECISIONES.md ADR-007` o `BITACORA_DECISIONES.md → ADR-007`: la flecha es la
+# misma separación que ya se usa para código, y el modelo la escribió sola (2026-09-20).
+_P_BITACORA = re.compile(r"^BITACORA_DECISIONES\.md\s*(?:→\s*)?\s*ADR-\d{3}$", re.IGNORECASE)
+#: Cualquier documento del set: entero, por sección numerada, o por sección CON NOMBRE.
+#:
+#: Las secciones con nombre entraron el 2026-09-20, en la segunda corrida real: los tickets
+#: de `tareas/` no numeran sus secciones —se llaman "Criterio de aceptación", "Riesgo"— y el
+#: orquestador no tenía forma válida de citar el criterio que estaba analizando. Los prompts
+#: de agente (`01-agente-ux.md`) tampoco: citarlos enteros es correcto, son el documento del
+#: dueño. Cada forma rechazada de más cuesta un reintento de ~45k tokens en Opus.
+#:
+#: `CONTEXT.md` y `NUTRICION.md` quedan afuera a propósito: esos SIEMPRE llevan `§`, porque
+#: son los grandes y citarlos enteros es justo el costo que este pipeline existe para evitar.
+_P_DOCUMENTO = re.compile(
+    r"^(?!CONTEXT\.md$|(?:nutricion/)?NUTRICION\.md$)[\w.\-/]+\.md"
+    r"(?:\s+secci[oó]n\s+[^\n]{1,60}|\s*→\s*[^\n]{1,60})?$",
+    re.IGNORECASE)
 # Código: repo/ruta.ext, opcionalmente ` → simbolo` (o varios, separados por coma), o un
 # directorio terminado en `/`. Sin número de línea.
 # Los dos agregados son del 2026-09-18, medidos contra el golden FTG-002: el arquitecto
@@ -162,6 +181,11 @@ class PunteroInvalido(ValueError):
 def valida_puntero(p: str) -> str:
     """Un puntero es `CONTEXT.md §X`, `NUTRICION.md §Nx`, un ADR, una sección en prosa
     de otro documento, o una ruta de código con símbolo. Nada más.
+
+    Un documento del set se puede citar entero (`01-agente-ux.md`), por sección numerada
+    (`CONVENCIONES_EQUIPO.md sección 2`) o por sección con nombre
+    (`FTG-002.md sección Criterio de aceptación`). `CONTEXT.md` y `NUTRICION.md` no: esos
+    llevan `§` siempre.
 
     Rechaza el número de línea por la convención del 31/8/2026 (`CONTEXT.md §9`): se
     encontró `ENGINE_VERSION` citado como `ftgEngine.ts:24` cuando vive en
@@ -361,23 +385,63 @@ class PreguntaAbierta(Base):
 
 
 class Contradiccion(Base):
-    """Se reporta, nunca se elige en silencio. Es como se cerraron C-07 y C-14."""
+    """Se reporta, nunca se elige en silencio. Es como se cerraron C-07 y C-14.
+
+    **`resolucion` existe desde el 2026-09-20**, por la primera corrida real: el humano
+    contestó las cuatro preguntas del HitL 1, el análisis quedó listo, y el objeto no tenía
+    dónde decir *cómo* se resolvió cada contradicción. Reportada y pendiente eran el mismo
+    estado, así que `listo_para_contratar=True` no podía convivir con una contradicción ya
+    zanjada: el modelo entregó tres veces lo mismo y la corrida murió con la decisión ya
+    tomada. Lo que la regla protege es que nadie elija en silencio — y una resolución
+    escrita es lo contrario del silencio.
+    """
 
     tema: str
     fuente_a: str
     fuente_b: str
     resuelve: Literal["jere", "orchestrator", "architect", "nutrition"] = "jere"
+    resolucion: Optional[str] = Field(
+        default=None, min_length=10,
+        description="Cómo se resolvió, en una frase. Vacío = sigue pendiente y frena el contrato.")
+
+    @property
+    def pendiente(self) -> bool:
+        return not self.resolucion
 
 
 class RequisitoTrazado(Base):
+    """Un requisito con su trazabilidad. **Los punteros son varios** (2026-09-20).
+
+    Es la misma lección que `ReglaDeValidacion` aprendió el 18/9 y que este campo no había
+    aprendido: en la primera corrida real el orquestador quiso trazar un requisito a la
+    sección que manda **y** al archivo donde se ve —`CONTEXT.md §3.1 · fitogenix-native/
+    src/screens/GuideScreen.tsx → TIERS`—, el campo era un `str`, y la única salida era
+    concatenarlos con un `·`, que no valida. Costó 13 y 18 errores de validación en dos
+    corridas, o sea dos reintentos de Opus de ~40k tokens cada uno, y ninguno era un error
+    del modelo: era el schema pidiendo citar de menos.
+    """
+
     enunciado: str
-    puntero: str
+    punteros: list[str] = Field(min_length=1)
     marca: Marca
 
-    @field_validator("puntero")
+    @model_validator(mode="before")
     @classmethod
-    def _p(cls, v: str) -> str:
-        return valida_puntero(v)
+    def _singular(cls, data: object) -> object:
+        if isinstance(data, dict) and "puntero" in data and "punteros" not in data:
+            data = {**data, "punteros": [data["puntero"]]}
+            data.pop("puntero")
+        return data
+
+    @field_validator("punteros")
+    @classmethod
+    def _p(cls, v: list[str]) -> list[str]:
+        return [valida_puntero(x) for x in v]
+
+    @property
+    def puntero(self) -> str:
+        """El primero. La autoridad va primero por convención; la evidencia después."""
+        return self.punteros[0]
 
 
 class AnalisisDeRequerimiento(Base):
@@ -402,13 +466,23 @@ class AnalisisDeRequerimiento(Base):
     marca_general: Marca = Marca.SIN_CONTRASTAR
     listo_para_contratar: bool = False
     nota_de_incertidumbre: Optional[str] = None
+    # De acá sale el escalado del arquitecto (`PROPUESTA_grafo_fase2.md` sección 5). Hasta
+    # el 2026-09-19 `n2_contrato` buscaba `toca_scoring` en este objeto con `hasattr`, el
+    # campo no existía y el arquitecto iba siempre a Sonnet. Lo declarado se une con lo que
+    # `det.escalado_del_analisis` deriva de los punteros: el modelo no puede bajarlo.
+    toca_scoring: bool = False
+    toca_auth: bool = False
+    toca_migracion: bool = False
 
     @model_validator(mode="after")
     def _reglas(self) -> "AnalisisDeRequerimiento":
-        if (self.preguntas_abiertas or self.contradicciones) and self.listo_para_contratar:
+        pendientes = [c for c in self.contradicciones if c.pendiente]
+        if (self.preguntas_abiertas or pendientes) and self.listo_para_contratar:
             raise ValueError(
-                "listo_para_contratar=True con preguntas o contradicciones pendientes. "
-                "Se escala, no se supone."
+                f"listo_para_contratar=True con {len(self.preguntas_abiertas)} pregunta(s) "
+                f"abierta(s) y {len(pendientes)} contradicción(es) sin `resolucion`. Se escala, "
+                f"no se supone. Una contradicción ya zanjada lleva su `resolucion` escrita y "
+                f"viaja como registro; una sin resolver frena el contrato."
             )
         # `CONTEXT.md §8`: un plan que toca un bloqueante 🔴 abierto tiene una decisión de
         # producto sin tomar en el camino. B-12 no tiene dueño, así que B-2/B-3/B-4 no se
@@ -439,7 +513,8 @@ def aprobacion_valida(analisis: AnalisisDeRequerimiento, respuesta: RespuestaHum
 
     Impide el OK vacío: no se puede aprobar un requisito sin resolver.
     """
-    return respuesta.aprobado and not analisis.preguntas_abiertas and not analisis.contradicciones
+    return (respuesta.aprobado and not analisis.preguntas_abiertas
+            and not any(c.pendiente for c in analisis.contradicciones))
 
 
 # --------------------------------------------------------------------------- #
@@ -656,9 +731,41 @@ class Incertidumbre(Base):
         # el objetivo número uno del pipeline es que un agente no cargue el SSOT entero,
         # y sin un tope nada impedía que un Brief lo reconstruyera citando §1, §2 y §5.
         "presupuesto-excedido",
+        # Agregados el 2026-09-19 (dictamen pre-debut, P0-5 a P0-7):
+        "regla-sin-verificar",   # una regla ⚠️ o 🔴 es una duda que el modelo ya confesó
+        "repo-no-encontrado",    # sin el repo, el chequeo de punteros no puede correr: falla cerrado
+        "escalado-omitido",      # el contrato toca motor/auth/migración y no corrió en Opus
     ]
     detalle: str
     puntero: Optional[str] = None
+
+
+def ids_a_responder(c: ContratoAprobado, det: list[Incertidumbre]) -> dict[str, str]:
+    """Lo que el HitL 2 le pregunta al humano, con un id estable por ítem.
+
+    `S<n>` supuesto · `D<n>` decisión abierta · `C<n>` chequeo determinista. Los ids
+    existen para que una respuesta se pueda atar a lo que responde, y para que un OK sin
+    respuestas no cuente (`aprobacion_contrato_valida`).
+    """
+    out: dict[str, str] = {}
+    out.update({f"S{i}": s for i, s in enumerate(c.supuestos, 1)})
+    out.update({f"D{i}": d for i, d in enumerate(c.decisiones_abiertas, 1)})
+    out.update({f"C{i}": f"{x.chequeo}: {x.detalle}" for i, x in enumerate(det, 1)})
+    return out
+
+
+def aprobacion_contrato_valida(
+    c: ContratoAprobado, det: list[Incertidumbre], respuesta: "RespuestaHumana"
+) -> bool:
+    """El OK del HitL 2 cuenta solo si cada ítem preguntado tiene una respuesta no vacía.
+
+    Hasta el 2026-09-19 este cruce se hacía contra el **análisis**, que a esa altura ya
+    estaba limpio, así que cualquier OK aprobaba un contrato con supuestos sin contestar.
+    """
+    faltan = set(ids_a_responder(c, det)) - {
+        k.strip().upper() for k, v in respuesta.respuestas.items() if str(v).strip()
+    }
+    return respuesta.aprobado and not faltan
 
 
 def hay_que_preguntar(c: ContratoAprobado, det: list[Incertidumbre]) -> bool:
@@ -669,6 +776,112 @@ def hay_que_preguntar(c: ContratoAprobado, det: list[Incertidumbre]) -> bool:
     pasa por el modelo, y por eso el agujero queda tapado.
     """
     return bool(c.decisiones_abiertas) or bool(c.supuestos) or bool(det)
+
+
+# --------------------------------------------------------------------------- #
+# Cierre — lo que TODA entrega de un modelo deja escrito (2026-09-19)          #
+# --------------------------------------------------------------------------- #
+
+
+class CambioHecho(Base):
+    """Un cambio concreto. `donde` es un puntero (se valida), no prosa."""
+
+    que: str = Field(min_length=10, max_length=240)
+    donde: Optional[str] = Field(
+        default=None, description="Puntero: 'CONTEXT.md §X', 'fitogenix-server/ruta.ts → simbolo', …"
+    )
+
+    @field_validator("donde")
+    @classmethod
+    def _p(cls, v: Optional[str]) -> Optional[str]:
+        return valida_puntero(v) if v else v
+
+
+class Validacion(Base):
+    """Cómo se validó algo. `origen` distingue lo que el modelo DICE de lo que Python HIZO.
+
+    Un modelo llamado por API no tiene tools: no puede correr un test ni abrir un archivo.
+    Por eso `origen="python"` solo lo escribe el pipeline (`llm.llama_estructurado`
+    rechaza una entrega que lo traiga) y es la única validación que es un hecho.
+    """
+
+    metodo: Literal[
+        "schema", "chequeo-determinista", "test", "comando", "lectura-de-codigo",
+        "cita-al-ssot", "ninguna",
+    ]
+    referencia: str = Field(min_length=3, max_length=240)
+    resultado: Literal["pasa", "falla", "no-corrido"]
+    origen: Literal["modelo", "python"] = "modelo"
+
+
+class RevisionManual(Base):
+    requerida: bool
+    que_revisar: list[str] = Field(default_factory=list, max_length=8)
+    quien: Optional[Disciplina | Literal["jere"]] = None
+    por_que: str = ""
+
+    @model_validator(mode="after")
+    def _reglas(self) -> "RevisionManual":
+        if self.requerida and not (self.que_revisar and self.quien and len(self.por_que) >= 10):
+            raise ValueError(
+                "revisión manual requerida sin decir qué revisar, quién y por qué: "
+                "una revisión sin objeto no se hace."
+            )
+        if not self.requerida and self.que_revisar:
+            raise ValueError("que_revisar con requerida=False: o hace falta revisar, o no.")
+        return self
+
+
+class ProximoPaso(Base):
+    # 600, no 280 (2026-09-20): en la primera corrida real el próximo paso era "contratar a
+    # architect con tal alcance, que además arrastra el contrato de API en el mismo commit"
+    # y no entraba. Un validador que obliga a resumir de más tira información que el humano
+    # necesita para decidir.
+    accion: str = Field(min_length=10, max_length=600)
+    responsable: Disciplina | Literal["jere", "pipeline"]
+    bloqueado_por: Optional[str] = None
+
+
+class Cierre(Base):
+    """El cierre de una entrega: qué cambió, cómo se validó, qué revisa un humano, qué sigue.
+
+    Va en TODA salida de un modelo (`llm.Entrega`), no dentro de cada schema: así el
+    formato es uno solo para los diez agentes, y los contratos de cada nodo no cambian.
+
+    La regla que Python impone y el modelo no puede suavizar: **lo que no se validó de
+    verdad pide revisión manual.** Si una validación falla, no corrió, o es `ninguna`, la
+    revisión manual es obligatoria. Y ✅ exige al menos una validación de `origen=python`
+    —el modelo sin tools no puede ganarse un ✅ solo—.
+    """
+
+    resumen: str = Field(min_length=20, max_length=600)
+    cambios: list[CambioHecho] = Field(default_factory=list, max_length=12)
+    validaciones: list[Validacion] = Field(min_length=1)
+    revision_manual: RevisionManual
+    proximo_paso: ProximoPaso
+    marca: Marca = Marca.SIN_CONTRASTAR
+
+    @model_validator(mode="after")
+    def _reglas(self) -> "Cierre":
+        flojas = [v for v in self.validaciones
+                  if v.resultado != "pasa" or v.metodo == "ninguna"]
+        if flojas and not self.revision_manual.requerida:
+            raise ValueError(
+                f"{len(flojas)} validación(es) sin pasar o sin correr y revision_manual."
+                f"requerida=False. Lo que no se validó, lo revisa un humano."
+            )
+        if self.marca == Marca.VERIFICADO and not any(v.origen == "python" for v in self.validaciones):
+            raise ValueError("cierre ✅ sin ninguna validación hecha por Python: es ⚠️.")
+        return self
+
+
+class RegistroDeCierre(Base):
+    """Un `Cierre` en el estado, con quién y dónde lo escribió."""
+
+    nodo: str
+    agente: str
+    modelo: str
+    cierre: Cierre
 
 
 # --------------------------------------------------------------------------- #
@@ -921,8 +1134,18 @@ class EstadoDelPipeline(BaseModel):
     ronda_aclaracion: int = 0
 
     contrato: Optional[ContratoAprobado] = None
-    incertidumbres: Annotated[list[Incertidumbre], _concat] = Field(default_factory=list)
+    # SIN reducer desde el 2026-09-19: son los chequeos del contrato VIGENTE. Con `_concat`
+    # los de un contrato ya reemplazado seguían forzando el HitL 2 sobre el nuevo.
+    incertidumbres: list[Incertidumbre] = Field(default_factory=list)
     ronda_contrato: int = 0
+    respuestas_contrato: Annotated[list[RespuestaHumana], _concat] = Field(default_factory=list)
+    modelo_contrato: str = ""
+    decision_contrato: str = ""
+    #: Hasta dónde corre. `contrato` corta después de `n2b` (el debut recomendado): `n3`/`n4`
+    #: todavía no generan código real (dictamen H3/H4), así que seguir solo gastaría Opus
+    #: revisando un stub.
+    hasta: Literal["contrato", "completo"] = "contrato"
+    cierres: Annotated[list[RegistroDeCierre], _concat] = Field(default_factory=list)
 
     entregas: Annotated[list[CodigoGenerado], _concat] = Field(default_factory=list)
     reportes: Annotated[list[Reporte], _concat] = Field(default_factory=list)
@@ -936,7 +1159,8 @@ class EstadoDelPipeline(BaseModel):
     log: Annotated[list[EventoDeLog], _concat] = Field(default_factory=list)
     errores: Annotated[list[str], _concat] = Field(default_factory=list)
     estado_final: Literal[
-        "en-curso", "cerrada", "escalada", "bloqueada", "abortada-por-techo"
+        "en-curso", "cerrada", "escalada", "bloqueada", "abortada-por-techo",
+        "abortada", "contrato-listo",
     ] = "en-curso"
 
     @property

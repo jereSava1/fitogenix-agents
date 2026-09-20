@@ -24,11 +24,18 @@ mal armada, y reintentarla esconde el bug detrás de un delay.
 
 from __future__ import annotations
 
+import copy
+import hashlib
+import json
 import os
 import random
 import time
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
+from functools import lru_cache
 from typing import TYPE_CHECKING, Any, Callable, TypeVar
+
+from pydantic import ValidationError, create_model
 
 from .config import SETTINGS, choose_model
 
@@ -51,9 +58,14 @@ ESPERA_BASE = 1.5
 #: techo de iteración.
 TECHO_DE_TOKENS_POR_CORRIDA = int(os.getenv("FITOGENIX_TECHO_TOKENS", "400000"))
 
-#: Salidas por llamada. Un contrato o un reporte largo entran holgados acá; si algo lo
-#: necesita más alto, es señal de que el Brief está pidiendo demasiado de una sola vez.
-MAX_TOKENS = 8_000
+#: Salidas por llamada. **16.000 desde el 2026-09-20**, y con techo propio: en el debut, el
+#: primer contrato real del arquitecto —4 briefs, 9 reglas, 7 campos, 6 puntas— se cortó
+#: exactamente en 8.000, con todo escrito menos el cierre. "Entran holgados" era una
+#: suposición mía, no una medición: un contrato de FTG-002 pesa más que eso.
+MAX_TOKENS = 16_000
+#: Tope duro al que puede llegar el reintento por truncado. Más que esto no es una salida
+#: larga: es un nodo que está pidiendo demasiado de una sola vez.
+TOPE_DE_SALIDA = 32_000
 
 
 class SinCredencial(RuntimeError):
@@ -69,6 +81,58 @@ class PresupuestoAgotado(RuntimeError):
     """La corrida pasó el techo de tokens. Corta acá, no en la factura."""
 
 
+class EntregaInvalida(RuntimeError):
+    """El modelo no produjo una entrega válida ni después del reintento con el error.
+
+    Lleva la ruta de la traza cruda: lo que se pagó no se pierde, se puede leer.
+    """
+
+
+class SalidaTruncada(RuntimeError):
+    """El modelo cortó por `max_tokens`. Un JSON a medias no se valida: se reporta."""
+
+
+#: Reintentos cuando la entrega no valida, devolviéndole al modelo el `ValidationError`.
+#: Uno alcanza para un campo mal escrito; si falla dos veces, el problema es el prompt o el
+#: schema, y reintentar más solo lo esconde detrás de la factura.
+REINTENTOS_DE_VALIDACION = 1
+
+NOMBRE_DE_LA_TOOL = "entregar"
+
+INSTRUCCION_DE_ENTREGA = f"""
+
+---
+
+## Cómo entregás (lo agrega el pipeline, vale para todos los agentes)
+
+Entregás llamando **una sola vez** a la tool `{NOMBRE_DE_LA_TOOL}`. No escribas prosa fuera de
+la tool. El objeto tiene dos partes:
+
+- Un puntero por entrada de la lista: `["CONTEXT.md §3.1", "fitogenix-native/src/x.tsx → TIERS"]`.
+  Nunca dos punteros pegados en una sola cadena con `·`, `+` o coma: no validan.
+  Las cinco formas válidas, y no hay otras:
+  `CONTEXT.md §3.1` · `NUTRICION.md §N5` · `BITACORA_DECISIONES.md ADR-007` ·
+  `FTG-002.md sección Criterio de aceptación` (o el documento entero: `01-agente-ux.md`) ·
+  `fitogenix-server/src/ruta.ts → simbolo` (nunca `archivo.ts:24`).
+  `CONTEXT.md` y `NUTRICION.md` van SIEMPRE con su `§`: enteros no se citan.
+- Una contradicción que el humano ya te resolvió viaja con su `resolucion` escrita, y deja
+  de estar pendiente. Sin `resolucion` frena el contrato.
+- `resultado`: tu salida, con exactamente los campos del schema. Si algo no lo sabés, va en
+  `supuestos`, `decisiones_abiertas` o `preguntas_abiertas`, según el schema — nunca inventado.
+- `cierre`: el resumen de tu entrega para el humano.
+  - `resumen`: qué hiciste, en 1–3 frases concretas.
+  - `cambios`: cada cambio o decisión, con `donde` como puntero (`CONTEXT.md §X` o
+    `fitogenix-server/ruta.ts → simbolo`), nunca número de línea.
+  - `validaciones`: cómo lo validaste. **No tenés tools para abrir archivos ni correr
+    tests**: si solo citaste el SSOT, el método es `cita-al-ssot`; si no validaste, es
+    `ninguna` con resultado `no-corrido`. No declares `origen`: lo pone el pipeline.
+  - `revision_manual`: si alguna validación no pasó o no corrió, es `requerida=true`, con
+    qué revisar, quién (`jere` o una disciplina) y por qué.
+  - `proximo_paso`: la acción siguiente, su responsable y qué la bloquea.
+  - `marca`: ⚠️ salvo que tengas algo mejor que decir. ✅ no te lo podés dar solo.
+"""
+
+
 @dataclass
 class Respuesta:
     """Lo que devuelve una llamada. `dry_run` viaja adentro a propósito."""
@@ -80,6 +144,10 @@ class Respuesta:
     tokens_salida: int = 0
     intentos: int = 1
     dry_run: bool = False
+    #: El `Cierre` de la entrega (solo en `llama_estructurado`). `Any` para no importar
+    #: `schemas` acá: este módulo tiene que poder importarse sin efectos.
+    cierre: Any = None
+    traza: str = ""
 
     def exigir_real(self) -> "Respuesta":
         """Para los puntos donde una corrida se da por terminada."""
@@ -141,7 +209,15 @@ def _es_transitorio(e: Exception) -> bool:
         return True
     if codigo is not None:  # un 4xx que no está arriba es una request mal armada
         return False
-    return isinstance(e, (TimeoutError, ConnectionError))
+    if isinstance(e, (TimeoutError, ConnectionError)):
+        return True
+    # `anthropic.APIConnectionError` / `APITimeoutError` no heredan de `ConnectionError` ni
+    # traen `status_code`: sin esto, un timeout de red mataba la corrida al primer intento.
+    try:
+        from anthropic import APIConnectionError
+    except Exception:  # pragma: no cover
+        return False
+    return isinstance(e, APIConnectionError)
 
 
 def _con_reintentos(fn: Callable[[], T], *, dormir: Callable[[float], None] = time.sleep) -> tuple[T, int]:
@@ -207,6 +283,70 @@ def llama(
     return r
 
 
+@lru_cache(maxsize=32)
+def entrega_de(modelo_pydantic: type["BaseModel"]) -> type["BaseModel"]:
+    """El sobre de toda salida estructurada: `{resultado: <schema del nodo>, cierre: Cierre}`.
+
+    Se arma por tipo y se cachea. El `Cierre` es uno solo para los diez agentes; por eso va
+    en el sobre y no dentro de cada schema.
+    """
+    from .schemas import Base, Cierre
+
+    return create_model(
+        f"Entrega{modelo_pydantic.__name__}",
+        __base__=Base,
+        resultado=(modelo_pydantic, ...),
+        cierre=(Cierre, ...),
+    )
+
+
+def esquema_para_tool(modelo_pydantic: type["BaseModel"]) -> dict[str, Any]:
+    """El JSON Schema del sobre, con los `$ref` resueltos en línea.
+
+    Se inlinea para no depender de cómo la API resuelve referencias, y se saca `origen` de
+    `Validacion`: es un campo que solo escribe Python, y mostrárselo al modelo es invitarlo
+    a declararlo.
+    """
+    raiz = entrega_de(modelo_pydantic).model_json_schema()
+    defs = raiz.pop("$defs", {})
+    for nombre, d in defs.items():
+        if nombre == "Validacion":
+            d.get("properties", {}).pop("origen", None)
+
+    def resuelve(n: Any, pila: tuple[str, ...] = ()) -> Any:
+        if isinstance(n, dict):
+            if "$ref" in n:
+                nombre = n["$ref"].rsplit("/", 1)[-1]
+                if nombre in pila:  # pragma: no cover - hoy no hay schemas recursivos
+                    raise ValueError(f"schema recursivo: {nombre}")
+                base = copy.deepcopy(defs[nombre])
+                extra = {k: v for k, v in n.items() if k != "$ref"}
+                return resuelve({**base, **extra}, pila + (nombre,))
+            return {k: resuelve(v, pila) for k, v in n.items()}
+        if isinstance(n, list):
+            return [resuelve(x, pila) for x in n]
+        return n
+
+    return resuelve(raiz)
+
+
+def _escribe_traza(etiqueta: str, agente: str, intento: int, datos: dict[str, Any]) -> str:
+    """Guarda la llamada cruda en `.fitogenix/llamadas/<ticket>/`. Best-effort.
+
+    Lo que se pagó tiene que poder leerse: sin esto, una entrega que no valida se pierde
+    con su texto y no hay cómo depurar el prompt.
+    """
+    try:
+        carpeta = SETTINGS.state_dir / "llamadas" / (etiqueta or "sin-ticket")
+        carpeta.mkdir(parents=True, exist_ok=True)
+        sello = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S-%f")
+        p = carpeta / f"{sello}-{agente}-{intento}.json"
+        p.write_text(json.dumps(datos, ensure_ascii=False, indent=2, default=str), encoding="utf-8")
+        return str(p)
+    except OSError:  # pragma: no cover - la traza nunca rompe una corrida
+        return ""
+
+
 def llama_estructurado(
     agente: str,
     modelo_pydantic: type["BaseModel"],
@@ -214,35 +354,135 @@ def llama_estructurado(
     sistema: str,
     usuario: str,
     stub: "BaseModel",
+    stub_cierre: Any = None,
     escalado: bool = False,
     mecanico: bool = False,
     contador: Contador | None = None,
     max_tokens: int = MAX_TOKENS,
+    traza: str = "",
+    cliente: Any = None,
 ) -> tuple[Any, Respuesta]:
-    """Igual que `llama`, pero el texto se valida contra un schema antes de volver.
+    """Una llamada cuya salida se valida contra un schema. **Salida estructurada, no texto.**
 
-    **El `stub` es obligatorio y es del que llama.** Es la salida mínima válida de ese
-    nodo, escrita a mano, y es lo que hace que el grafo entero corra en `dry_run`.
-    Pedirlo obliga a que cada nodo sepa decir cómo es su salida más chica — y un nodo que
-    no lo sabe tiene el contrato mal puesto, que es mejor descubrirlo acá que en la
-    primera corrida paga.
+    El modelo entrega llamando a la tool `entregar`, forzada con `tool_choice`, cuyo
+    `input_schema` es el sobre `{resultado, cierre}` generado desde Pydantic. Hasta el
+    2026-09-19 el schema no viajaba en la llamada: el modelo tenía que adivinar los campos.
+
+    Si la entrega no valida, se le devuelve el `ValidationError` como `tool_result` con
+    `is_error` y se reintenta **una** vez (`REINTENTOS_DE_VALIDACION`). Si vuelve a fallar,
+    `EntregaInvalida`, con la traza cruda en disco. Nunca se rellenan huecos con defaults.
+
+    **El `stub` es obligatorio y es del que llama**: es lo que hace que el grafo entero
+    corra en `dry_run`.
     """
+    modelo_id = choose_model(agente, escalado=escalado, mecanico=mecanico)
     if SETTINGS.dry_run:
         if not isinstance(stub, modelo_pydantic):
             raise TypeError(
                 f"el stub de {agente} es {type(stub).__name__} y el nodo declara "
                 f"{modelo_pydantic.__name__}: el dry-run estaría probando otra cosa."
             )
-        return stub, Respuesta(texto="", modelo=choose_model(agente, escalado=escalado,
-                                                             mecanico=mecanico),
-                               agente=agente, dry_run=True)
+        return stub, Respuesta(texto="", modelo=modelo_id, agente=agente, dry_run=True,
+                               cierre=stub_cierre)
 
-    r = llama(agente, sistema=sistema, usuario=usuario, escalado=escalado,
-              mecanico=mecanico, contador=contador, max_tokens=max_tokens)
-    # `model_validate_json` levanta `ValidationError`, y eso es lo correcto: el hueco no
-    # se rellena con defaults, se devuelve. Quien llama decide si reintenta con el error
-    # en el prompt o si corta — y esa decisión es del grafo, no de este módulo.
-    return modelo_pydantic.model_validate_json(_solo_json(r.texto)), r
+    from .schemas import Validacion
+
+    cliente = cliente or _cliente()
+    sobre = entrega_de(modelo_pydantic)
+    tool = {
+        "name": NOMBRE_DE_LA_TOOL,
+        "description": f"Entrega la salida del nodo: `resultado` ({modelo_pydantic.__name__}) y `cierre`.",
+        "input_schema": esquema_para_tool(modelo_pydantic),
+    }
+    sistema_completo = sistema + INSTRUCCION_DE_ENTREGA
+    mensajes: list[dict[str, Any]] = [{"role": "user", "content": usuario}]
+    huella = hashlib.sha256(sistema_completo.encode()).hexdigest()[:12]
+
+    intento = 0
+    reintentos_de_validacion = 0
+    while True:
+        intento += 1
+        truncada = False
+
+        def _pedir() -> Any:
+            return cliente.messages.create(
+                model=modelo_id, max_tokens=max_tokens, system=sistema_completo,
+                messages=mensajes, tools=[tool],
+                tool_choice={"type": "tool", "name": NOMBRE_DE_LA_TOOL},
+            )
+
+        try:
+            msg, reintentos_red = _con_reintentos(_pedir)
+        except Exception as e:  # noqa: BLE001
+            # Si la API rechaza el techo de salida (cada modelo tiene el suyo), se baja una
+            # vez y se sigue. Es la única forma de 400 que no es un bug nuestro.
+            if "max_tokens" in str(e).lower() and max_tokens > MAX_TOKENS // 2:
+                max_tokens = max(MAX_TOKENS // 2, max_tokens // 2)
+                continue
+            raise
+        r = Respuesta(
+            texto="", modelo=modelo_id, agente=agente,
+            tokens_entrada=getattr(msg.usage, "input_tokens", 0),
+            tokens_salida=getattr(msg.usage, "output_tokens", 0),
+            intentos=reintentos_red,
+        )
+        bloque = next((b for b in msg.content if getattr(b, "type", "") == "tool_use"), None)
+        crudo = getattr(bloque, "input", None)
+        error = ""
+        entrega = None
+        if getattr(msg, "stop_reason", "") == "max_tokens":
+            error = f"stop_reason=max_tokens con max_tokens={max_tokens}: la entrega llegó cortada"
+            truncada = True
+        elif bloque is None:
+            error = "no llamó a la tool `entregar`"
+        else:
+            try:
+                entrega = sobre.model_validate(crudo)
+                if any(v.origen == "python" for v in entrega.cierre.validaciones):
+                    entrega = None
+                    error = "cierre.validaciones trae origen='python': ese campo lo escribe el pipeline"
+            except ValidationError as e:
+                error = str(e)
+
+        r.traza = _escribe_traza(traza, agente, intento, {
+            "agente": agente, "modelo": modelo_id, "intento": intento, "huella_sistema": huella,
+            "usuario": usuario, "stop_reason": getattr(msg, "stop_reason", None),
+            "tokens": [r.tokens_entrada, r.tokens_salida], "entrega_cruda": crudo, "error": error,
+        })
+        if contador is not None:
+            contador.anota(r)
+            contador.verifica_techo()
+
+        if entrega is not None:
+            # La única validación que es un hecho: la puso Python, después del modelo.
+            entrega.cierre.validaciones.append(Validacion(
+                metodo="schema", referencia=f"{modelo_pydantic.__name__} + Cierre (Pydantic)",
+                resultado="pasa", origen="python"))
+            r.cierre = entrega.cierre
+            return entrega.resultado, r
+        if truncada:
+            # Un JSON cortado no se puede validar ni arreglar: se repite con más aire. Una
+            # sola vez, y con techo — si 32k no alcanzan, el problema es el nodo, no el tope.
+            if max_tokens < TOPE_DE_SALIDA:
+                max_tokens = min(max_tokens * 2, TOPE_DE_SALIDA)
+                continue
+            raise SalidaTruncada(
+                f"{agente}: {error} y el reintento con {TOPE_DE_SALIDA} tampoco entró. "
+                f"El nodo está pidiendo demasiado de una sola vez. Traza: {r.traza}")
+        reintentos_de_validacion += 1
+        if reintentos_de_validacion > REINTENTOS_DE_VALIDACION:
+            raise EntregaInvalida(f"{agente}: la entrega no valida tras {intento} intentos. "
+                                  f"Último error: {error[:600]}. Traza: {r.traza}")
+        mensajes.append({"role": "assistant",
+                         "content": [b.model_dump(exclude_none=True) if hasattr(b, "model_dump") else b
+                                     for b in msg.content]})
+        if bloque is not None:
+            mensajes.append({"role": "user", "content": [{
+                "type": "tool_result", "tool_use_id": bloque.id, "is_error": True,
+                "content": f"La entrega no valida:\n{error}\n\nCorregí y volvé a llamar a `{NOMBRE_DE_LA_TOOL}`.",
+            }]})
+        else:
+            mensajes.append({"role": "user", "content": f"Tenés que entregar llamando a `{NOMBRE_DE_LA_TOOL}`."})
 
 
 def _solo_json(texto: str) -> str:

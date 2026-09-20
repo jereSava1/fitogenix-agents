@@ -69,10 +69,25 @@ def test_un_puntero_a_codigo_inexistente_dispara(monkeypatch, tmp_path):
     assert len(d) == 1 and d[0].chequeo == "puntero-sin-archivo"
 
 
-def test_un_puntero_a_codigo_real_no_dispara():
+def test_un_puntero_a_codigo_real_no_dispara(repos_falsos):
+    """Antes pasaba vacuo: sin el repo clonado (CI) el chequeo se salteaba. Ahora el repo
+    es un fixture y el archivo existe de verdad."""
     c = _contrato(reglas_de_validacion=[ReglaDeValidacion(
         enunciado="los umbrales viven acá", puntero=CODIGO)])
     assert det.puntero_sin_archivo(c) == []
+
+
+def test_sin_el_repo_falla_cerrado(monkeypatch, tmp_path):
+    """P0-6: sin el repo, el chequeo no se apaga en silencio — es una incertidumbre."""
+    import dataclasses
+    monkeypatch.setattr(det, "SETTINGS", dataclasses.replace(
+        det.SETTINGS, server_path=tmp_path / "no-esta"))
+    c = _contrato(reglas_de_validacion=[
+        ReglaDeValidacion(enunciado="los umbrales viven acá", puntero=CODIGO),
+        ReglaDeValidacion(enunciado="y el TIERS también", puntero=CODIGO + " → TIERS")])
+    d = det.puntero_sin_archivo(c)
+    assert [x.chequeo for x in d] == ["repo-no-encontrado"], "una sola por repo, no una por puntero"
+    assert "FITOGENIX_SERVER_PATH" in d[0].detalle
 
 
 # --- 3 · bloqueante 🔴 abierto --------------------------------------------------
@@ -179,8 +194,12 @@ def test_pasarse_del_presupuesto_dispara():
 
 # --- la unión, que es el punto ------------------------------------------------------
 
-def test_un_contrato_limpio_no_interrumpe():
-    c = _contrato()
+def test_un_contrato_limpio_no_interrumpe(repos_falsos):
+    """Limpio = cada regla ✅ con una ruta de código que existe. Una regla que solo cita el
+    SSOT es ⚠️, y desde el 2026-09-19 eso es una duda (`regla_sin_verificar`)."""
+    c = _contrato(reglas_de_validacion=[ReglaDeValidacion(
+        enunciado="el cliente no recalcula el puntaje",
+        punteros=["CONTEXT.md §3.4", CODIGO + " → TIERS"], marca=Marca.VERIFICADO)])
     assert det.todos(c) == []
     assert hay_que_preguntar(c, det.todos(c)) is False
 
@@ -193,3 +212,81 @@ def test_el_determinista_interrumpe_aunque_el_modelo_diga_que_esta_todo_claro():
     assert not c.supuestos and not c.decisiones_abiertas
     d = det.todos(c)
     assert d and hay_que_preguntar(c, d) is True
+
+
+# --- P0-5 · bloqueantes: estar en §8.n (n≠0) es estar abierto ----------------------
+
+def test_B6_dispara_aunque_su_cuerpo_no_tenga_rojo():
+    """B-6 va ⚠️ en el cuerpo y es del propio arquitecto. Con la regla del 🔴 no disparaba."""
+    c = _contrato(reglas_de_validacion=[ReglaDeValidacion(
+        enunciado="la migración se declara reversible", puntero="CONTEXT.md §8.6")])
+    d = det.bloqueante_abierto(c)
+    assert len(d) == 1 and "B-6" in d[0].detalle
+
+
+def test_nombrar_un_bloqueante_sin_citarlo_dispara():
+    """Tocarlo sin citarlo es lo que haría un modelo apurado."""
+    c = _contrato(supuestos=["asumo que B-12 no bloquea este cambio"])
+    d = det.bloqueante_abierto(c)
+    assert len(d) == 1 and d[0].puntero == "CONTEXT.md §8.12"
+
+
+def test_los_cerrados_de_8_0_no_disparan():
+    c = _contrato(reglas_de_validacion=[ReglaDeValidacion(
+        enunciado="el tier inicial es gratuito", puntero="CONTEXT.md §8.0")],
+        supuestos=["B-1 ya se cerró"])
+    assert det.bloqueante_abierto(c) == []
+
+
+def test_el_indice_de_bloqueantes_sale_del_ssot():
+    abiertos = det.bloqueantes_de_context()
+    assert {"B-6", "B-12", "B-19"} <= set(abiertos)
+    assert "B-1" not in abiertos
+    assert abiertos["B-6"][0] == "8.6"
+
+
+# --- P0-5 · una regla ⚠️ es una duda -------------------------------------------------
+
+def test_una_regla_sin_verificar_es_una_duda():
+    c = _contrato()  # la regla del helper es ⚠️ y solo cita el SSOT
+    d = det.regla_sin_verificar(c)
+    assert [x.chequeo for x in d] == ["regla-sin-verificar"]
+    assert hay_que_preguntar(c, d) is True
+
+
+def test_una_regla_decidida_no_es_una_duda():
+    c = _contrato(reglas_de_validacion=[ReglaDeValidacion(
+        enunciado="no hay endpoint de bandas, y está decidido", puntero="CONTEXT.md §3.2",
+        marca=Marca.DECIDIDO_NO_IMPLEMENTADO)])
+    assert det.regla_sin_verificar(c) == []
+
+
+# --- P0-7 · escalado ------------------------------------------------------------------
+
+def _analisis(puntero, **kw):
+    from fitogenix.schemas import AnalisisDeRequerimiento, RequisitoTrazado
+    return AnalisisDeRequerimiento(
+        resumen="[test] análisis para probar el escalado", **kw,
+        requisitos=[RequisitoTrazado(enunciado="[test] requisito", puntero=puntero,
+                                     marca=Marca.SIN_CONTRASTAR)])
+
+
+def test_el_escalado_se_deriva_de_los_punteros_aunque_el_modelo_no_lo_declare():
+    assert det.escalado_del_analisis(_analisis("CONTEXT.md §3.1"))[0] is True
+    assert det.escalado_del_analisis(_analisis(CODIGO))[0] is True
+    assert det.escalado_del_analisis(_analisis("CONTEXT.md §8.6"))[2] is True
+
+
+def test_sin_motor_ni_auth_ni_migracion_no_escala():
+    assert det.escalado_del_analisis(_analisis("CONTEXT.md §1.6")) == (False, False, False)
+
+
+def test_lo_declarado_suma():
+    assert det.escalado_del_analisis(_analisis("CONTEXT.md §1.6", toca_auth=True))[1] is True
+
+
+def test_un_contrato_de_motor_escrito_por_sonnet_es_una_duda():
+    from fitogenix.config import MODELO_BASE, MODELO_COMPLEJO
+    c = _contrato(toca_scoring=True)
+    assert [x.chequeo for x in det.escalado_omitido(c, MODELO_BASE)] == ["escalado-omitido"]
+    assert det.escalado_omitido(c, MODELO_COMPLEJO) == []

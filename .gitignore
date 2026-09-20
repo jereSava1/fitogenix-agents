@@ -12,3 +12,6 @@ __pycache__/
 venv/
 .pytest_cache/
 .claude/settings.local.json
+
+# estado local del pipeline: checkpoints, handoffs, resúmenes y trazas crudas de las llamadas
+.fitogenix/

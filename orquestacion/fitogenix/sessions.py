@@ -50,6 +50,9 @@ class Handoff:
     supuestos: tuple[str, ...] = ()
     decisiones_abiertas: tuple[str, ...] = ()
     chequeos: tuple[str, ...] = ()
+    #: `ID — texto` de cada ítem que hay que contestar (P1…, S1/D1/C1…). Sin esto el humano
+    #: no puede atar su respuesta a lo que responde, y el OK no cuenta.
+    a_responder: tuple[str, ...] = ()
     cuando: str = ""
 
     def a_markdown(self) -> str:
@@ -68,7 +71,22 @@ class Handoff:
             + lista("Supuestos que declaró el modelo", self.supuestos)
             + lista("Decisiones abiertas", self.decisiones_abiertas)
             + lista("Lo que verificó Python, y el modelo no puede declinar", self.chequeos)
-            + f"\n---\n\nPara retomar:\n\n```\npython run.py --resume {self.ticket}\n```\n"
+            + lista("A contestar (cada ID necesita respuesta para que el OK cuente)", self.a_responder)
+            + self._como_retomar()
+        )
+
+    def _como_retomar(self) -> str:
+        """`--accion` es obligatoria (2026-09-19). Antes el handoff sugería
+        `--resume <ticket>` pelado, y eso aprobaba por default."""
+        ids = [x.split(" — ", 1)[0] for x in self.a_responder]
+        resp = " ".join(f'--respuesta "{i}=…"' for i in ids) or '--respuesta "P1=…"'
+        return (
+            "\n---\n\nPara retomar — `--accion` es obligatoria:\n\n```\n"
+            f"# contestar y seguir\npython run.py --resume {self.ticket} --accion contratar {resp}\n"
+            + (f"# aceptar el contrato tal cual, con sus supuestos (decisión explícita)\n"
+               f"python run.py --resume {self.ticket} --accion implementar\n"
+               if self.nodo == "n2b_aclarar_contrato" else "")
+            + f"# cortar acá\npython run.py --resume {self.ticket} --accion abortar\n```\n"
         )
 
 

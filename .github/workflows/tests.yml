@@ -26,34 +26,18 @@ jobs:
       # Si esta suite está en rojo, el pipeline no tiene gate.
       - run: pytest tests/ -q
 
-      # Los punteros §X del set de documentos tienen que resolver contra
-      # CONTEXT.md. Un puntero colgado es un Brief que carga la sección
-      # equivocada, o ninguna.
-      # Un comando para todo lo verificable sin un humano: punteros del set,
-      # punteros citados desde el código, guards de frontera y cobertura.
-      # En CI los repos hermanos no están clonados, así que verifica los
-      # documentos y saltea el código — lo dice en la salida, no lo finge.
+      # Un comando para todo lo verificable sin un humano: punteros §X del set de
+      # documentos, punteros citados desde el código, guards de frontera y cobertura.
+      # Un puntero colgado es un Brief que carga la sección equivocada, o ninguna.
+      #
+      # Hasta el 2026-09-19 esto convivía con un step `Punteros §X sin colgar` que
+      # repetía el paso 1 en un script inline. La copia nunca recibió el arreglo del
+      # 2026-09-18 —la heurística que distingue el `§` de la rúbrica del motor del de
+      # CONTEXT.md— así que reportaba `CHANGELOG.md §4.5, §4.7` como punteros rotos:
+      # CI en rojo sobre el documento que justamente explica la ambigüedad. Dos
+      # implementaciones del mismo chequeo derivan, y la que deriva entrena a ignorar
+      # el rojo. Quedó una sola, la que cubre más archivos (incluye .claude/agents/).
       - name: Verificación unificada
-        run: python verificar.py
-
-      - name: Punteros §X sin colgar
-        working-directory: .
-        run: |
-          python - <<'PY'
-          import re, pathlib, sys
-          raiz = pathlib.Path('.')
-          ctx = (raiz/'CONTEXT.md').read_text(encoding='utf-8')
-          sec = set(re.findall(r'^#{2,3}\s*(§[\d.]+)', ctx, re.M))
-          nut = set(re.findall(r'^#{2,3}\s*(§N\d+)',
-                    (raiz/'nutricion/NUTRICION.md').read_text(encoding='utf-8'), re.M))
-          malos = {}
-          for d in list(raiz.glob('*.md')) + list(raiz.glob('nutricion/*.md')) + list(raiz.glob('tareas/*.md')):
-              t = d.read_text(encoding='utf-8')
-              faltan  = {f"§{m}" for m in re.findall(r'§(\d+(?:\.\d+)?)\b', t) if f"§{m}" not in sec}
-              faltan |= {f"§{m}" for m in re.findall(r'§(N\d+)\b', t)        if f"§{m}" not in nut}
-              if faltan: malos[d.name] = sorted(faltan)
-          if malos:
-              for k, v in malos.items(): print(f"::error file={k}::punteros colgados: {v}")
-              sys.exit(1)
-          print("punteros: 0 colgados")
-          PY
+        # `--sin-repos`: los repos hermanos no están clonados acá, así que 2–4 se
+        # saltean y la salida lo dice en vez de fingirlo. Sin la bandera, falla cerrado.
+        run: python verificar.py --sin-repos

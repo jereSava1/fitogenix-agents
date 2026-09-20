@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 """
-Uso:  python verificar.py [--repos ~/fitogenix-server ~/fitogenix-native]
+Uso:  python verificar.py [--repos ~/fitogenix-server ~/fitogenix-native] [--sin-repos]
+
+`--sin-repos` es para CI, donde los repos hermanos no están clonados: saltea 2–4 **y lo
+dice**. Sin esa bandera, un repo que no se encuentra es un fallo (exit 1), no un ⚠️.
 
 Corre, de una, todo lo que se puede verificar sin un humano:
 
@@ -35,13 +38,17 @@ from fitogenix.punteros import (  # noqa: E402
     verifica_repo,
 )
 
-DOCS = Path(__file__).parent.parent
+#: Raíz del repo de agentes. Desde el reordenamiento del 2026-09-19 los documentos
+#: cuelgan de `docs/` y los prompts de agente de `agents/`; `nutricion/` y `tareas/`
+#: siguen en la raíz. El barrido de abajo recorre las cuatro.
+RAIZ = Path(__file__).parent.parent
+DOCS = RAIZ / "docs"
 EXT = {".ts", ".tsx", ".sql"}
 
 
 def punteros_de_documentos() -> list[str]:
     sec = indice_de_secciones(DOCS / "CONTEXT.md")
-    nut = indice_de_nutricion(DOCS / "nutricion" / "NUTRICION.md")
+    nut = indice_de_nutricion(RAIZ / "nutricion" / "NUTRICION.md")
     import re
 
     # `§X` significa dos cosas en este proyecto: una sección de `CONTEXT.md` y una sección
@@ -58,8 +65,9 @@ def punteros_de_documentos() -> list[str]:
 
     fallas = []
     for d in sorted(
-        list(DOCS.glob("*.md")) + list(DOCS.glob("nutricion/*.md"))
-        + list(DOCS.glob("tareas/*.md")) + list(DOCS.glob(".claude/agents/*.md"))
+        list(RAIZ.glob("*.md")) + list(DOCS.glob("*.md"))
+        + list(RAIZ.glob("agents/*.md")) + list(RAIZ.glob("nutricion/*.md"))
+        + list(RAIZ.glob("tareas/*.md")) + list(RAIZ.glob(".claude/agents/*.md"))
     ):
         t = d.read_text(encoding="utf-8")
         vistos: set[str] = set()
@@ -78,6 +86,8 @@ def punteros_de_documentos() -> list[str]:
 
 def main() -> int:
     args = sys.argv[1:]
+    sin_repos = "--sin-repos" in args
+    args = [a for a in args if a != "--sin-repos"]
     # Los defaults salen de `config.SETTINGS`, que **busca** los repos en vez de fijar
     # `~/<nombre>`. Hasta el 2026-09-18 estaban fijos y no existían en esta máquina: este
     # comando salteaba en silencio 3 de sus 4 verificaciones y salía 0 igual.
@@ -95,12 +105,19 @@ def main() -> int:
 
     for raiz in repos:
         if not raiz.exists():
-            print(f"\n   ⚠️  {raiz} no está — se saltea (no es un fallo: puede no estar clonado)")
+            # Falla CERRADO desde el 2026-09-19 (dictamen H16/P0-6). Antes esto era un ⚠️ con
+            # exit 0: salteaba 3 de 4 verificaciones y decía "todo en verde".
+            if sin_repos:
+                print(f"\n   ⏭  {raiz} no está — salteado a pedido (--sin-repos): 2–4 NO corrieron")
+                continue
+            print(f"\n   ❌ {raiz} no está. Seteá FITOGENIX_SERVER_PATH / FITOGENIX_NATIVE_PATH, "
+                  f"pasá --repos, o --sin-repos si es a propósito.")
+            fallas.append(f"repo no encontrado: {raiz}")
             continue
         print(f"\n══ {raiz.name} ══")
 
         print("2 · punteros al SSOT citados desde el código")
-        f = verifica_repo(raiz, DOCS)
+        f = verifica_repo(raiz, RAIZ)
         print(f"   {'✅ todos resuelven' if not f else f'❌ {len(f)}'}")
         fallas += f
         for x in f:

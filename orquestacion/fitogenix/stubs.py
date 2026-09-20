@@ -18,6 +18,10 @@ from __future__ import annotations
 
 from .schemas import (
     AnalisisDeRequerimiento,
+    Cierre,
+    ProximoPaso,
+    RevisionManual,
+    Validacion,
     ArchivoGenerado,
     CodigoGenerado,
     Disciplina,
@@ -34,6 +38,7 @@ from .schemas import (
 #: Un puntero real, para que el stub pase los chequeos de puntero igual que una salida
 #: de verdad. Uno falso haría que el dry-run probara un camino que la corrida real no usa.
 _PUNTERO = "CONTEXT.md §3.1"
+_CODIGO = "fitogenix-server/src/domain/product/scoring/constants.ts → TIERS"
 
 STUB_ANALISIS = AnalisisDeRequerimiento(
     resumen="[dry-run] análisis mínimo: un requisito trazado y una pregunta abierta",
@@ -49,13 +54,17 @@ STUB_ANALISIS = AnalisisDeRequerimiento(
 #: valida relaciones entre campos —las tres puntas, el ADR, la migración—, así que un
 #: literal suelto se rompería en silencio con el próximo validador que se agregue.
 def _contrato_minimo():
-    from .schemas import Brief, ContratoAprobado, Entregable, PunteroDeContexto, ReglaDeValidacion
+    from .schemas import Brief, ContratoAprobado, Entregable, Marca, PunteroDeContexto, ReglaDeValidacion
 
     return ContratoAprobado(
         objetivo="[dry-run] contrato mínimo para verificar el grafo sin llamar a un modelo",
+        # ✅ con ruta de código real: es la única forma de que una regla no sea una duda
+        # (`det.verificado_sin_ruta`, `det.regla_sin_verificar`). Con el repo ausente,
+        # `det.puntero_sin_archivo` falla cerrado y el dry-run se detiene en el HitL 2:
+        # es a propósito, prueba que el chequeo está prendido.
         reglas_de_validacion=[ReglaDeValidacion(
             enunciado="[dry-run] los umbrales se citan, no se transcriben",
-            punteros=[_PUNTERO])],
+            punteros=[_PUNTERO, _CODIGO], marca=Marca.VERIFICADO)],
         briefs=[Brief(
             objetivo="[dry-run] brief mínimo",
             fuente=Marca.SIN_CONTRASTAR,
@@ -131,4 +140,17 @@ STUB_ANALISIS_RESUELTO = AnalisisDeRequerimiento(
     requisitos=[RequisitoTrazado(
         enunciado="[dry-run] el cliente no recalcula el puntaje",
         puntero=_PUNTERO, marca=Marca.SIN_CONTRASTAR)],
+)
+
+
+#: El cierre mínimo válido. Honesto a propósito: en dry-run no se validó nada, así que pide
+#: revisión manual — el validador de `Cierre` no dejaría escribir otra cosa.
+STUB_CIERRE = Cierre(
+    resumen="[dry-run] entrega mínima: el nodo corrió sin llamar a ningún modelo",
+    validaciones=[Validacion(metodo="ninguna", referencia="[dry-run]", resultado="no-corrido")],
+    revision_manual=RevisionManual(
+        requerida=True, que_revisar=["[dry-run] nada: la salida es un stub"], quien="jere",
+        por_que="[dry-run] ninguna salida de esta corrida vino de un modelo"),
+    proximo_paso=ProximoPaso(accion="[dry-run] seguir al próximo nodo del grafo",
+                             responsable="pipeline"),
 )

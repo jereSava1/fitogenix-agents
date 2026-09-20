@@ -69,7 +69,7 @@ def test_el_mismo_ok_aprueba_cuando_no_quedan_preguntas():
 
 def test_abortar_se_entiende_aunque_venga_suelto():
     r = graph._absorbe_respuesta(_estado(), "abortar", ronda=1)
-    assert r["estado_final"] == "abortada-por-techo"
+    assert r["estado_final"] == "abortada"
 
 
 # --- los techos se consultan en el borde --------------------------------------------
@@ -86,20 +86,39 @@ def test_con_aprobacion_se_contrata_aunque_falten_rondas():
     assert graph.rutea_aclaracion(_estado(aprobacion_humana=True)) == "contratar"
 
 
-def test_el_techo_de_contrato_es_uno():
-    """Sin aprobación de rutina, un segundo ciclo silencioso sería el pipeline discutiendo
-    consigo mismo."""
-    assert TECHOS["contrato"] == 1
-    e = _estado(ronda_contrato=1, aprobacion_humana=False)
-    assert graph.rutea_post_contrato(e) == "abortar"
-    assert graph.rutea_post_contrato(_estado(ronda_contrato=1, aprobacion_humana=True)) == "implementar"
+def test_el_techo_de_contrato_es_dos_y_la_segunda_ronda_es_con_respuestas():
+    """Decisión 2026-09-19 (P0-4): la segunda ronda existe solo para rehacer el contrato
+    con lo que contestó el humano. En el techo, con dudas todavía, se escala."""
+    assert TECHOS["contrato"] == 2
+    assert graph.rutea_post_contrato(_estado(ronda_contrato=1, aprobacion_humana=True)) == "recontratar"
+    assert graph.rutea_post_contrato(_estado(ronda_contrato=2, aprobacion_humana=True)) == "abortar"
+
+
+def test_un_ok_incompleto_vuelve_a_preguntar_en_vez_de_avanzar():
+    assert graph.rutea_post_contrato(_estado(ronda_contrato=1, aprobacion_humana=False)) == "repreguntar"
+
+
+def test_implementar_es_explicito_y_con_hasta_contrato_corta():
+    e = _estado(ronda_contrato=1, decision_contrato="implementar")
+    assert graph.rutea_post_contrato(e) == "cortar"
+    assert graph.rutea_post_contrato(e.model_copy(update={"hasta": "completo"})) == "implementar"
+
+
+def test_abortar_en_el_hitl2_escala():
+    assert graph.rutea_post_contrato(_estado(decision_contrato="abortar")) == "abortar"
 
 
 # --- HitL 2: por incertidumbre, no por tema -----------------------------------------
 
 def test_sin_dudas_no_se_interrumpe():
     from fitogenix.stubs import STUB_CONTRATO
-    assert graph.rutea_contrato(_estado(contrato=STUB_CONTRATO)) == "implementar"
+    assert graph.rutea_contrato(_estado(contrato=STUB_CONTRATO, hasta="completo")) == "implementar"
+
+
+def test_sin_dudas_y_hasta_contrato_corta_en_el_resumen():
+    """El debut recomendado: nada después del contrato."""
+    from fitogenix.stubs import STUB_CONTRATO
+    assert graph.rutea_contrato(_estado(contrato=STUB_CONTRATO)) == "cortar"
 
 
 def test_un_supuesto_declarado_alcanza_para_interrumpir():
@@ -166,7 +185,7 @@ def test_sin_revision_escala_en_vez_de_continuar():
 
 # --- la corrida entera, sin modelo ---------------------------------------------------
 
-def test_el_grafo_entero_corre_en_dry_run_y_cierra():
+def test_el_grafo_entero_corre_en_dry_run_y_cierra(repos_falsos):
     from langgraph.types import Command
 
     from fitogenix import sessions
@@ -175,7 +194,7 @@ def test_el_grafo_entero_corre_en_dry_run_y_cierra():
         app = graph.construye().compile(checkpointer=saver)
         cfg = sessions.config_de("FTG-002")
 
-        salida = app.invoke(_estado(), config=cfg)
+        salida = app.invoke(_estado(hasta="completo"), config=cfg)
         assert salida["__interrupt__"], "el HitL 1 es incondicional: tiene que interrumpir"
 
         # El humano contesta la pregunta pero todavía no puede aprobar: el análisis la
