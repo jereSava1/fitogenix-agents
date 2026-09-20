@@ -1,0 +1,920 @@
+# CONTEXT.md — Fitogenix
+
+> **Qué es este documento.** La fuente única de verdad **de negocio** de Fitogenix.
+> Los agentes lo citan por puntero (`CONTEXT.md §4.2`), no lo copian.
+>
+> **Qué NO es.** No es documentación técnica ni un espejo del código. **Ningún umbral,
+> versión, nombre de archivo o contrato se transcribe acá**: se cita por puntero al
+> archivo real. Si un número vive en CONTEXT.md y en el código, ya perdiste — esa
+> duplicación es la causa raíz de la contradicción C-01 (bandas del score mal en tres
+> documentos a la vez, ver `AUDITORIA_SETUP_AGENTICO.md`).
+>
+> **Cómo se lee cada afirmación:**
+>
+> | Marca | Significa |
+> |---|---|
+> | ✅ | Verificado contra el código en esta sesión. Se nombra el archivo. |
+> | ⚠️ | Declarado en algún `.md` del setup, sin confirmar contra código ni con el cliente. |
+> | 🟡 | **Decidido, no implementado.** Se nombra quién decidió, cuándo, y qué falta para que sea ✅. |
+> | 🔴 | Contradicción abierta entre fuentes. No la resuelve un agente por criterio propio. |
+>
+> Un ✅ sin ruta de archivo no es ✅: es 🔴 hasta que se verifique. Un 🟡 **nunca se escribe
+> en presente** — se escribe como destino ("va a requerir"), con el estado de hoy al lado.
+> Un ⚠️ es distinto de un 🟡: ⚠️ es *no verificado*, 🟡 es *verificado como ausente y ya
+> decidido*.
+>
+> **Cómo se cita el código: archivo + símbolo o texto, nunca número de línea.** Un
+> `HelpScreen.tsx:18` deja de ser cierto en cuanto alguien inserta una línea más arriba, y
+> **falla en silencio**: el puntero sigue pareciendo válido. Peor todavía, un número de
+> línea correcto puede sobrevivir a un archivo equivocado — `ENGINE_VERSION` se citó como
+> `ftgEngine.ts:24` cuando vive en `scoring/constants.ts:24`, y la coincidencia del 24
+> escondió el error. Se cita **`HelpScreen.tsx` → FAQ *"¿Cómo se calcula el puntaje?"***, o
+> **`audit-scores.ts` → `CURATION_QUEUE`**: un símbolo o una cita textual se puede volver a
+> encontrar con `grep` después de cualquier edición. Los rangos de línea se admiten **solo
+> dentro de un reporte fechado** (`PODA_REPORTE.md`, `REALINEACION_REPORTE.md`), que es
+> registro de un momento y no pretende seguir siendo cierto.
+>
+> **Sesión de verificación:** 2026-08-31, contra `~/fitogenix-server` (`main`, `d73f378`)
+> y `~/fitogenix-native` (`main`, `b7715b8`). Una marca ✅ vale para ese commit; si el
+> código se movió, se re-verifica antes de citarla.
+>
+> **Dueño del documento:** el Orquestador. Único escritor del §9. Cualquier agente puede
+> proponer un cambio; ninguno lo escribe solo.
+
+---
+
+## §1 — El producto y su usuario
+
+### §1.1 Qué es
+
+Fitogenix es un **escáner de productos de consumo** (alimentos, bebidas, cosméticos,
+higiene personal, suplementos): el usuario ingresa un nombre o escanea un código de
+barras y recibe un puntaje de salud de 0 a 100 más la lista de ingredientes clasificada
+por severidad, según el **criterio Fitogénico** (§2), que es propietario de la marca. ⚠️
+
+Existe como app mobile (React Native + Expo) en **fase Beta**. ⚠️
+
+### §1.2 Quién lo usa
+
+Personas de 25–45 años con interés en salud, nutrición o consumo consciente. **No son
+nutricionistas:** quieren un veredicto rápido y claro, no tecnicismos. El contexto de uso
+es el supermercado — una mano, mala luz, distracción, conexión pobre. ⚠️
+
+El público incluye personas neurodivergentes y con discapacidad visual; la accesibilidad
+es requisito de aprobación, no una fase posterior (ver `01-agente-ux.md` y
+`04-agente-qa.md`, ambos conservados sin cambios por la auditoría). ⚠️
+
+### §1.3 La promesa
+
+1. **Directitud** — el veredicto es inmediato y sin ambigüedad.
+2. **Confianza ganada** — el puntaje se justifica con los ingredientes listados, no es
+   una caja negra.
+3. **Sin culpa** — informar, no juzgar.
+4. **Honestidad de capa** — cuando habla la filosofía y no la evidencia regulatoria, se
+   dice (§2.1). ⚠️ *(declarado en `DICCIONARIO_DOMINIO.md`; el encuadre existe en código,
+   ver §2.5)*
+
+### §1.4 El límite declarado
+
+El producto declara explícitamente que **no es consejo médico ni nutricional**, que no
+contempla alergias ni condiciones de salud, y que su puntaje es *"una postura declarada,
+no una medición médica"*.
+✅ El texto exacto vive en `scoring/constants.ts` → `DISCLAIMER` (`framing` y `footer`).
+No se reescribe en copy sin pasar por ese archivo.
+
+### §1.5 Flujo principal, hoy
+
+Ingreso (nombre o barcode) → resolución **contra el catálogo propio** → recomposición del
+producto con el motor vigente → pantalla de resultado.
+✅ `src/services/productLookupService.ts`. **Ya no hay cascada a proveedores externos en
+el camino de request** — ver §5.3 y el 🔴 C-07 en §8.
+
+### §1.6 Estado real de la app — pantallas y features
+
+Lo necesitan UX (qué rediseñar), Frontend (qué existe) y QA (qué auditar). **Envejece
+rápido:** verificado contra `fitogenix-native` `c63c3cc` (2026-09-11), y se re-verifica antes
+de citarlo como vigente. La verificación anterior era `b7715b8`; entre las dos entró un
+rediseño de 3.114 líneas que la dejó vieja en cinco días.
+
+| Pantalla | Estado | Ruta |
+|---|---|---|
+| Inicio (búsqueda por nombre) | Funcional ✅ | `src/screens/HomeScreen.tsx` · tab `index` |
+| Historial ("Mis productos": recientes + guardados) | Funcional ✅ | `src/screens/HistoryScreen.tsx` · tab `historial` |
+| Escanear (cámara / código de barras) | Funcional ✅ | `src/screens/ScanScreen.tsx` |
+| Resultado | Funcional ✅ — la más trabajada | `src/screens/ScanResultScreen.tsx` |
+| Guía (contenido estático) | Funcional ✅ | `src/screens/GuideScreen.tsx` |
+| Perfil | Funcional ✅ | `src/screens/ProfileScreen.tsx` |
+| Feedback | Funcional ✅ — **nueva, 8/9/2026** | `src/screens/FeedbackScreen.tsx` · ruta `feedback` |
+| Datos personales · Privacidad · Ayuda | Funcionales ✅ | `personal-data.tsx` · `privacy.tsx` · `help.tsx` |
+| Welcome · Sign-up (email + Google) | Funcional ✅ | `src/screens/WelcomeScreen.tsx`, `SignUpEmailScreen.tsx`, `SignUpDetailsScreen.tsx` |
+| Recuperar / resetear contraseña | Funcional ✅ | `ForgotPasswordScreen.tsx` (`supabase.auth.resetPasswordForEmail`), `ResetPasswordScreen.tsx` |
+
+**La pestaña "Comunidad" ya no existe.** ✅ Las cinco pestañas son Inicio · Historial ·
+Escanear · Guía · Perfil (`src/app/(tabs)/_layout.tsx`). El lugar que ocupaba el
+placeholder lo tomó Historial.
+
+✅ **Rediseño de UI, mergeado el 2026-09-08** (PR #2, `dce8400..c28f27c`, 3.114 líneas). Lo
+que cambió y que UX, Frontend y QA necesitan saber:
+
+- **Pantalla nueva: Feedback** ✅ `src/screens/FeedbackScreen.tsx` · ruta `src/app/feedback.tsx`.
+- **`ScoreBreakdownSheet.tsx` se borró** ✅ — cero referencias en `src/`. Cierra la mitad del
+  ítem que `02-agente-frontend.md` tenía pendiente; la otra mitad (`ftgEngine.ts`) sigue.
+- **Navegación:** indicador deslizante en el tab bar y **swipe entre pestañas**
+  ✅ `useSwipeTab.ts` · `useTabSlideAnimation.ts` · `tabDirectionStore.ts`.
+- **Microinteracciones:** anillo de puntaje animado, háptica, y animación de resorte al
+  guardar ✅ `ScoreDial.tsx` · `ScanHistoryRow.tsx`.
+- **Rediseñadas a fondo:** Inicio, Resultado, Historial, Perfil y Datos personales. Inicio y
+  Resultado son las que más cambiaron (573 y 680 líneas de diff).
+
+⚠️ **Lo que el rediseño NO tocó, y es lo que importa:** `GuideScreen.tsx` se modificó
+(+11/−3) y **el defecto de `tareas/FTG-002` sigue intacto** — la Guía declara su propio
+`TIERS` con los cuatro cortes de banda (§3.1) y le promete al usuario el sello **FITOGÉNICO
+en la banda 50–74**, donde `getSello` devuelve `null` (§3.2). Alguien pasó por el archivo y
+no lo vio. Es el argumento más fuerte para que el guard de frontera corra en CI.
+
+**Features todavía no implementadas** ✅ verificadas una por una:
+
+| Feature | Estado real |
+|---|---|
+| Login con Facebook | No existe. Google sí funciona (`src/lib/googleAuth.ts`) |
+| Notificaciones | Ítem de menú que abre `Alert('Próximamente')` (`ProfileScreen.tsx` → `handleMenuPress`) |
+| Foto de etiqueta | **No existe**, pero el copy de la Guía la promete: *"Buscá por nombre o fotografiá la etiqueta"* (`GuideScreen.tsx` → subtítulo del encabezado). Copy a corregir o feature a construir |
+| Alternativas de producto | No existe, y el campo `alternatives` **no sirve para eso**: es texto de ambigüedad por ingrediente ("aceite de girasol o soja") ✅ `scoring/types.ts` → campo `alternatives` de la entrada |
+| ~~Sin tests en el cliente~~ | **Ya no.** ✅ Desde el 31/8/2026 el cliente tiene suite propia: **49 tests en verde**, incluidos tests de UI con `@testing-library/react` + `jsdom` y `react-native` aliasado a `react-native-web`. La lógica de dominio sigue testeándose en el servidor; acá se testea presentación, guardas de persistencia y analítica |
+
+🟡 **C-14 — el copy in-app contradice al motor y al flujo.** `src/screens/HelpScreen.tsx`
+le dice al usuario dos cosas que ya no son ciertas (**decidido el 31/8 que se corrige**; el
+copy lo redacta UX, ver §8 B-13):
+
+- FAQ *"¿Cómo se calcula el puntaje?"*: el puntaje *"combina la calidad de los ingredientes,
+  la información nutricional, el nivel de procesamiento (NOVA) y la transparencia"* — es la
+  descripción del motor **v2**, el de cuatro componentes ponderados que v2.1 reemplazó
+  (§2.2). ✅
+- FAQ *"¿Por qué no encuentra mi producto?"*: *"Buscamos primero en Open Food Facts y
+  completamos lo que falta con IA"* — es la cascada retirada del request el 2026-08-18
+  (§5.3). ✅
+
+Es la contradicción de mayor alcance del set: no vive en un prompt de agente, la lee el
+usuario. Ver §8 B-13.
+
+**Un FAQ que sí está bien y conviene no tocar:** *"¿Necesito una cuenta para escanear
+productos?"* → *"No. Podés escanear y ver resultados sin crear una cuenta. La cuenta sirve
+para guardar tu historial y preferencias."* ✅ Coincide exactamente con §4.3.
+
+✅ **El anónimo ya no persiste — implementado y testeado el 31/8/2026** (§4.3, §8 B-15).
+Los escaneos de un usuario sin cuenta viven en memoria de sesión: no se leen ni se escriben
+en AsyncStorage, y se pierden al reiniciar. **Se migran a su historial si se registra en esa
+misma sesión**, re-emitiendo los lookups con el token — `recordScan` es un upsert
+idempotente, así que re-emitir no duplica. ✅ `src/presentation/scanResultStore.tsx` ·
+`src/presentation/anonScanMigration.ts`.
+
+**El deslogueo borra el disco explícitamente** (`multiRemove`). Es la parte con consecuencia
+de privacidad: como los efectos de persistencia ya no escriben `[]` al quedarse sin sesión,
+sin ese borrado el historial del que se desloguea le quedaría al siguiente que use el
+teléfono. Tiene test de regresión.
+
+🟡 **Lo único pendiente es el copy** del estado vacío del historial anónimo: el texto que hay
+es provisorio y vive aislado en `src/constants/scanCopy.ts`. **Lo define UX**
+(`01-agente-ux.md`).
+
+✅ **El backend no tiene agujero por acá — verificado.** `recordScan` solo corre cuando
+`resolveUserIdFromToken` devuelve un `userId` (`lookup.ts`), y `/users/me/history` registra
+`requireAuth` y expone **solo `GET`** (`src/routes/users/history.ts`). No hay forma de
+escribir historial sin usuario. El cambio es exclusivamente del cliente.
+
+✅ **Producto fuera de catálogo: cartel propio — implementado y testeado el 31/8/2026**
+(§5.3, §8 B-16). El servidor devuelve `404` (`src/routes/products/lookup.ts`) y
+`lookupProduct()` devuelve **`null`** — no lanza. `ProductNotInCatalogError` **no participa
+de este camino**: lo lanza únicamente `saveProductRemote()` al guardar un producto que no
+está en el catálogo ✅.
+
+`ProductNotInCatalogCard` se muestra sobre la cámara en `ScanScreen` y bajo la búsqueda en
+`HomeScreen`. **No es un cartel de error, y esa es toda la idea:** sin ícono de alerta, sin
+color de peligro, y con *"Escanear otro producto"* en vez de *"Volver a intentar"* — porque
+reintentar el mismo producto no cambia nada. Muestra además **qué** fue lo que no se
+encontró, que al escanear el usuario nunca tipeó. El error de red sigue siendo otro mensaje,
+con reintento.
+
+🟡 **Lo único pendiente es el copy**, provisorio y aislado en `src/constants/scanCopy.ts`.
+**Lo define UX** (`01-agente-ux.md`).
+
+✅ **`scan_failed` existe desde el 31/8/2026.** Vive en `src/analytics/`, el primer módulo
+de analítica del cliente, con el contrato que `02-agente-frontend.md` ya tenía escrito: una
+sola función tipada, `snake_case`, cero PII, y **no-op real si el usuario rechaza analítica**.
+Registra `query` (el barcode o el nombre del producto), `queryKind` (`barcode` o `text`, con
+el mismo criterio de 8–14 dígitos del servidor), `reason`, `source` y `scannedAt` en ISO 8601
+UTC. ⚠️ **El sink todavía no está conectado a ningún SDK** — ver §8 B-17.
+
+---
+
+## §2 — El criterio Fitogénico
+
+### §2.1 Las dos capas
+
+- **Capa A — Regulatoria/toxicológica.** Responde *"¿hay evidencia de daño?"*, con base en
+  organismos reguladores (IARC, EFSA, JECFA). ⚠️
+- **Capa B — Filosofía Fitogenix.** Responde *"¿esto se parece a comida real?"*. Acá un
+  aceite de semilla industrial puede ser cuestionable aunque la Capa A no marque riesgo. ⚠️
+
+**Regla de comunicación:** una evaluación de Capa B que difiere del consenso regulatorio
+se comunica como *"la mirada Fitogenix"*, nunca como hecho regulatorio. ⚠️
+
+Definiciones estrictas: `DICCIONARIO_DOMINIO.md` → *Criterio Fitogénico*.
+
+### §2.2 Cómo se construye el puntaje (v2.1)
+
+El puntaje es una **función de la lista de ingredientes**: parte de una base, resta por
+impacto y por posición del ingrediente, aplica un modificador de procesamiento, después
+techos, y clampea.
+✅ Documentado y coeficientado en `scoring/constants.ts`; ejecutado en
+`scoring/steps.ts` + `scoring/pipeline.ts`.
+
+**Todos los coeficientes viven en un solo archivo y se citan por puntero:**
+`fitogenix-server/src/domain/product/scoring/constants.ts` — base, niveles de impacto y
+sus deducciones, frontera de "primeros ingredientes", modificador de procesamiento,
+techos, regla de dominancia, anulaciones y umbrales de "sin datos". ✅
+**Nunca se transcriben acá.** El propio archivo declara la regla de reconstruibilidad: si
+un puntaje no se puede rearmar sumando entradas de esa tabla, el motor está mal, y hay un
+test que lo verifica producto por producto. ✅
+
+🔴 **C-08 — La composición del score en el diccionario describe el motor v2, no el v2.1.**
+`DICCIONARIO_DOMINIO.md` declara cuatro componentes ponderados (Toxicidad 35% · Nutrición
+25% · Procesamiento 25% · Alineación 15%) y gates por ingrediente crítico. El comentario
+de `ENGINE_VERSION` en `constants.ts` dice literalmente que en v2.1 *"desaparecen el
+promedio ponderado de ejes, el modificador NOVA y la regresión a neutro por cobertura"*, y
+que **los puntajes de v2 no son comparables con los de v2.1**. ✅ verificado contra
+`scoring/constants.ts` y `scoring/steps.ts`. Ver §8.
+
+### §2.3 Severidad de ingredientes
+
+Cada ingrediente lleva **dos** severidades: una de Capa B (la que se muestra) y una de
+Capa A (regulatoria, interna). Pueden diferir legítimamente. ⚠️
+La escala de colores, sus significados y la regla de "nunca solo por color":
+`DICCIONARIO_DOMINIO.md` → *Severidad de Ingredientes*.
+
+**Un ingrediente que no está en la base no se inventa:** se marca como sin clasificar. ⚠️
+La base y sus alias: ✅ `src/domain/product/ingredientData.ts`.
+
+### §2.4 NOVA
+
+> **Decisión (Jere, 2026-08-31): NOVA se sostiene.** Sigue siendo vocabulario del producto:
+> se pide, se ingiere, se persiste y se le nombra al usuario. **No se borra de ningún lado**
+> — ni del código, ni de la base, ni de la documentación.
+
+**En qué sentido participa, con precisión — porque participa de tres formas y ninguna es el
+puntaje:**
+
+| Dónde | Qué hace | Marca |
+|---|---|---|
+| `offService.ts`, `openBeautyFactsApi.ts`, `cacheService.ts`, `migrations/001` y `008`, `scripts/etl/*` | Se pide, se ingiere y se persiste en `products.nova_group` | ✅ |
+| `scoring/types.ts` → campo `nova_group` de la entrada | Está en la entrada y **se expone como información**; desde v2.1 **no participa del cálculo** (lo dice el comentario del propio campo) | ✅ |
+| `steps.ts`, `pipeline.ts`, `rubric/` | **Cero referencias.** El motor no lo lee | ✅ |
+| `scripts/audit-scores.ts` → chequeos `nova_group === 4` y `=== 1` | **Señal de calidad:** un NOVA 4 puntuando ≥75, o un NOVA 1 por debajo de 50, se flaguean para revisión | ✅ |
+| `fitogenix-native/src/screens/HelpScreen.tsx` | **Se le nombra al usuario** — ver el 🟡 de abajo | ✅ |
+
+Lo que el motor v2.1 sí usa en su lugar es un **modificador de procesamiento por marcadores
+de ultraprocesado en el texto de ingredientes**, no por `nova_group`. ✅ `PROCESSING` en
+`constants.ts`.
+
+**La razón operativa más fuerte para conservar el campo es la cuarta fila**, y no estaba
+registrada en ningún documento hasta hoy: `audit-scores.ts` lo usa para detectar puntajes
+que probablemente estén mal. Ver `05-agente-datos.md`.
+
+🟡 **El copy de la app dice que NOVA cuenta para el puntaje, y es falso.** El FAQ *"¿Cómo se
+calcula el puntaje?"* de `HelpScreen.tsx` afirma que el puntaje *"combina la calidad de los
+ingredientes, la información nutricional, el nivel de procesamiento (NOVA) y la
+transparencia"* ✅. El motor v2.1 no lee `nova_group`. **Decidido que hay que corregirlo; el
+copy nuevo lo redacta UX** (`01-agente-ux.md`) y lo implementa mobile. Ver §8 B-13.
+
+**Lo que NO se hace:** la limpieza de código que se había propuesto — sacar la columna, la
+migración, los adapters y los tipos — **queda descartada** por esta decisión.
+
+### §2.5 Los octógonos: insumo interno del puntaje
+
+Los **octógonos de advertencia** de la Ley 27.642 / Decreto 151/2022 se **calculan**, no
+se leen de la fuente, porque el campo "sellos" de los retailers trae certificaciones
+positivas, no advertencias. ✅ `scoring/seals.ts`, con sus umbrales y el razonamiento en el
+encabezado del archivo. Los umbrales están verificados contra la norma y contra el Manual de
+Aplicación oficial de ANMAT ✅ (§8 B-11, detalle en `nutricion/NUTRICION.md §N6`).
+
+**Decisión del 31/8/2026 — el octógono resta puntos y no se muestra.** `sealPenalty()` sigue
+descontando en el puntaje; la app **no exhibe los octógonos ni afirma que el producto los
+tenga**. El motivo es estructural y está en `nutricion/NUTRICION.md §N5` (N-7): el método
+oficial calcula el nutriente *añadido* a partir de la **formulación** del producto, y
+Fitogenix solo tiene la **etiqueta**. Lo que el motor produce es por construcción una
+**aproximación** — y una aproximación exhibida como dato contrastable contra el envase es
+deshonesta, mientras que la misma aproximación alimentando un criterio declarado y opinable
+es legítima. Ese es el estatuto que queda.
+
+**Consecuencia operativa, y es la que hay que respetar:** ningún documento, prompt ni copy
+puede volver a describir el octógono como *"lo que el usuario puede contrastar mirando el
+envase"*. La vara de precisión deja de ser regulatoria y pasa a ser de discriminación —
+importa que el descuento ordene bien los productos, no que reproduzca la etiqueta. Las
+correcciones de B-11 **siguen valiendo**, porque cambian el puntaje.
+
+✅ **El campo `warnings` sigue en el contrato de respuesta** (`scoring/types.ts` →
+`ScoreBreakdown`) y se sostiene **deliberadamente**: es información verdadera y útil para
+curaduría y depuración. Sacarlo del payload es un cambio de contrato cross-repo y lo decide
+el agente arquitecto, no esta decisión. Lo que cambia es que **nadie lo renderiza**. El
+cliente hoy tampoco lo consume ✅ — `fitogenix-native` no tiene el campo en
+`src/lib/contracts/product.ts` ni una sola referencia a los octógonos (verificado el 31/8).
+Por la misma razón, la nota del paso nutricional **no nombra los octógonos**: describe el
+perfil desfavorable y su descuento ✅ `scoring/steps.ts` → `applyNutrition`.
+
+**Ojo con el nombre:** "sello" es ambiguo en este proyecto — los octógonos oficiales
+(§2.5) y el sello Fitogénico (§3.2) son cosas distintas. En documentos y prompts se
+escribe *octógono* o *sello Fitogénico*, nunca "sello" a secas.
+
+---
+
+## §3 — Bandas, sello y estado
+
+### §3.1 Regla dura
+
+Las bandas, el sello Fitogénico y el estado del producto salen **del mismo lugar y con los
+mismos cortes**. Fuente única:
+`fitogenix-server/src/domain/product/scoring/constants.ts` → `TIERS`, `EXCELLENT_FROM`,
+`BAD_BELOW`. ✅
+
+**Los umbrales no se transcriben en ningún documento, prompt, copy ni test.** Se citan por
+puntero a ese archivo.
+
+**El sello es una propiedad de la banda, no un eje aparte** (ADR-007, 19/9/2026). La banda
+más alta lleva el sello positivo y la más baja el negativo, **por definición y no por
+coincidencia numérica**: `BAD_BELOW` y `EXCELLENT_FROM` derivan de `TIERS` ✅. Mover el
+sello es mover un borde de banda. Si alguna vez se le da corte propio, una banda queda
+partida al medio y la tabla de la pantalla de Guía —que lleva un sello por fila— miente
+para esa banda: es el defecto de `FTG-002` al revés.
+
+**Por qué esta regla existe, en palabras del propio código:** *"Antes había tres criterios
+distintos para la misma decisión —75/50/25 acá, 70/50 en `resolveProductStatus`, 75/25 en
+el sello— y un producto de 72 salía 'Bueno' con sello 'Fitogénico'"*. ✅ comentario de
+`TIERS` en `constants.ts` y encabezado de `scoring/presentation.ts`. Ya pasó una vez.
+
+### §3.2 Derivación
+
+Label, color, tagline, sello y estado se derivan de `TIERS` por construcción — el sello y
+el estado **coinciden siempre**, no por disciplina sino porque comparten los mismos dos
+umbrales. ✅ `scoring/presentation.ts` (`getScoreLabel`, `getScoreTagline`, `getSello`,
+`resolveProductStatus`).
+
+### §3.3 `null` es una banda, no un cero
+
+Un producto sin datos suficientes **no se puntúa** y no se coerciona a 0, porque 0 se
+leería como "el peor producto posible". Tiene su propia banda y su propio mensaje. ✅
+`NO_DATA_TIER` en `constants.ts`; tratamiento en `presentation.ts`. Sin puntaje tampoco
+hay sello. ✅
+
+### §3.4 Quién puede recalcular
+
+Solo el backend. El cliente **renderiza los campos derivados que le llegan, nunca los
+recalcula**. ✅ el cliente ya no tiene motor: `fitogenix-native/src/domain/product/ftgEngine.ts`
+es un shim que reexporta el contrato de tipos y está marcado DEPRECATED en el propio
+archivo.
+
+---
+
+## §4 — Modelo de negocio
+
+### §4.1 Fase actual — tier inicial gratuito
+
+**El tier inicial es gratuito.** `POST /products/lookup` es abierto y sin límite de uso: no
+requiere cuenta, no descuenta nada, no tiene cuota. El foco del MVP es validar el criterio
+Fitogénico y la calidad del puntaje, y cualquier fricción de pago o de login antes de eso
+mide otra cosa. ✅ `src/routes/products/lookup.ts` — no registra `requireAuth`, y lo dice en
+un comentario propio.
+
+**Esto es diseño del MVP, no deuda.** Ver §4.3.
+
+### §4.2 Fase siguiente — Freemium (**no es el MVP**)
+
+> **Nada de esta sección está vigente.** Describe el modelo al que el producto puede ir
+> cuando exista un tier pago. Hoy rige §4.1: tier inicial gratuito, sin cuotas. Un agente
+> que lea esta sección como estado actual va a proponer trabajo que **no hay que hacer**.
+
+- **Free:** cuota mensual de análisis; agotada, aparece el paywall con dos salidas
+  (upgrade o esperar el reseteo). ⚠️
+- **Plus:** ilimitado + features premium. ⚠️
+- El **contador de créditos es autoritativo en el backend**, transaccional, y el cliente
+  solo lo refleja. ⚠️
+- Reseteo mensual por usuario. ⚠️
+
+Cifras y esquema propuesto: `00-orquestador.md` (contexto B2C) y `03-agente-backend.md`
+(§ Lógica de Cuotas, marcada como no-MVP). **Cuando exista implementación, esos números se
+citan por puntero al código, no acá.**
+
+✅ **Hoy no existe ninguna implementación de cuotas, y no se construye ninguna.** Cero
+coincidencias de `user_quotas`, `credits_used` o `quota` en `src/` y en `migrations/` de
+`fitogenix-server`. **No se crean tablas, RPC, RLS, columnas ni flags por adelantado:** la
+infraestructura de cuotas se implementa cuando exista un tier pago, no antes. El único
+rastro admitido es el punto de extensión documentado en `03-agente-backend.md`.
+
+### §4.3 ✅ Tier inicial gratuito
+
+> **Decisión (Jere, 2026-08-31).** El tier inicial es **gratuito**. `POST /products/lookup`
+> es **abierto y sin límite de uso**. El modelo de tiers existe como concepto de producto;
+> **la infraestructura de cuotas se implementa cuando exista un tier pago, no antes.**
+>
+> **Usuario anónimo:** puede escanear y ver resultados sin cuenta. Sus escaneos viven en la
+> sesión y **se migran a su historial si se registra en esa misma sesión**; si cierra la app
+> sin registrarse, se pierden.
+
+**Esto es ✅, no 🟡: el endpoint ya cumple la decisión.** No hay gap de implementación en el
+servidor y no hay ticket abierto. ✅ `src/routes/products/lookup.ts` no registra
+`requireAuth` — solo lee el Bearer si viene, para registrar el escaneo en el historial del
+usuario en background (`recordScan`, upsert idempotente). Todas las rutas de `users/` sí
+registran `requireAuth`.
+
+**El encuadre cambió: de deuda a diseño.** Durante meses el endpoint público se documentó
+como excepción con fecha de vencimiento — `Bug 2`, "excepción deliberada", y desde el
+28/8/2026 como 🟡 pendiente de ponerle cuota. **Ya no.** Es la forma que el producto eligió
+para el MVP. Un agente que lo lea como deuda va a proponer arreglarlo; no hay nada que
+arreglar. **No agregues `requireAuth` a este endpoint.**
+
+**Punto de extensión, si algún día hay tier pago:** el único lugar donde entraría el
+descuento de cuota es el handler de `src/routes/products/lookup.ts`, antes de llamar a
+`lookupProduct`. Está documentado en `03-agente-backend.md` en una línea, y eso es todo lo
+que existe: **cero código muerto, cero tablas por adelantado.**
+
+**Lo que esta decisión cierra.** C-02 era la contradicción entre dos afirmaciones del setup
+que no podían ser ciertas a la vez:
+
+- `00-orquestador.md`: *"Cada análisis consumido debe poder atribuirse a un usuario para el
+  descuento de crédito"*.
+- `03-agente-backend.md`: *"`POST /products/lookup` NO tiene `requireAuth` … Excepción
+  deliberada, no bug … rompería el flujo anónimo"*.
+
+Gana la segunda: **no hay descuento de crédito que atribuir.** La primera describe el modelo
+futuro de §4.2, no el MVP. La historia de cómo se llegó acá — incluida la decisión opuesta
+del 28/8 — está en `BITACORA_DECISIONES.md`, no acá.
+
+**Lo que sí queda por hacer, y es del cliente, no del servidor:** hoy `scanResultStore.tsx`
+hidrata historial y guardados desde AsyncStorage **al montar, sin distinguir sesión** — o
+sea, el anónimo persiste. Ver §1.6 y `02-agente-frontend.md`.
+
+### §4.4 La palanca de costo
+
+El costo de IA a escala no lo mueve el precio por token: lo mueve la **tasa de cache-hit
+del producto** — cada búsqueda servida desde el catálogo es 100% del costo evitado, no una
+fracción. Por eso el poblamiento previo del catálogo (§6) es la palanca económica más
+grande del sistema. ⚠️ *(razonamiento de `05-agente-datos.md` y `06-agente-etl-data.md`;
+correcto en su lógica, sin medición de cache-hit real que lo respalde)*
+
+Esta lógica se volvió **estructural**, no solo económica: desde el rediseño de búsqueda,
+si el catálogo no tiene el producto, no hay resultado (§5.3).
+
+---
+
+## §5 — Arquitectura y stack
+
+### §5.1 Dos repos
+
+| Repo | Qué es | Verificación |
+|---|---|---|
+| `fitogenix-server` | Node + Fastify + TypeScript. Dominio, servicios, rutas, migraciones y ETL | ✅ `~/fitogenix-server`, `main` `a0428bd` |
+| `fitogenix-native` | Cliente Expo / React Native. **Solo UI + contrato de tipos** | ✅ `~/fitogenix-native`, `main` limpio |
+
+Versiones exactas de dependencias: ✅ `package.json` de cada repo. **No se transcriben acá**
+(el `03-agente-backend.md` sí las transcribe hoy — se poda en el paso siguiente).
+
+### §5.2 Regla absoluta de frontera
+
+El cliente **nunca** habla directo con Supabase (salvo auth), Anthropic, OFF, SerpAPI ni
+remove.bg. Todo pasa por el backend propio.
+✅ verificado: en `fitogenix-native` ya no existen `src/infrastructure/` ni `src/app/api/`;
+la comunicación va por `src/api/client.ts` y el dominio quedó reducido a tipos
+reexportados desde `src/lib/contracts/product.ts`.
+
+### §5.3 Resolución de un lookup — **catalog-only**
+
+```
+query → ¿barcode? → Redis → Supabase (catálogo)      → si no está: null
+      → ¿nombre?  → Redis → catálogo por similitud   → si no está: null
+```
+
+✅ `src/services/productLookupService.ts`. El docstring del archivo lo declara decisión de
+producto del 2026-08-18 (ver `BITACORA_DECISIONES.md`, ADR-002 nota parte 2): la cascada
+externa se retiró del camino de request porque agregaba round-trips secuenciales y
+duplicaba trabajo que el ETL ya hace en batch. **`offService`, `claudeService`,
+`openBeautyFactsApi` y `fallbackFoodApi` siguen existiendo y los usa el ETL**, no el
+request path. ✅
+
+✅ **C-07 — cerrado el 28/8/2026.** `03-agente-backend.md`, `06-agente-etl-data.md`,
+`00-orquestador.md` y el `README.md` de `fitogenix-server` documentaban la cascada
+`OFF → OBF → Edamam → Claude` como contrato vigente del lookup. Los cuatro están corregidos
+y verificados: cero descripciones remanentes de una cascada en el camino de request.
+
+### §5.4 Caché en niveles
+
+- **Redis (Upstash)** — capa caliente, TTLs distintos según origen del dato y una clave
+  aparte para texto→barcode. ✅ valores en `src/services/redisService.ts` y en
+  `productLookupService.ts`. No se transcriben acá.
+- **Supabase (`products`)** — caché persistente y catálogo.
+
+**Regla de oro:** `products` guarda **datos crudos, no el puntaje**. Cada lectura recompone
+el producto con el motor vigente; las columnas de puntaje son denormalizados para listar,
+nunca la fuente de verdad. ✅ `src/services/cacheService.ts` + `productRowMapper.ts`.
+Consecuencia: un bump de versión del motor **no requiere migrar datos**.
+
+✅ **Redis NO puede servir un puntaje viejo.** `setInRedis` guarda cada entrada dentro de un
+**sobre** con la `ENGINE_VERSION` que la generó, y `getFromRedis` → `unwrapCachedProduct`
+devuelve `null` para toda entrada cuya versión no coincida: es un MISS, y se registra como
+evento propio (`redis_stale_engine_version`), no como error — el día del deploy pasa con
+todo el catálogo, así que sirve para ver la curva de repoblado, no para alertar.
+✅ `src/services/redisService.ts` → `setInRedis` · `unwrapCachedProduct` · `getFromRedis`.
+
+Es cierto que `REDIS_KEY_PREFIX` sigue siendo estático, pero eso **no es el riesgo**: el
+propio archivo explica por qué se eligió el sobre en vez de la clave versionada — una clave
+versionada deja huérfano el namespace viejo ocupando storage pago hasta que venza el TTL,
+mientras que el sobre reescribe la misma clave. Ver `§8.0`, B-8.
+
+> **Corregido el 2026-09-08.** Esta sección afirmaba lo contrario —que Redis sí podía servir
+> un puntaje viejo y que la invalidación *"no está aplicada"*— y contradecía a B-8, cerrado
+> el 31/8 con verificación. Era cierto sobre el prefijo y falso sobre la conclusión. Lo
+> encontraron dos agentes por separado, cada uno verificando contra el código.
+
+### §5.5 Identidad de producto
+
+Identidad estable por `id` (uuid); `barcode` y `name_key` son **atributos de búsqueda
+alternativos sobre la misma identidad**, no identidades en sí. Un producto resuelto por
+nombre que después se escanea por código **actualiza la misma fila** en vez de duplicarla,
+para no romper favoritos ni historial. ✅ contrato en `cacheService.ts` y en
+`migrations/006_product_identity.sql`.
+
+### §5.6 Contrato de API
+
+El contrato vigente de endpoints (método, auth, body, respuestas) se cita por puntero a
+`fitogenix-server/src/routes/` y a `03-agente-backend.md`, que lo mantiene. ✅ rutas
+verificadas: `products/lookup`, `products/image`, `users/deleteMe`, `users/saved`,
+`users/history`. **Regla:** un endpoint nuevo se agrega al contrato en el mismo commit que
+lo implementa.
+
+### §5.7 Selección de modelo de IA
+
+Regla del proyecto, aplicada por tres agentes (Backend implementa los call sites, Datos la
+hace cumplir y tunea los prompts, ETL la consume en batch). Vive acá porque ninguno de los
+tres es su dueño exclusivo.
+
+**¿La entrada incluye una imagen a interpretar? → Sonnet Vision. ¿Es solo texto o barcode?
+→ Haiku.** Nunca Sonnet donde alcanza Haiku: el costo importa a escala.
+
+- **Haiku — texto estructurado. Es el default del proyecto.** Enriquecer un producto con
+  campos faltantes, construir uno desde su nombre o barcode, traducir ingredientes. Salida
+  JSON determinista, system prompt cacheado. ✅ el modelo, la temperatura y los `max_tokens`
+  vigentes viven en `src/services/claudeService.ts`; los valores **no se transcriben acá**.
+- **Sonnet Vision — solo cuando hay imagen.** Leer la etiqueta o la tabla nutricional desde
+  una foto. 🟡 **Decidido como regla, sin call site:** hoy no existe análisis por foto en el
+  producto (§1.6) — la regla está escrita para cuando exista, no describe código de hoy.
+
+**Dónde corre esto hoy ✅:** en el ETL, en batch (`scripts/etl/jobs/runMerge.ts`,
+`scripts/etl/lib/qualityAI.ts`), **no en el camino de request** (§5.3).
+
+El tuning de prompts, el presupuesto de tokens y el pricing son dominio de
+`05-agente-datos.md`, que los mantiene con las cifras vigentes.
+
+### §5.8 Stack del cliente y restricciones que impone
+
+Lo comparten UX (qué se puede diseñar) y Frontend (con qué se implementa). Versiones
+exactas: ✅ `fitogenix-native/package.json` — **no se transcriben acá**.
+
+- **Expo + React Native**, una base para iOS y Android. Navegación **file-based con Expo
+  Router**, con rutas tipadas. ✅
+- **Estilos con `StyleSheet` por pantalla.** No hay CSS ni framework de estilos: los tokens
+  de diseño viven en `src/constants/theme.ts`. ✅
+- **`expo-camera`** para el escaneo de códigos de barras. ✅ `src/screens/ScanScreen.tsx`.
+  No hay captura de foto de etiqueta (§1.6).
+- **`expo-blur`** en el tab bar, **`lucide-react-native`** para los íconos. ✅
+- **Animación:** el `ScoreDial` usa `react-native-svg` con la `Animated` API de React
+  Native. ✅ `src/components/ScoreDial.tsx`. `react-native-reanimated` está instalado. No
+  hay otras animaciones complejas.
+- **Persistencia local:** `@react-native-async-storage/async-storage` — historial y
+  guardados se hidratan desde ahí al abrir. ✅ `src/presentation/scanResultStore.tsx`.
+- **Estado global:** dos Context (`scanResultStore`, `signUpStore`). **No hay React
+  Query.** ✅ (sin `@tanstack/*` en `package.json`).
+
+**Latencia — el dato cambió y el copy de UX no lo siguió.** ⚠️→✅ La cifra "un análisis
+tarda 2-8 segundos porque hay una llamada a Anthropic" describía la cascada retirada. Desde
+que el request es catalog-only (§5.3) **no hay llamada a IA en el camino de request**: la
+latencia es la de Redis y Supabase. ✅ `productLookupService.ts` no importa `claudeService`.
+El estado de carga sigue siendo necesario, pero dimensionarlo contra "8 segundos de IA" es
+diseñar para un flujo que ya no existe.
+
+---
+
+## §6 — Datos: fuentes, pipeline y calidad medida
+
+### §6.1 Fuentes
+
+Open Food Facts (dump y API), Open Beauty Facts, Edamam, scrapers de retailers argentinos
+(APIs tipo VTEX cuando existen), enriquecimiento por IA, y pre-población sintética de
+búsquedas frecuentes. ✅ los adaptadores y jobs existen bajo `scripts/etl/`; los comandos
+reales están en los scripts npm del repo (`etl:*`, `audit:*`) — no se transcriben acá.
+
+### §6.2 Pipeline — nada entra directo
+
+```
+adapter → products_staging → merge por barcode (campo a campo)
+        → gate de completitud → enriquecimiento de gaps → products
+```
+
+✅ `migrations/009_products_staging.sql`; detalle del diseño en `06-agente-etl-data.md`
+(el documento mejor calificado de la auditoría). Cada fila cruda queda trazable hasta el
+producto final al que contribuyó, con su corrida de origen. ✅
+
+**Regla:** el gate de completitud es el **mismo criterio** que usa el caché para decidir si
+una fila sirve — no uno nuevo y paralelo. ⚠️ *(declarado; no re-verificado línea a línea
+en esta sesión)*
+
+### §6.3 Estado de calidad **medido**
+
+> **⚠️ Los números del 28/8 miden un catálogo que ya no existe.** El 3/9/2026 se destrabó una
+> carga que llevaba **18 días congelada** (ver `CHANGELOG.md`) y el catálogo pasó de 13.737
+> productos con ingredientes a **81.450 productos**. Se conservan las dos mediciones, con su
+> fecha, porque `tareas/FTG-001` está construido sobre la del 28/8 y todavía no se recalculó.
+
+#### Catálogo — medido el 3/9/2026
+
+| Métrica | Valor | Fuente |
+|---|---|---|
+| Productos | **81.450** | ✅ `npm run verify:schema` |
+| Sin puntaje (`score` null) | **20.091** | ✅ ídem |
+| Con `engine_version` distinto al vigente | **56.671** | ✅ ídem |
+| Filas de `products_staging` | 235.746 · `pending` **0** | ✅ SQL directo |
+| — de ellas, `merged_incomplete` (entraron sin ingredientes) | **151.527 (64,3 %)** | ✅ ídem |
+| — `merged` (completas) | 77.818 (33,0 %) | ✅ ídem |
+| — `discarded_incomplete` | 6.149 (2,6 %) | ✅ ídem |
+
+**El 24,7 % de "sin puntaje" engaña, y hay que leerlo así:** solo las **24.779** filas escritas
+el 3/9 (las que llevan `ftg-rubric-v2.3`) pudieron guardar un `score` null — las otras 56.671
+son anteriores al 16/8, cuando la columna era `NOT NULL` y un null hacía fallar la escritura.
+Sobre lo escrito el 3/9, la tasa real de productos sin puntaje es **20.091 / 24.779 ≈ 81 %**,
+consistente con el 77-78 % medido lote a lote.
+
+**Consecuencia:** el puntaje denormalizado de esas 56.671 filas está calculado con un motor
+anterior a la reescritura de ADR-002 **y además puede estar tapando nulls**. La tasa real de
+productos no puntuables sobre el catálogo entero **no se conoce** hasta que corra el job de
+recompute — que no existe: es `§8` **B-19**. No rompe nada visible (`§5.4`: ningún camino de
+lectura sirve la columna denormalizada), pero significa que este `§6.3` mide lo que se puede
+medir hoy, no el estado real del criterio sobre el catálogo.
+
+#### Catálogo — medido el 28/8/2026 (histórico, base de `FTG-001`)
+
+
+Números de `npm run audit:scores` + `scripts/score-histogram.ts` contra el catálogo real,
+tomados de `tareas/FTG-001-calidad-de-datos.md`. ✅ medidos, con fecha. **No se recalculan
+ni se redondean: se citan como están, con la fecha.**
+
+| Métrica | Valor (28/8/2026) |
+|---|---|
+| Productos con lista de ingredientes | 13.737 |
+| Puntuados | 9.800 |
+| Sin puntaje | 3.937 |
+| — de ellos, `sin-identificar` (bucket defectuoso) | 2.484 (18,1%) |
+| — de ellos, `fuera-de-alcance` (comportamiento correcto) | 1.287 |
+| Términos distintos sin identificar | 8.991 |
+| Apariciones totales de esos términos | 20.290 |
+| Cobertura del top 40 de la cola | 18,6% |
+| Productos con 0% de cobertura | 1.453 |
+| Cobertura promedio de los sin puntaje | 44,3% |
+
+#### Distribución del puntaje — medida el 19/9/2026
+
+Primera vez que se mide. Salió de dimensionar ADR-007, no era la pregunta, y es el número
+más incómodo del proyecto.
+
+| Banda | Productos | % de los puntuados | Fuente |
+|---|---|---|---|
+| Alta | 2.118 | 3,5 % | ✅ `count` por banda sobre `products` |
+| Media alta | 5.427 | 8,8 % | ✅ ídem |
+| **Media baja** | **46.232** | **75,3 %** | ✅ ídem |
+| Baja | 7.582 | 12,4 % | ✅ ídem |
+| Sin puntaje | 20.091 | — | ✅ ídem |
+
+**Tres de cada cuatro productos puntuados caen en una sola banda, y es la más angosta de
+las cuatro.** Antes de ADR-007 era peor —la misma banda concentraba el 82 %—, así que mover
+el borde mejoró la discriminación apenas.
+
+Para el usuario esto significa que **el puntaje casi no distingue**: escanea cinco
+productos y cuatro le dicen lo mismo. Los cortes no son la causa; la causa es dónde el
+motor deposita los puntajes. Es `§8.21`.
+
+Los cortes de las bandas **no se transcriben acá** (`§3.1`): las filas se nombran por
+posición relativa.
+
+### §6.4 Los tres defectos, medidos
+
+- **A — Ingredientes reales sin alias.** El motor no los ve y **calcula mal** el puntaje.
+  Caso testigo: `jmaf` en 322 productos. ✅ `src/domain/product/ingredientData.ts` → entrada `"jarabe de maíz"` — la
+  sigla figura en la descripción (`desc`), no en los `aliases`.
+- **B — Fragmentos de rotulado tratados como ingredientes** (dosis `N mg/kg`, `CONTIENE`,
+  códigos INS pegados a su nombre): ≈740 apariciones de nada, que hunden la cobertura
+  artificialmente. ✅ medido.
+- **C — Se emite puntaje sin haber entendido la etiqueta.** El más grave: es un aval de
+  marca sobre datos no comprendidos. Ejemplo real medido: `89 Excelente cob=0% Té común`. ✅
+
+Detalle completo, criterios de aceptación y reparto por agente:
+`tareas/FTG-001-calidad-de-datos.md`.
+
+### §6.5 Lo que ya existe y lo que no
+
+✅ **Existe y está testeado:** heurísticas de calidad (boilerplate de rotulado, marca en el
+nombre), validación de plausibilidad nutricional por rangos fisiológicos, gate de
+completitud, merge campo a campo, staging con trazabilidad, verificación asistida por IA, y
+jobs de auditoría y de fix. ✅ inventario verificado en la auditoría; `audit:scores` y los
+`etl:*-quality` están en los scripts del repo.
+
+🔴 **No existe:** constraints en la base que impidan que un dato sucio vuelva a entrar, y
+un **criterio versionado de qué es un dato sucio** en términos de dominio (no de patrón de
+texto). ✅ verificado: la cola de curaduría **se calcula y se descarta** —
+`CURATION_QUEUE` se puebla en `scripts/audit-scores.ts` (el `for` sobre `bd.unidentified`) y nunca se imprime.
+Ver §8 B-3 (la cola) y B-12 (el dueño que falta para definir "dato sucio").
+
+**Conclusión:** el ETL guarda bien la puerta de entrada. **Nadie auditó lo que ya está
+adentro.**
+
+---
+
+## §7 — Roles y dueños
+
+Un artefacto sin dueño es un artefacto que se rompe sin que nadie se entere: es
+exactamente lo que pasó con la tabla de ingredientes (§6.4 A).
+
+| Artefacto | Dueño | Regla |
+|---|---|---|
+| Este documento · §9 · orden de las tareas | **orchestrator** | Único escritor del changelog |
+| Esquema, constraints, ADRs, dónde vive cada gate | **architect** 🆕 | No clasifica sustancias |
+| Valores nutricionales, rúbrica, claims regulatorios, alias de ingredientes, definición de dato sucio | **nutrition** 🆕 | **No escribe código.** Ningún alias entra sin que declare qué sustancia es y con qué fundamento |
+| Motor, rutas, schema en código, tests del dominio | **backend** | No decide qué impacto lleva un ingrediente |
+| Cliente Expo, contrato consumido, analytics | **mobile** | No recalcula nada del puntaje |
+| System prompts, parámetros de inferencia, política de caché de IA | **data-ai** | **Único** autorizado a tocar prompts |
+| Ingesta, scrapers, staging, medición del catálogo | **etl** | Importa el motor, nunca lo modifica |
+| Veredicto de "listo", a11y, tests que rompen | **qa** | No implementa lo que audita |
+| Flujos, copy, estados de UI, paywall | **ux** *(bajo demanda)* | Especifica todos los estados o no se implementa |
+| Contenedor, despliegue, secretos, rate limit de infra | **devops** *(bajo demanda)* | No toca lógica de negocio |
+
+✅ **`nutrition` existe desde el 31/8/2026:** `09-agente-nutricion.md`, con su SSOT propio
+en `nutricion/NUTRICION.md`. Nace **vacío de conocimiento y con contrato duro**: toda
+afirmación cita fuente primaria o sale 🔴, y su schema no admite un ✅ sin cita. Eso lo hace
+seguro de crear antes de tener la base de datos cargada — ver §8 B-12.
+
+✅ **`architect` existe desde el 8/9/2026.** Dueño del contrato de producto cross-repo y de
+las migraciones. `08-agente-arquitecto.md` está escrito y registrado como subagente en
+`.claude/agents/architect.md`, sin permisos de escritura de código: produce contratos y
+briefs, no PRs.
+
+**Regla de dominios exclusivos:** dos agentes nunca tocan el mismo archivo en paralelo, y
+ningún agente edita un artefacto del que no es dueño — se lo pide al dueño.
+
+**Excepción, decidida el 2026-09-19: este archivo.** `CONTEXT.md` dejó de ser de escritura
+exclusiva del Orquestador. Cualquier agente puede proponer un cambio acá **siempre que
+antes se lo detalle al responsable del repo y le pida permiso explícito** — qué sección,
+qué dice hoy, qué diría, y por qué. La exclusividad existía para que el SSOT no derivara
+solo; el detalle previo cumple lo mismo sin obligar a que todo pase por un rol. El permiso
+está mecanizado: `.claude/settings.json` tiene `Write`/`Edit` de `CONTEXT.md` en `ask`.
+Lo que **no** cambia: no se renumeran las secciones, y los umbrales no se transcriben acá.
+
+---
+
+## §8 — Bloqueantes activos
+
+Ordenados por costo de seguir sin resolverlos. **Cada bloqueante abierto es su propia
+subsección** desde el 2026-09-08: un agente que necesita uno se lleva ~500 B en vez de los
+9.834 B de la tabla entera — que era el 23 % de todo el contexto que consumía el set de
+agentes. Los cerrados viven juntos en `§8.0` porque casi nunca se citan.
+
+**Un puntero `§8` a secas ya no trae contenido.** Apuntá a `§8.<n>`: `§8.6` para B-6.
+
+### §8.0 — Cerrados: no los reabras
+
+| # | Qué se decidió | Verificado contra | Quién decidió |
+|---|---|---|---|
+| ~~**B-1**~~ | ✅ **C-02 cerrado (31/8/2026): tier inicial gratuito** (§4.3). El lookup es abierto y sin cuota — **decisión de producto, no deuda**. El código ya la cumple, así que no queda gap de implementación en el servidor ni ticket abierto. Reemplaza la decisión del 28/8 (el ida y vuelta está en `BITACORA_DECISIONES.md`) | ✅ `src/routes/products/lookup.ts` | — |
+| ~~**B-4b**~~ | ✅ **C-09 cerrado (31/8/2026): NOVA se sostiene.** Sigue siendo vocabulario del producto — se ingiere, se persiste en `products.nova_group`, lo mergea el ETL, `audit-scores.ts` lo usa como señal de calidad y se le nombra al usuario. El motor v2.1 **no lo lee para el puntaje** ✅, y eso ahora está dicho con precisión en §2.4. **No se borra nada; la limpieza de código queda descartada.** Lo único que queda vivo es el copy que dice lo contrario → B-13 | ✅ mapeado 28/8, decidido 31/8 | — |
+| ~~**B-5**~~ | ✅ **C-07 cerrado (28/8/2026).** La cascada externa ya no se documenta como camino de request en ningún archivo del set ni en el `README.md` del servidor (§5.3) | Verificado por grep en los 8 agentes + `CONTEXT.md` + READMEs | — |
+| ~~**B-7**~~ | ✅ **Cerrado el 19/9/2026 por ADR-007, y la decisión anterior quedó revertida.** B-7 decía bajar el **umbral alto** del sello; producto decidió lo contrario: el umbral alto se queda donde está y el que se mueve es el **borde de la banda baja**, de modo que la banda baja y el sello negativo pasen a ser la misma cosa. Los cortes siguen derivando de `TIERS` ✅ y no se transcriben acá (`§3.1`). Arrastra bump de `ENGINE_VERSION` y un recompute — ver `§8.19`. **Impacto medido el 19/9/2026: 4.200 productos** cambian de banda y ganan el sello negativo ✅; la banda baja se multiplica por 2,2. Ningún camino de lectura sirve la columna desactualizada ✅, así que el recompute es higiene, no urgencia | `constants.ts` → `TIERS`, `BAD_BELOW`, `EXCELLENT_FROM` · `scoring/presentation.test.ts` (reescrito sin literales) | Jere (producto) |
+| ~~**B-8**~~ | ✅ **No era un bloqueante: el problema está resuelto, con otro mecanismo.** Es cierto que el prefijo de clave no está versionado, pero `redisService` guarda cada entrada dentro de un **sobre** con la `ENGINE_VERSION` que la generó y **trata como MISS toda entrada cuya versión no coincida** ✅. El propio archivo explica por qué se eligió el sobre en vez de versionar la clave: la clave versionada deja huérfano el namespace viejo ocupando storage pago hasta que venza el TTL, mientras que el sobre reescribe la misma clave. **Verificado en la práctica el 31/8**, al bumpear a `v2.2` por B-11 | — |
+| ~~**B-11**~~ | ✅ **Cerrado el 31/8/2026, con el Manual de Aplicación oficial** (`IF-2024-135393117`, 60 págs.). **Cuatro reglas corregidas**: al sodio le faltaban DOS condiciones alternativas (`≥300 mg/100 g` y `≥40 mg/100 ml` en bebidas sin energía), el corte de calorías de bebidas era 70 en vez de 25, y **el octógono de calorías salía por energía sola** cuando la norma exige que ya haya un sello de azúcares o grasas. Las tres primeras marcaban **de menos**; la cuarta, **de más**. `ENGINE_VERSION` → `v2.2`. Detalle en `nutricion/NUTRICION.md §N6` | ✅ `fitogenix-server` `seals.ts` · 418 tests |
+| ~~**B-15**~~ | ✅ **Cerrado el 31/8/2026: el anónimo ya no persiste.** Implementado y testeado — sin sesión no se lee ni se escribe AsyncStorage, y el deslogueo borra el disco con `multiRemove` (la parte con consecuencia de privacidad, con test de regresión). La migración anónimo→logueado re-emite los lookups con token. **Queda 🟡 solo el copy** del estado vacío, a cargo de UX | ✅ `scanResultStore.tsx` · `anonScanMigration.ts` · 7 tests | ux escribe el copy |
+| ~~**B-16**~~ | ✅ **Cerrado el 31/8/2026: cartel propio de fuera de catálogo.** `ProductNotInCatalogCard` en `ScanScreen` y `HomeScreen`, con estado separado del error de red, sin ícono de alerta y con *"Escanear otro producto"* en vez de reintentar. Emite `scan_failed` con el `reason` distinguido. **Queda 🟡 solo el copy**, a cargo de UX | ✅ `ProductNotInCatalogCard.tsx` · `useScanFlow.ts` · 8 tests | ux escribe el copy |
+| ~~**B-18**~~ | ✅ **Cerrado el 31/8/2026: CI de `fitogenix-native` corría en una versión de Node que sus propias dependencias no soportan.** El workflow fijaba `node-version: 20` y `jsdom@30` declara `^22.22.2 || ^24.15.0 || >=26.0.0`; `undici@8`, `>=22.19.0`. Los tres tests de UI no arrancaban el worker (`markAsUncloneable is not a function`) y CI daba verde en los otros dos, con exit 1. **`npm ci` no protesta porque `engines` no se valida sin `engine-strict`** — la declaración sirve para que se vea al instalar, no para que falle. Resuelto con `.nvmrc` + `node-version-file` + `engines.node`, y se sumó `tsc --noEmit` al pipeline | ✅ `.github/workflows/test.yml` · `package.json` · `.nvmrc` | — |
+
+### §8.2 — B-2 · C-11 — el motor puntúa sin haber entendido la etiqueta
+
+🔴 **C-11** — el motor **emite puntaje sin entender la etiqueta**: 1.453 productos con 0% de cobertura, casos "Excelente" entre ellos (§6.4 C)
+
+**Verificado contra:** Medido 28/8 ✅ · sin gate
+
+**Quién decide:** nutrition define el umbral · architect dónde vive · backend implementa
+
+### §8.3 — B-3 · C-10 — la cola de curaduría se calcula y se tira
+
+🔴 **C-10** — cola de curaduría de **8.991 términos** que se calcula y se tira (§6.5)
+
+**Verificado contra:** ✅ `audit-scores.ts` → `CURATION_QUEUE`
+
+**Quién decide:** nutrition (clasifica) · backend (imprime)
+
+### §8.4 — B-4 · C-08 — el criterio documentado no es el motor v2.1
+
+🔴 **C-08** — el criterio documentado (4 componentes ponderados) **no es el motor v2.1** (§2.2)
+
+**Verificado contra:** ✅ contra `constants.ts`
+
+**Quién decide:** nutrition + orchestrator: qué se corrige, el doc o la expectativa
+
+### §8.6 — B-6 · Las migraciones se aplican a mano, aunque el esquema ya se puede consultar
+
+⚠️ **Se achica: el esquema vivo ya se puede consultar, aplicar sigue siendo a mano.** El 3/9/2026 se midió por primera vez y este bloqueante **se describía mal en las dos direcciones**: daba por pendiente la 014, que estaba aplicada, y no mencionaba la 008 ni la 012, que faltaban — además de la 013. Las cuatro se aplicaron ese día ✅. Lo que queda: las migraciones **se siguen corriendo a mano** y no hay registro de aplicación en la base. La 012 no entró en el primer intento sin que el SQL Editor avisara nada. Ya existe la mitad diagnóstica ✅ `npm run verify:schema` y `scripts/sql/diagnostico-esquema.sql`
+
+**Quién decide:** devops (aplicación automática) + architect (dueño de las migraciones)
+
+### §8.9 — B-9 · Sin Dockerfile, sin despliegue, sin engines.node, y rate limit por instancia
+
+⚠️ **En `fitogenix-server`:** sin `Dockerfile`, sin config de despliegue, sin `engines.node` en `package.json` ✅. Rate limit en memoria: con N instancias el límite real es N veces el nominal. **En `fitogenix-native` la mitad de `engines.node` se cerró el 31/8** — ver B-18, que muestra lo que cuesta no declararla
+
+**Quién decide:** devops
+
+### §8.10 — B-10 · Sin observabilidad conectada
+
+⚠️ Sin observabilidad conectada (Sentry/Datadog). El contrato de logging está escrito; no tiene a dónde reportar
+
+**Quién decide:** devops + backend
+
+### §8.12 — B-12 · Falta el fundamento científico del criterio propio
+
+🟡 **El rol existe y ya no está vacío en materia regulatoria.** `09-agente-nutricion.md` + `nutricion/NUTRICION.md` §N1–§N8, con el Manual de Aplicación y el anexo de publicidad guardados en `nutricion/fuentes/`. Con eso cerró B-11 y encontró cuatro defectos reales. **Lo que sigue faltando es el fundamento científico del criterio propio** —la publicación completa de OPS— sin el cual B-2 (umbral de cobertura) y B-4 (composición del puntaje) todavía terminan en `blocked`
+
+**Quién decide:** Jere: la publicación de OPS
+
+### §8.13 — B-13 · C-14 — el copy in-app le miente al usuario
+
+🟡 **C-14 — el copy in-app le miente al usuario** (§1.6, §2.4). El FAQ *"¿Cómo se calcula el puntaje?"* de `HelpScreen.tsx` nombra a NOVA como componente del puntaje (falso desde v2.1) y el FAQ *"¿Por qué no encuentra mi producto?"* promete la cascada OFF→IA retirada el 18/8. Es deriva doc↔código que llegó a la pantalla. **Ya no está bloqueado:** B-4b se cerró el 31/8 y NOVA se sostiene, así que el copy nuevo ya se puede escribir. Es cambio de código, no de documentación
+
+**Verificado contra:** ✅ `HelpScreen.tsx` → los dos FAQs
+
+**Quién decide:** ux redacta el copy · mobile lo implementa
+
+### §8.14 — B-14 · La poda de dependencias de la Fase 2 quedó a medias
+
+🟡 **La Fase 2 del plan está a medias y nadie lo anotó.** Las 8 dependencias sin usar **ya se eliminaron** ✅ (no están en `package.json`, cero usos). Siguen pendientes: `expo-image` instalada con cero imports ✅, y React Query ausente ✅
+
+**Verificado contra:** Verificado 28/8
+
+**Quién decide:** mobile
+
+### §8.17 — B-17 · La analítica emite eventos pero no tiene sink
+
+⚠️ **La analítica no tiene a dónde reportar.** `src/analytics/` existe y emite `scan_failed` ✅, pero **no hay SDK conectado**: sin `setAnalyticsSink()` en el arranque, los eventos se descartan. Es el mismo hueco que B-10 en el backend, ahora también en el cliente. Mientras siga así, la métrica de cobertura de catálogo **no se está midiendo**
+
+**Verificado contra:** ✅ `src/analytics/index.ts`
+
+**Quién decide:** Jere elige la herramienta · mobile la conecta
+
+### §8.19 — B-19 · El job de recompute del catálogo no existe
+
+🔴 **El recompute del catálogo no existe como job, y su plan se apoyaba en tres piezas de las que ninguna estaba completa.** El comentario de `013_score_nullable.sql` dice que el recompute masivo es trabajo del ETL *"filtrando por `engine_version` (índice de la migración 008)"*. Verificado el 3/9: el índice **no estaba aplicado** (se aplicó ese día) y el job **nunca se escribió** — cero archivos filtran por `engine_version` para reescribir. Quedan ⚠️ **58.071 filas en `ftg-rubric-v2`**, un motor anterior a la reescritura de ADR-002. **No rompe nada visible**: ningún camino de lectura de `src/` sirve la columna denormalizada, todos recomponen desde los crudos (`§5.4`) ✅. **19/9/2026: ahora hay un segundo motivo para el mismo job.** ADR-007 movió un borde de banda y subió `ENGINE_VERSION`, así que las filas afectadas tienen la etiqueta y el sello denormalizados desactualizados además del puntaje viejo
+
+**Verificado contra:** ✅ grep en los 66 archivos de `src/` + `scripts/` · `npm run verify:schema`
+
+**Quién decide:** etl (escribe el job) · architect (decide si la columna denormalizada se sostiene)
+
+### §8.20 — B-20 · El motor no puntúa alimentos frescos, y §1.4 no lo declara
+
+🟡 **El motor no puede puntuar alimentos frescos, y `§1.4` no lo declara.** Un producto sin lista de ingredientes no se puntúa (`§3.3`), lo cual es correcto — pero eso deja fuera a la verdulería entera. Caso real del catálogo: `7798079790146 — Tomate Rocky (VERDULERIA PROPIA) → score=null` ✅. Una app que evalúa qué tan sano es un alimento no puntúa un tomate, que es el mejor caso posible de su propio catálogo. `§1.4` declara que no es consejo médico ni contempla alergias; **no declara esto**. No es un bug: es un hueco entre lo que el producto promete y lo que el motor puede
+
+**Verificado contra:** ✅ `scripts/etl/jobs/stats.ts` · `§1.4` · `§3.3`
+
+**Quién decide:** nutrition (si hay criterio sin lista) · Jere (si se declara el límite)
+
+### §8.21 — B-21 · El motor no discrimina: el 75 % del catálogo cae en una sola banda
+
+🔴 **Medido el 19/9/2026 (`§6.3`): 46.232 de 61.359 productos puntuados caen en la misma
+banda** ✅, y es la más angosta de las cuatro. La app le dice lo mismo a tres de cada cuatro
+productos que el usuario escanea, así que el puntaje **no está cumpliendo su función**:
+ordenar. No es un problema de dónde están los cortes —moverlos mejoró del 82 % al 75 %—
+sino de cómo el motor reparte los puntajes.
+
+Toca directamente a `§8.2` (B-2 · el motor puntúa sin haber entendido la etiqueta) y a
+`§8.12` (B-12 · falta el fundamento científico del criterio propio): es la primera vez que
+esos dos bloqueantes tienen un número que los mida.
+
+**Hace falta investigación antes que cambios**, y está abierta como `tareas/FTG-003`:
+contrastar los puntajes contra fuentes de datos confiables y contra otras apps del rubro
+sobre los mismos productos, antes de tocar un coeficiente. Cambiar números sin una
+referencia externa es calibrar contra la intuición.
+
+**Verificado contra:** ✅ `count` por banda sobre `products` · `§6.3` · ADR-007
+
+**Quién decide:** Jere (producto) · nutrition (criterio) · data-ai (método de medición)
+
+---
+
+---
+
+## §9 — Changelog
+
+**Mudado a `CHANGELOG.md`** el 2026-09-03. La sección se conserva vacía a propósito: los
+punteros `§9` de los agentes siguen resolviendo, y `§1`–`§8` no se renumeran.
+
+La historia del SSOT vive ahora en `CHANGELOG.md`, mismo escritor único (el Orquestador) y
+misma regla: fecha, qué sección cambió, contra qué se verificó.

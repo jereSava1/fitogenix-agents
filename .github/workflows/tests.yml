@@ -1,0 +1,43 @@
+name: Contratos y guards
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: orquestacion
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"   # el piso declarado en orquestacion/pyproject.toml
+          cache: pip
+
+      - run: pip install -r requirements.txt
+
+      # Los schemas SON el control de calidad del pipeline: desde que se decidió
+      # que no se pide OK antes de implementar, el contrato lo sostiene Pydantic.
+      # Si esta suite está en rojo, el pipeline no tiene gate.
+      - run: pytest tests/ -q
+
+      # Un comando para todo lo verificable sin un humano: punteros §X del set de
+      # documentos, punteros citados desde el código, guards de frontera y cobertura.
+      # Un puntero colgado es un Brief que carga la sección equivocada, o ninguna.
+      #
+      # Hasta el 2026-09-19 esto convivía con un step `Punteros §X sin colgar` que
+      # repetía el paso 1 en un script inline. La copia nunca recibió el arreglo del
+      # 2026-09-18 —la heurística que distingue el `§` de la rúbrica del motor del de
+      # CONTEXT.md— así que reportaba `CHANGELOG.md §4.5, §4.7` como punteros rotos:
+      # CI en rojo sobre el documento que justamente explica la ambigüedad. Dos
+      # implementaciones del mismo chequeo derivan, y la que deriva entrena a ignorar
+      # el rojo. Quedó una sola, la que cubre más archivos (incluye .claude/agents/).
+      - name: Verificación unificada
+        # `--sin-repos`: los repos hermanos no están clonados acá, así que 2–4 se
+        # saltean y la salida lo dice en vez de fingirlo. Sin la bandera, falla cerrado.
+        run: python verificar.py --sin-repos
