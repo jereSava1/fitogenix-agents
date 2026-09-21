@@ -174,6 +174,62 @@ _DCE = re.compile(r"\bdad[oa]s?\b.*\bcuando\b.*\bentonces\b", re.IGNORECASE | re
 LARGO_MAXIMO_DE_PUNTERO = 120
 
 
+#: Separadores con los que un modelo pega varios punteros en una sola cadena. Se parten en
+#: vez de rechazarse: en la primera corrida real esto costó tres reintentos de Opus (~45k
+#: tokens de entrada cada uno) y ninguno era un error de criterio — era formato.
+_SEPARADORES = re.compile(r"\s+[·•|]\s+|\s+\+\s+|\s*;\s*")
+#: Un paréntesis al final (`CONTEXT.md §3.1 (ADR-007)`) es una glosa, no parte del puntero.
+_GLOSA = re.compile(r"\s*\([^)]*\)\s*$")
+
+
+def normaliza_puntero(p: str) -> str:
+    """Limpieza mecánica de UN puntero. No cambia a qué apunta; solo cómo está escrito.
+
+    Lo que arregla: backticks y comillas alrededor, espacios de más, `§ 3.1` → `§3.1`, la
+    glosa entre paréntesis al final, y la flecha con espaciado raro. Lo que NO arregla:
+    nada de sustancia — un puntero que apunta a otra cosa sigue siendo un error del modelo.
+    """
+    t = p.strip().strip("`\"'").strip()
+    t = _GLOSA.sub("", t)
+    t = re.sub(r"§\s+", "§", t)
+    t = re.sub(r"\s*→\s*", " → ", t)
+    return re.sub(r"\s{2,}", " ", t).strip()
+
+
+def normaliza_punteros(v: object) -> object:
+    """Igual, pero para un campo de lista: además PARTE lo que venga pegado.
+
+    No parte por coma cuando hay `→`: `constants.ts → TIERS, NO_DATA_TIER` son cuatro
+    símbolos del mismo archivo, que es exactamente cómo se cita una tabla.
+    """
+    if isinstance(v, str):
+        v = [v]
+    if not isinstance(v, list):
+        return v
+    out: list[str] = []
+    for x in v:
+        if not isinstance(x, str):
+            out.append(x)
+            continue
+        partes = _SEPARADORES.split(x)
+        if len(partes) == 1 and "→" not in x and "," in x:
+            partes = x.split(",")
+        documento = ""
+        for p in partes:
+            if not p or not p.strip():
+                continue
+            limpio = normaliza_puntero(p)
+            # `CONTEXT.md §3.1 · §3.2 · §3.3`: del segundo en adelante el documento queda
+            # implícito. Es como cita una persona, y rechazarlo no enseña nada.
+            m = re.match(r"^([\w.\-/]+\.md)\b", limpio)
+            if m:
+                documento = m.group(1)
+            elif limpio.startswith("§") and documento:
+                limpio = f"{documento} {limpio}"
+            out.append(limpio)
+    return out
+
+
 class PunteroInvalido(ValueError):
     """El puntero no resuelve. El hueco no se rellena: se devuelve."""
 
@@ -232,7 +288,7 @@ class PunteroDeContexto(Base):
     @field_validator("ref")
     @classmethod
     def _valida(cls, v: str) -> str:
-        return valida_puntero(v)
+        return valida_puntero(normaliza_puntero(v))
 
     @property
     def es_seccion_de_context(self) -> bool:
@@ -318,7 +374,7 @@ class Bloqueo(Base):
     @field_validator("puntero")
     @classmethod
     def _p(cls, v: Optional[str]) -> Optional[str]:
-        return valida_puntero(v) if v else v
+        return valida_puntero(normaliza_puntero(v)) if v else v
 
 
 class Reporte(Base):
@@ -381,7 +437,7 @@ class PreguntaAbierta(Base):
     @field_validator("puntero")
     @classmethod
     def _p(cls, v: Optional[str]) -> Optional[str]:
-        return valida_puntero(v) if v else v
+        return valida_puntero(normaliza_puntero(v)) if v else v
 
 
 class Contradiccion(Base):
@@ -433,9 +489,14 @@ class RequisitoTrazado(Base):
             data.pop("puntero")
         return data
 
+    @field_validator("punteros", mode="before")
+    @classmethod
+    def _p(cls, v: object) -> object:
+        return normaliza_punteros(v)
+
     @field_validator("punteros")
     @classmethod
-    def _p(cls, v: list[str]) -> list[str]:
+    def _valida(cls, v: list[str]) -> list[str]:
         return [valida_puntero(x) for x in v]
 
     @property
@@ -556,9 +617,14 @@ class ReglaDeValidacion(Base):
             data.pop("puntero")
         return data
 
+    @field_validator("punteros", mode="before")
+    @classmethod
+    def _p(cls, v: object) -> object:
+        return normaliza_punteros(v)
+
     @field_validator("punteros")
     @classmethod
-    def _p(cls, v: list[str]) -> list[str]:
+    def _valida(cls, v: list[str]) -> list[str]:
         return [valida_puntero(x) for x in v]
 
     @property
@@ -794,7 +860,7 @@ class CambioHecho(Base):
     @field_validator("donde")
     @classmethod
     def _p(cls, v: Optional[str]) -> Optional[str]:
-        return valida_puntero(v) if v else v
+        return valida_puntero(normaliza_puntero(v)) if v else v
 
 
 class Validacion(Base):

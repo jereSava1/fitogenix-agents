@@ -198,6 +198,8 @@ def _resumen_md(ticket, final, resumen, contador, estado) -> str:
         "",
         f"- **Llamadas al modelo:** {contador.llamadas}",
         f"- **Tokens:** {contador.tokens_entrada} entrada · {contador.tokens_salida} salida",
+        f"- **Caché de prompt:** {contador.tokens_cache_leidos} leídos · "
+        f"{contador.tokens_cache_escritos} escritos — {contador.ahorro_de_cache}",
         f"- **Rondas:** " + " · ".join(f"{k} {v}" for k, v in rondas.items()),
         f"- **Veredicto:** {getattr(getattr(resumen, 'veredicto', None), 'value', '—')}",
         f"- **Incertidumbres deterministas:** {len(estado.get('incertidumbres', []))}",

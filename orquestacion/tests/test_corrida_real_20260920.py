@@ -43,10 +43,29 @@ def test_el_singular_sigue_valiendo_como_lista_de_uno():
     assert r.punteros == ["CONTEXT.md §3.1"]
 
 
-def test_dos_punteros_pegados_en_una_cadena_siguen_sin_entrar():
-    """Lo que se arregla es el campo, no el formato: un puntero sigue siendo uno."""
+def test_dos_punteros_pegados_se_parten_en_vez_de_rechazarse():
+    """2026-09-21: lo mecánico se arregla en Python. Rechazar esto costó tres reintentos de
+    Opus en dos corridas, y ninguno era un error de criterio."""
+    r = RequisitoTrazado(enunciado="x", puntero=PEGADOS, marca=Marca.SIN_CONTRASTAR)
+    assert r.punteros == ["CONTEXT.md §3.1",
+                          "fitogenix-native/src/screens/GuideScreen.tsx → TIERS"]
+
+
+def test_el_documento_implicito_se_propaga():
+    """`CONTEXT.md §3.1 · §3.2` es como cita una persona: el documento se dice una vez."""
+    r = RequisitoTrazado(enunciado="x", marca=Marca.SIN_CONTRASTAR,
+                         puntero="CONTEXT.md §3.1 (ADR-007) · §3.2 · §5.6")
+    assert r.punteros == ["CONTEXT.md §3.1", "CONTEXT.md §3.2", "CONTEXT.md §5.6"]
+
+
+def test_lo_que_no_es_un_puntero_sigue_siendo_un_error():
+    """La normalización es de forma, no de sustancia: prosa copiada no pasa."""
     with pytest.raises(ValueError, match="puntero inválido"):
-        RequisitoTrazado(enunciado="x", puntero=PEGADOS, marca=Marca.SIN_CONTRASTAR)
+        RequisitoTrazado(enunciado="x", marca=Marca.SIN_CONTRASTAR,
+                         puntero="la sección que habla de las bandas y del sello")
+    with pytest.raises(ValueError, match="número de línea"):
+        RequisitoTrazado(enunciado="x", marca=Marca.SIN_CONTRASTAR,
+                         puntero="fitogenix-server/src/x.ts:24")
 
 
 def test_el_escalado_mira_todos_los_punteros_no_solo_el_primero():
@@ -279,3 +298,45 @@ def test_si_la_api_rechaza_el_techo_se_baja_una_vez(real):
 
 def test_el_default_dejo_de_ser_ocho_mil():
     assert llm.MAX_TOKENS == 16_000
+
+
+# --- 8 · optimizaciones del 2026-09-21 (los números del debut) -----------------------
+
+from fitogenix import det as _det  # noqa: E402
+from fitogenix.context_loader import contexto_completo, indice_del_ssot  # noqa: E402
+
+
+def test_el_indice_del_ssot_es_una_fraccion_del_documento():
+    indice = indice_del_ssot()
+    assert len(indice.encode()) < len(contexto_completo().encode()) // 3, \
+        "si el índice no ahorra, no tiene sentido"
+    assert "§8.21" in indice and "§1.1" in indice, "tienen que estar TODAS las secciones"
+    assert "75" not in indice.split("§3.1")[1][:400], "el asomo de §3.1 no transcribe cortes"
+
+
+def test_el_contexto_se_corta_en_el_tope_y_lo_dice():
+    """Antes el presupuesto se medía después de pagarlo."""
+    muchos = [f"CONTEXT.md §{s}" for s in ("1.6", "8.0", "6.3", "7", "2.5", "4.3")]
+    t = load_pointers(muchos, tope=6_000)
+    assert len(t.encode()) < 20_000
+    assert "PRESUPUESTO EXCEDIDO" in t and "no supongas su contenido" in t
+
+
+def test_sin_tope_se_carga_todo_como_siempre():
+    assert "PRESUPUESTO" not in load_pointers(["CONTEXT.md §3.1"])
+
+
+def test_el_schema_que_viaja_no_lleva_la_historia_de_cada_campo():
+    esquema = json.dumps(llm.esquema_para_tool(ContratoAprobado), ensure_ascii=False)
+    assert "2026-09-18" not in esquema, "los docstrings históricos no viajan"
+    assert len(esquema) < 11_000
+    # pero la regla sí: el modelo necesita saber qué se espera
+    assert "puntero" in esquema and "Dado/Cuando/Entonces" in esquema or "criterio" in esquema
+
+
+def test_el_contador_informa_cuanto_vino_del_cache():
+    from fitogenix.llm import Contador, Respuesta
+    c = Contador()
+    c.anota(Respuesta(texto="", modelo="m", agente="a", tokens_entrada=5_000,
+                      tokens_cache_leidos=45_000, tokens_cache_escritos=0))
+    assert "90% de la entrada leída del caché" == c.ahorro_de_cache

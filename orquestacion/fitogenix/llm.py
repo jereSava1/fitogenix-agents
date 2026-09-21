@@ -142,6 +142,10 @@ class Respuesta:
     agente: str
     tokens_entrada: int = 0
     tokens_salida: int = 0
+    #: Entrada escrita al caché y entrada leída de él. La segunda se cobra a una fracción:
+    #: es la diferencia entre un reintento caro y uno barato.
+    tokens_cache_escritos: int = 0
+    tokens_cache_leidos: int = 0
     intentos: int = 1
     dry_run: bool = False
     #: El `Cierre` de la entrega (solo en `llama_estructurado`). `Any` para no importar
@@ -167,6 +171,8 @@ class Contador:
     llamadas: int = 0
     tokens_entrada: int = 0
     tokens_salida: int = 0
+    tokens_cache_escritos: int = 0
+    tokens_cache_leidos: int = 0
     por_agente: dict[str, int] = field(default_factory=dict)
     por_modelo: dict[str, int] = field(default_factory=dict)
 
@@ -174,12 +180,22 @@ class Contador:
         self.llamadas += 1
         self.tokens_entrada += r.tokens_entrada
         self.tokens_salida += r.tokens_salida
+        self.tokens_cache_escritos += r.tokens_cache_escritos
+        self.tokens_cache_leidos += r.tokens_cache_leidos
         self.por_agente[r.agente] = self.por_agente.get(r.agente, 0) + r.tokens_salida
         self.por_modelo[r.modelo] = self.por_modelo.get(r.modelo, 0) + r.tokens_salida
 
     @property
     def tokens(self) -> int:
-        return self.tokens_entrada + self.tokens_salida
+        return self.tokens_entrada + self.tokens_salida + self.tokens_cache_leidos
+
+    @property
+    def ahorro_de_cache(self) -> str:
+        """Qué porcentaje de la entrada vino del caché. Es el número que dice si sirve."""
+        total = self.tokens_entrada + self.tokens_cache_leidos + self.tokens_cache_escritos
+        if not total:
+            return "sin datos"
+        return f"{100 * self.tokens_cache_leidos // total}% de la entrada leída del caché"
 
     def verifica_techo(self) -> None:
         if self.tokens_salida > TECHO_DE_TOKENS_POR_CORRIDA:
@@ -313,8 +329,20 @@ def esquema_para_tool(modelo_pydantic: type["BaseModel"]) -> dict[str, Any]:
         if nombre == "Validacion":
             d.get("properties", {}).pop("origen", None)
 
+    def poda(texto: str) -> str:
+        """La primera frase de cada `description`, hasta 240 caracteres.
+
+        Los docstrings llevan la historia de cada campo ("hasta el 2026-09-18…"): oro para
+        quien lee el código, ruido para el modelo, y ~13 KB de JSON en CADA intento. El
+        modelo necesita la regla, no cómo se descubrió.
+        """
+        primera = texto.strip().split("\n\n")[0].replace("\n", " ")
+        return primera[:240].rstrip() + ("…" if len(primera) > 240 else "")
+
     def resuelve(n: Any, pila: tuple[str, ...] = ()) -> Any:
         if isinstance(n, dict):
+            n = {k: (poda(v) if k == "description" and isinstance(v, str) else v)
+                 for k, v in n.items()}
             if "$ref" in n:
                 nombre = n["$ref"].rsplit("/", 1)[-1]
                 if nombre in pila:  # pragma: no cover - hoy no hay schemas recursivos
@@ -395,7 +423,15 @@ def llama_estructurado(
         "input_schema": esquema_para_tool(modelo_pydantic),
     }
     sistema_completo = sistema + INSTRUCCION_DE_ENTREGA
-    mensajes: list[dict[str, Any]] = [{"role": "user", "content": usuario}]
+    # Caché de prompt (2026-09-21). El prompt se arma tools → system → messages, así que un
+    # breakpoint al final del system cachea las tools y el prompt del agente, y otro al final
+    # del primer mensaje cachea el contexto citado. Un reintento por validación —la mitad de
+    # la factura de una corrida— pasa a leer eso del caché en vez de reenviarlo: en el debut
+    # eran ~45k tokens de entrada repetidos por intento.
+    sistema_bloques = [{"type": "text", "text": sistema_completo,
+                        "cache_control": {"type": "ephemeral"}}]
+    mensajes: list[dict[str, Any]] = [{"role": "user", "content": [
+        {"type": "text", "text": usuario, "cache_control": {"type": "ephemeral"}}]}]
     huella = hashlib.sha256(sistema_completo.encode()).hexdigest()[:12]
 
     intento = 0
@@ -406,7 +442,7 @@ def llama_estructurado(
 
         def _pedir() -> Any:
             return cliente.messages.create(
-                model=modelo_id, max_tokens=max_tokens, system=sistema_completo,
+                model=modelo_id, max_tokens=max_tokens, system=sistema_bloques,
                 messages=mensajes, tools=[tool],
                 tool_choice={"type": "tool", "name": NOMBRE_DE_LA_TOOL},
             )
@@ -424,6 +460,8 @@ def llama_estructurado(
             texto="", modelo=modelo_id, agente=agente,
             tokens_entrada=getattr(msg.usage, "input_tokens", 0),
             tokens_salida=getattr(msg.usage, "output_tokens", 0),
+            tokens_cache_escritos=getattr(msg.usage, "cache_creation_input_tokens", 0) or 0,
+            tokens_cache_leidos=getattr(msg.usage, "cache_read_input_tokens", 0) or 0,
             intentos=reintentos_red,
         )
         bloque = next((b for b in msg.content if getattr(b, "type", "") == "tool_use"), None)
@@ -447,7 +485,9 @@ def llama_estructurado(
         r.traza = _escribe_traza(traza, agente, intento, {
             "agente": agente, "modelo": modelo_id, "intento": intento, "huella_sistema": huella,
             "usuario": usuario, "stop_reason": getattr(msg, "stop_reason", None),
-            "tokens": [r.tokens_entrada, r.tokens_salida], "entrega_cruda": crudo, "error": error,
+            "tokens": [r.tokens_entrada, r.tokens_salida],
+            "cache": [r.tokens_cache_escritos, r.tokens_cache_leidos],
+            "entrega_cruda": crudo, "error": error,
         })
         if contador is not None:
             contador.anota(r)

@@ -202,15 +202,24 @@ def _recorta(t: str) -> str:
               f"puntero más fino o declaralo como supuesto]")
 
 
-def load_pointers(punteros: list[str]) -> str:
+def load_pointers(punteros: list[str], tope: int | None = None) -> str:
     """El bloque de contexto que se le inyecta a un agente. **Solo lo apuntado.**
 
     Una sección que no resuelve no rompe la carga: entra marcada `[BLOQUEADO]`, para que
     el agente la vea y la reporte en vez de seguir como si nada. El chequeo determinista
     de `n2b` la levanta de ahí.
     """
-    partes = []
+    partes: list[str] = []
+    afuera: list[str] = []
+    peso = 0
     for p in punteros:
+        # Tope de contexto (2026-09-21). Antes el presupuesto se medía DESPUÉS de haber
+        # pagado: en el debut el brief de ux arrastró 38.553 B contra un tope de 12.000, y el
+        # chequeo determinista lo reportó igual de tarde. Acá se corta antes de la llamada y
+        # se dice qué quedó afuera, para que el que armó el Brief lo vea y apunte más fino.
+        if tope is not None and peso >= tope:
+            afuera.append(p)
+            continue
         try:
             if "§" in p:
                 partes.append(load_section(p))
@@ -220,7 +229,40 @@ def load_pointers(punteros: list[str]) -> str:
                 partes.append(load_documento(p))
         except SeccionNoEncontrada as e:
             partes.append(f"[BLOQUEADO] {e}")
+        peso = sum(len(x.encode()) for x in partes)
+    if afuera:
+        partes.append(
+            f"[PRESUPUESTO EXCEDIDO: {len(afuera)} puntero(s) NO se cargaron, tope {tope:,} B. "
+            f"Quedaron afuera: {', '.join(afuera)}. Si alguno te hace falta, pedilo en "
+            f"`blockers` o en un supuesto; no supongas su contenido.]")
     return "\n\n---\n\n".join(partes)
+
+
+#: Cuánto texto de cada sección entra en el índice: alcanza para saber de qué habla y
+#: decidir si hace falta. El texto completo lo carga quien la cite por puntero.
+ASOMO_DE_SECCION = 220
+
+
+def indice_del_ssot(asomo: int = ASOMO_DE_SECCION) -> str:
+    """El SSOT como índice: cada sección con su título y sus primeras líneas.
+
+    `n1a_analizar` mandaba `contexto_completo()` —59 KB, ~15k tokens— en CADA ronda de
+    aclaración, y su trabajo es trazar requisitos a punteros, no leer el documento entero.
+    Con el índice sabe qué secciones existen y de qué hablan, que es lo que necesita para
+    citar bien; el texto completo de lo citado lo recibe después el arquitecto.
+    """
+    ruta = str(SETTINGS.context_md)
+    txt = _texto(ruta)
+    idx = _indice(ruta)
+    partes = [f"# Índice de CONTEXT.md — {len(idx)} secciones. Citá `CONTEXT.md §X`: el "
+              f"texto completo de lo que cites se carga después, solo."]
+    for sec in secciones_disponibles():
+        ini, fin, titulo = idx[sec]
+        bloque = txt[ini:fin]
+        cuerpo = bloque.split("\n", 1)[1] if "\n" in bloque else ""
+        cuerpo = re.sub(r"\s+", " ", cuerpo).strip()[:asomo]
+        partes.append(f"## §{sec} — {titulo}\n{cuerpo}…")
+    return "\n\n".join(partes)
 
 
 def contexto_completo() -> str:

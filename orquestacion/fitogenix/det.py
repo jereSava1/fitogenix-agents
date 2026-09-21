@@ -31,6 +31,10 @@ from .schemas import AnalisisDeRequerimiento, ContratoAprobado, Incertidumbre, M
 #: del pipeline es que un agente de disciplina no cargue el SSOT entero; sin un tope,
 #: nada impide que un Brief lo reconstruya citando secciones gruesas.
 PRESUPUESTO_BRIEF_BYTES = 12_000
+#: El del arquitecto es más alto a propósito: es el único nodo que necesita ver varias
+#: secciones y el código de las puntas al mismo tiempo. Sigue siendo un tope: en el debut,
+#: sin ninguno, su prompt llegó a 96 KB.
+PRESUPUESTO_CONTRATO_BYTES = 45_000
 
 _P_CODIGO = re.compile(r"^fitogenix-(server|native)/([\w\-./]+\.\w+)")
 _P_CONTEXT = re.compile(r"^CONTEXT\.md\s+§(\d+(?:\.\d+)?)$", re.IGNORECASE)

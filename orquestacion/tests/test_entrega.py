@@ -68,7 +68,10 @@ def test_la_llamada_fuerza_la_tool_con_el_schema_del_nodo():
     esquema = pedido["tools"][0]["input_schema"]
     assert set(esquema["required"]) == {"resultado", "cierre"}
     assert "reglas_de_validacion" in esquema["properties"]["resultado"]["properties"]
-    assert "Cómo entregás" in pedido["system"]
+    # el system viaja como bloques desde que hay caché de prompt (2026-09-21)
+    assert pedido["system"][0]["cache_control"] == {"type": "ephemeral"}
+    assert "Cómo entregás" in pedido["system"][0]["text"]
+    assert pedido["messages"][0]["content"][0]["cache_control"] == {"type": "ephemeral"}
 
 
 def test_el_schema_no_tiene_refs_ni_deja_declarar_origen():

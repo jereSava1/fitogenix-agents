@@ -28,7 +28,7 @@ from langgraph.types import interrupt
 
 from . import det
 from .config import SETTINGS, escalar_arquitecto
-from .context_loader import contexto_completo, load_pointers
+from .context_loader import indice_del_ssot, load_pointers
 from .llm import Contador, EsUnStub, Respuesta, llama_estructurado
 from .schemas import (
     TECHOS,
@@ -94,8 +94,7 @@ def n1a_analizar(estado: EstadoDelPipeline, *, contador: Contador | None = None)
         "orchestrator", AnalisisDeRequerimiento,
         sistema=_sistema("orchestrator"),
         usuario=(
-            f"# CONTEXT.md (SSOT completo — citalo por `CONTEXT.md §X`, no lo copies)\n\n"
-            f"{contexto_completo()}\n\n---\n\n"
+            f"{indice_del_ssot()}\n\n---\n\n"
             f"Ticket: {estado.ticket}\n\nPedido:\n{estado.entrada}\n"
             + (f"\nRespuestas del humano en rondas anteriores:\n{respuestas}\n" if respuestas else "")
         ),
@@ -251,7 +250,8 @@ def n2_contrato(estado: EstadoDelPipeline, *, contador: Contador | None = None) 
         usuario=(
             f"Ticket: {estado.ticket}\n\nAnálisis:\n"
             f"{a.model_dump_json(indent=2) if a else '{}'}\n\n"
-            f"Contexto citado:\n{load_pointers(punteros) if punteros else '(sin punteros)'}"
+            f"Contexto citado:\n"
+            f"{load_pointers(punteros, tope=det.PRESUPUESTO_CONTRATO_BYTES) if punteros else '(sin punteros)'}"
             f"{previa}"
         ),
         stub=STUB_CONTRATO, stub_cierre=STUB_CIERRE, traza=estado.ticket,
@@ -361,7 +361,8 @@ def n3_implementar(estado: EstadoDelPipeline, *, contador: Contador | None = Non
     entregas, reportes = [], []
     for brief in (c.briefs if c else []):
         agente = brief.destinatario.value
-        contexto = load_pointers([p.ref for p in brief.contexto_relevante])
+        contexto = load_pointers([p.ref for p in brief.contexto_relevante],
+                                 tope=det.PRESUPUESTO_BRIEF_BYTES)
         _, _r = llama_estructurado(
             agente, type(STUB_REPORTE),
             sistema=_sistema(agente),
